@@ -8,5 +8,5 @@
 // La clé publique est faite pour être exposée ; c'est le RLS (voir supabase/schema.sql)
 // qui protège les données.
 
-export const SUPABASE_URL = "";
-export const SUPABASE_ANON_KEY = "";
+export const SUPABASE_URL = "https://ajhtjciomlnvynccjfbd.supabase.co";
+export const SUPABASE_ANON_KEY = "sb_publishable_mSy4A6hatx-OLI96Y0bttQ_7S2zlONJ";
