@@ -243,10 +243,9 @@
       </section>
 
       <div id="tag-bar" class="tag-bar" hidden>
-        <span class="tag-bar-title">Dates</span>
-        <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
+        <button type="button" class="tag-bar-toggle" id="tags-toggle" aria-expanded="false" aria-controls="tag-filter"><span class="tag-bar-chev" aria-hidden="true">›</span> <span class="tag-bar-title">Dates</span></button>
         <button type="button" class="ghost small" id="room-sheet" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg> <span id="room-sheet-label">Fiche technique</span></button>
-        <button type="button" class="ghost small" id="tags-docs" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg> <span id="tags-docs-label">Documents</span></button>
+        <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
       </div>
 
       <div id="messages" class="messages" aria-live="polite" hidden></div>
@@ -437,7 +436,7 @@
       <section>
         <h4>Dates de tournée</h4>
         <ul>
-          <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Les administrateurs les gèrent avec le bouton <strong>« Gérer les dates de tournée »</strong> du menu ⋮ en haut à droite. Les dates sont classées par ordre chronologique : les dates passées sont <s>rayées</s> et rangées à la fin (le lendemain du dernier jour compte encore, pour le trajet retour ; les dates ne comprennent pas les jours de transport), et la liste indique la <strong>première représentation</strong>.</li>
+          <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Les administrateurs les gèrent avec le bouton <strong>« Gérer les dates de tournée »</strong> du menu ⋮ en haut à droite. Dans la barre au-dessus du fil, la flèche <strong>›</strong> devant « Dates » déplie la liste des dates ; chacune porte un badge 📄 qui ouvre ses documents (PDF). Seule la fiche technique reste affichée en permanence. Les dates sont classées par ordre chronologique : les dates passées sont <s>rayées</s> et rangées à la fin (le lendemain du dernier jour compte encore, pour le trajet retour ; les dates ne comprennent pas les jours de transport), et la liste indique la <strong>première représentation</strong>.</li>
           <li>Dans un message, tape <strong>#</strong> puis le nom d'une date pour l'y rattacher (plusieurs possibles, facultatif).</li>
           <li>Les pastilles « Dates » au-dessus de la conversation <strong>filtrent</strong> les messages ; « Toutes » efface le filtre.</li>
         </ul>

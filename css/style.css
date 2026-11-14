@@ -1147,3 +1147,19 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .move-list { max-height: 50vh; }
 .move-room { margin-top: 10px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .move-room:first-child { margin-top: 0; }
+
+/* Barre des dates : « › Dates » déplie la liste ; badge documents au bout de chaque date */
+.tag-bar-toggle { flex: none; display: inline-flex; align-items: center; gap: 4px; background: transparent; border: 0; color: var(--muted); font: inherit; cursor: pointer; padding: 6px 4px; }
+.tag-bar-chev { font-size: 1.1rem; line-height: 1; width: 0.8em; text-align: center; }
+.tag-bar-toggle:hover { color: var(--text); }
+.tag-item { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.doc-badge { display: inline-flex; align-items: center; gap: 3px; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--bg-input); color: var(--text); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.doc-badge:hover { border-color: var(--accent); }
+.doc-badge .ic { width: 0.95em; height: 0.95em; }
+.tag-bar.dates-open { flex-wrap: wrap; row-gap: 6px; }
+.tag-bar.dates-open .tag-chips { flex: 1 1 100%; flex-wrap: wrap; overflow: visible; order: 3; }
+.tag-bar:not(.dates-open) .tag-chips:empty { display: none; }
+@media (max-width: 760px) {
+  .tag-bar .tag-chips { flex: 1 1 100%; order: 3; }
+  .tag-bar:not(.dates-open) .tag-chips { overflow-x: auto; }
+}

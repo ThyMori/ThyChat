@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.23.0 — 2026-11-14
+- Barre des dates : seule la fiche technique reste affichée
+- la flèche › devant « Dates » déplie la liste, chaque date a son badge documents
+
 ## 3.22.1 — 2026-11-14
 - Déplacer un message : les photos sont réellement déplacées dans le stockage (migration 016)
 

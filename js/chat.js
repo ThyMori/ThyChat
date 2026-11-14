@@ -1536,6 +1536,23 @@ export function createChat({ supabase, user }) {
     return chip;
   }
 
+  const DATES_KEY = "thychat:dates-open";
+  function datesOpen() {
+    try {
+      return localStorage.getItem(DATES_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function setDatesOpen(open) {
+    try {
+      localStorage.setItem(DATES_KEY, open ? "1" : "0");
+    } catch {
+      /* sans conséquence */
+    }
+    renderTagBar();
+  }
+
   function renderTagBar() {
     const roomId = currentRoomId();
     const tags = roomId ? tagsOfRoom(roomId) : [];
@@ -1545,14 +1562,31 @@ export function createChat({ supabase, user }) {
     $("#room-sheet").hidden = !roomId || (!sheets.length && !manage);
     $("#room-sheet-label").textContent = sheets.length ? `Fiche technique · ${shortDate(sheets[0].version_date)}` : "Fiche technique";
     $("#channel-dates").hidden = !manage || state.calendarOpen;
-    const roomDocs = roomId ? docsOfRoom(roomId) : [];
-    $("#tags-docs").hidden = !roomId || (!roomDocs.length && !manage);
-    $("#tags-docs-label").textContent = roomDocs.length ? `Documents (${roomDocs.length})` : "Documents";
+    const open = datesOpen();
+    $("#tags-toggle").setAttribute("aria-expanded", String(open));
+    $(".tag-bar-chev").textContent = open ? "⌄" : "›";
+    $("#tag-bar").classList.toggle("dates-open", open);
     const box = $("#tag-filter");
     box.replaceChildren();
     for (const id of [...state.tagFilter]) if (!tagById(id)) state.tagFilter.delete(id);
-    if (!tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce spectacle."));
-    for (const tag of tags) box.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
+    if (open && !tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce spectacle."));
+    // Replié : seules les dates qui filtrent le fil restent visibles (sinon le filtre serait invisible).
+    for (const tag of tags) {
+      if (!open && !state.tagFilter.has(tag.id)) continue;
+      const item = el("span", "tag-item");
+      item.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
+      const count = docsOfTag(tag.id).length;
+      if (count || manage) {
+        const badge = el("button", "doc-badge");
+        badge.type = "button";
+        badge.dataset.docsTag = tag.id;
+        badge.title = `Documents · ${tag.label}`;
+        badge.setAttribute("aria-label", `Documents de ${tag.label} (${count})`);
+        badge.append(icon("file"), el("span", "", String(count)));
+        item.append(badge);
+      }
+      box.append(item);
+    }
     if (state.tagFilter.size) {
       const clear = el("button", "tag-chip", "Toutes");
       clear.type = "button";
@@ -1802,10 +1836,14 @@ export function createChat({ supabase, user }) {
     renderTagBar();
   }
 
-  function openDocs() {
+  let docsOnlyTag = null;
+
+  function openDocs(tagId) {
     if (!currentRoomId()) return;
+    docsOnlyTag = typeof tagId === "string" ? tagId : null;
     const room = roomById(currentRoomId());
-    $("#docs-title").textContent = room ? `Documents · ${room.name}` : "Documents du spectacle";
+    const only = docsOnlyTag ? tagById(docsOnlyTag) : null;
+    $("#docs-title").textContent = only ? `Documents · ${only.label}` : room ? `Documents · ${room.name}` : "Documents du spectacle";
     $("#docs-note").textContent = isAdmin()
       ? "Ajoute des PDF (15 Mo au plus) à chaque date : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir."
       : "Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.";
@@ -1820,7 +1858,7 @@ export function createChat({ supabase, user }) {
     const roomId = currentRoomId();
     if (!roomId) return;
     const admin = isAdmin();
-    const tags = tagsOfRoom(roomId).filter((t) => admin || docsOfTag(t.id).length);
+    const tags = tagsOfRoom(roomId).filter((t) => (admin || docsOfTag(t.id).length) && (!docsOnlyTag || t.id === docsOnlyTag));
     if (!tags.length) {
       box.append(el("p", "muted", admin ? "Crée d'abord une date de tournée (menu ⋮ > « Gérer les dates de tournée »)." : "Aucun document pour l'instant."));
       return;
@@ -3767,7 +3805,11 @@ export function createChat({ supabase, user }) {
       renderComposerExtra();
     });
     on($("#channel-dates"), "click", openTagsDialog);
-    on($("#tags-docs"), "click", openDocs);
+    on($("#tags-toggle"), "click", () => setDatesOpen(!datesOpen()));
+    on($("#tag-filter"), "click", (event) => {
+      const badge = event.target.closest("[data-docs-tag]");
+      if (badge) openDocs(badge.dataset.docsTag);
+    });
     on($("#room-sheet"), "click", openSheet);
     on($("#sheet-list"), "click", (event) => {
       const del = event.target.closest("[data-del-sheet]");
