@@ -3652,6 +3652,13 @@ export function createChat({ supabase, user }) {
       }
       if (history.state && history.state.tcGuard) return;
       const screen = $("#screen-app");
+      if (state.calendarOpen) {
+        // « Retour » depuis le calendrier : on revient au dernier sous-salon (jamais d'écran vide)
+        screen.classList.remove("sidebar-open");
+        guardHistory();
+        selectChannel(pickChannel(state.channel ? state.channel.id : readLast().channel)).catch(() => {});
+        return;
+      }
       if (!screen.classList.contains("sidebar-open")) {
         screen.classList.add("sidebar-open"); // « Retour » depuis un salon : retour à la liste
         guardHistory();
