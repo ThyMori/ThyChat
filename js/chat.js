@@ -2214,34 +2214,51 @@ export function createChat({ supabase, user }) {
     return [ws && ws.name, room && room.name, channel.name].filter(Boolean).join(" · ");
   }
 
-  // Extrait autour de la première occurrence, occurrences surlignées (sans innerHTML).
+  // Même texte sans accents ni majuscules, avec la position de chaque lettre dans le texte d'origine.
+  function folded(text) {
+    let out = "";
+    const origin = [];
+    let index = 0;
+    for (const ch of String(text)) {
+      const f = ch.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+      for (let k = 0; k < f.length; k++) {
+        out += f[k];
+        origin.push(index);
+      }
+      index += ch.length;
+    }
+    return { out, origin, length: index };
+  }
+
+  // Extrait autour de la première occurrence, occurrences surlignées (sans innerHTML), accents et majuscules ignorés.
   function highlighted(text, needle) {
     const box = el("span", "search-excerpt");
     const flat = String(text || "").replace(/\s+/g, " ").trim();
-    const at = flat.toLowerCase().indexOf(needle.toLowerCase());
+    const f = folded(flat);
+    const key = folded(needle).out;
+    const at = key ? f.out.indexOf(key) : -1;
     let from = 0;
     let to = flat.length;
     if (flat.length > 160 && at >= 0) {
-      from = Math.max(0, at - 50);
+      from = Math.max(0, f.origin[at] - 50);
       to = Math.min(flat.length, from + 160);
     } else if (flat.length > 160) {
       to = 160;
     }
-    const part = flat.slice(from, to);
     if (from > 0) box.append("…");
-    const lower = part.toLowerCase();
-    const key = needle.toLowerCase();
-    let i = 0;
-    while (i < part.length) {
-      const hit = key ? lower.indexOf(key, i) : -1;
-      if (hit < 0) {
-        box.append(part.slice(i));
-        break;
-      }
-      box.append(part.slice(i, hit));
-      box.append(el("mark", "", part.slice(hit, hit + key.length)));
-      i = hit + key.length;
+    let i = from;
+    let pos = key ? f.out.indexOf(key) : -1;
+    while (pos >= 0 && f.origin[pos] < from) pos = f.out.indexOf(key, pos + 1);
+    while (pos >= 0 && f.origin[pos] < to) {
+      const start = f.origin[pos];
+      const endIndex = pos + key.length;
+      const end = endIndex < f.origin.length ? f.origin[endIndex] : f.length;
+      if (start > i) box.append(flat.slice(i, start));
+      box.append(el("mark", "", flat.slice(start, Math.min(end, to))));
+      i = Math.min(end, to);
+      pos = f.out.indexOf(key, pos + key.length);
     }
+    if (i < to) box.append(flat.slice(i, to));
     if (to < flat.length) box.append("…");
     return box;
   }
@@ -2257,14 +2274,15 @@ export function createChat({ supabase, user }) {
       return;
     }
     status.textContent = "Recherche…";
-    const escaped = needle.replace(/[\\%_]/g, (m) => "\\" + m);
-    let query = supabase
-      .from("messages")
-      .select("id, channel_id, user_id, body, created_at")
-      .ilike("body", `%${escaped}%`)
-      .is("parent_id", null);
-    if ($("#search-scope").value === "here" && state.channel) query = query.eq("channel_id", state.channel.id);
-    const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
+    const scopeChannel = $("#search-scope").value === "here" && state.channel ? state.channel.id : null;
+    // Recherche sans accents ni majuscules (migration 011) ; à défaut, simple recherche sans majuscules.
+    let { data, error } = await supabase.rpc("search_messages", { needle, in_channel: scopeChannel, max_rows: 50 });
+    if (error && /search_messages|PGRST202|42883|schema cache/i.test(`${error.code || ""} ${error.message || ""}`)) {
+      const escaped = needle.replace(/[\\%_]/g, (m) => "\\" + m);
+      let query = supabase.from("messages").select("id, channel_id, user_id, body, created_at").ilike("body", `%${escaped}%`).is("parent_id", null);
+      if (scopeChannel) query = query.eq("channel_id", scopeChannel);
+      ({ data, error } = await query.order("created_at", { ascending: false }).limit(50));
+    }
     if (stopped || token !== searchToken) return;
     results.replaceChildren();
     if (error) {

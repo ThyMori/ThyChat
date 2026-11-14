@@ -68,16 +68,15 @@ body {
 .brand { text-align: center; margin-bottom: 20px; }
 .brand h1 { margin: 10px 0 2px; font-size: 1.6rem; letter-spacing: 0.01em; }
 
-/* Marque : disque de lumière ambre */
+/* Marque : œil de chat dont la pupille forme un T */
 .brand-mark {
-  width: 44px;
-  height: 44px;
+  width: 72px;
+  height: 32px;
   margin: 0 auto;
-  border-radius: 50%;
-  background: radial-gradient(circle at 50% 40%, var(--accent-strong) 0%, var(--accent) 38%, rgba(232, 168, 74, 0) 72%);
-  box-shadow: 0 0 28px rgba(232, 168, 74, 0.35);
+  background: url("../icons/mark.svg") center / contain no-repeat;
+  filter: drop-shadow(0 0 12px rgba(232, 168, 74, 0.35));
 }
-.brand-mark.small { width: 22px; height: 22px; margin: 0; box-shadow: 0 0 14px rgba(232, 168, 74, 0.35); }
+.brand-mark.small { width: 40px; height: 18px; margin: 0; filter: drop-shadow(0 0 6px rgba(232, 168, 74, 0.35)); }
 
 /* Formulaires */
 form { display: flex; flex-direction: column; }

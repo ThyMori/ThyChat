@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `011_search_accents.sql` | recherche dans les messages sans tenir compte des accents (sans elle, la recherche ignore seulement les majuscules) |
 | `010_private_messages_global.sql` | messages privés communs à tous les espaces (une seule discussion par paire, doublons fusionnés), suppression d'une discussion privée (**indispensable à la version 3.7** ; redéployer `send-push`) |
 | `009_message_images.sql` | photos dans les messages : stockage privé `message-images`, message sans texte, contrôle du dossier (**indispensable à la version 3.6** ; redéployer `send-push` pour la notification « 📷 Photo ») |
 | `007_strike_space_photo.sql` | messages rayés par leur auteur, photo de chaque espace (**à exécuter avant d'utiliser la version 3.3**) |
@@ -158,7 +159,7 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 
 ## Recherche et liste des messages privés
 
-- La loupe 🔍 ouvre la recherche dans les messages (au moins 2 caractères) : dans tout ce que tu peux lire, ou dans le sous-salon ouvert ; 50 résultats les plus récents. Un résultat ouvre le sous-salon sur le message (même ancien), y compris dans un autre espace. Aucune migration n'est nécessaire (les règles RLS limitent déjà la lecture).
+- La loupe 🔍 ouvre la recherche dans les messages, sans tenir compte des accents ni des majuscules (migration 011 ; au moins 2 caractères) : dans tout ce que tu peux lire, ou dans le sous-salon ouvert ; 50 résultats les plus récents. Un résultat ouvre le sous-salon sur le message (même ancien), y compris dans un autre espace. Les règles RLS limitent déjà la lecture aux messages auxquels tu as accès.
 - Les messages privés sont en lignes compactes, classés du fil le plus récent au plus ancien. Le bouton + filtre les personnes et les fils par nom : un fil existant est rouvert, sinon il est créé.
 
 ## Couleurs des espaces

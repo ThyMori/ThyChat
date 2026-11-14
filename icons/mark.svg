@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="20 150 472 212">
+  <defs>
+    <radialGradient id="iris" cx="50%" cy="45%" r="60%">
+      <stop offset="0%" stop-color="#f7cf7c"/>
+      <stop offset="55%" stop-color="#e8a84a"/>
+      <stop offset="100%" stop-color="#a8691a"/>
+    </radialGradient>
+    <clipPath id="eye"><path d="M40 256C140 140 372 140 472 256C372 372 140 372 40 256Z"/></clipPath>
+  </defs>
+  <path d="M40 256C140 140 372 140 472 256C372 372 140 372 40 256Z" fill="#17120b"/>
+  <g clip-path="url(#eye)">
+    <circle cx="256" cy="256" r="122" fill="url(#iris)"/>
+    <circle cx="256" cy="256" r="122" fill="none" stroke="#7a4a10" stroke-width="6" opacity="0.6"/>
+    <!-- pupille en forme de T -->
+    <path d="M190 200Q190 190 200 190H312Q322 190 322 200V218Q322 228 312 228H276V322Q276 334 264 334H248Q236 334 236 322V228H200Q190 228 190 218Z" fill="#0b0907"/>
+    <circle cx="344" cy="262" r="9" fill="#fff" opacity="0.7"/>
+  </g>
+  <path d="M40 256C140 140 372 140 472 256C372 372 140 372 40 256Z" fill="none" stroke="#ece9e4" stroke-width="12" stroke-linejoin="round"/>
+</svg>

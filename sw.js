@@ -4,7 +4,7 @@
 // Les appels à Supabase et aux CDN ne sont jamais interceptés ni mis en cache.
 // Gère aussi la réception des notifications push.
 
-const VERSION = "3.8.0"; // géré par scripts/bump-version.mjs
+const VERSION = "3.9.0"; // géré par scripts/bump-version.mjs
 const CACHE = `thychat-shell-${VERSION}`;
 const SHELL = [
   "./",
@@ -23,6 +23,7 @@ const SHELL = [
   "js/config.js",
   "manifest.webmanifest",
   "icons/icon.svg",
+  "icons/mark.svg",
 ];
 
 self.addEventListener("install", (event) => {

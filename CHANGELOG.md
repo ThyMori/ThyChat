@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.9.0 — 2026-11-14
+- Recherche sans accents
+- nouveau logo : œil de chat dont la pupille forme un T
+
 ## 3.8.0 — 2026-11-14
 - Recherche dans les messages
 - messages privés en liste compacte, du plus récent au plus ancien, avec recherche de fil dans le +
