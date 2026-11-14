@@ -2374,11 +2374,21 @@ export function createChat({ supabase, user }) {
     button.disabled = true;
     setNotice("#invite-message", "");
 
-    const { data, error } = await supabase.functions.invoke("invite-member", {
-      body: personId
-        ? { user_id: personId, assignments }
-        : { email, display_name: displayName, assignments, redirect_to: location.origin + location.pathname },
-    });
+    const inviteBody = personId
+      ? { user_id: personId, assignments }
+      : { email, display_name: displayName, assignments, redirect_to: location.origin + location.pathname };
+    let { data, error } = await supabase.functions.invoke("invite-member", { body: inviteBody });
+    // Session expirée en arrière-plan : on la renouvelle et on réessaie une fois.
+    if (error && error.context?.status === 401 && supabase.auth.refreshSession) {
+      const refreshed = await supabase.auth.refreshSession();
+      if (!refreshed.error && refreshed.data?.session) {
+        ({ data, error } = await supabase.functions.invoke("invite-member", { body: inviteBody }));
+      }
+    }
+    if (error && error.context?.status === 401) {
+      button.disabled = false;
+      return setNotice("#invite-message", "Ta session a expiré. Déconnecte-toi, reconnecte-toi, puis recommence l'invitation.");
+    }
 
     if (error) {
       const notDeployed = error.name === "FunctionsFetchError" || error.context?.status === 404;

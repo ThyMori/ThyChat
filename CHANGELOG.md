@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.6.3 — 2026-11-14
+- Invitation : si la session a expiré, elle est renouvelée automatiquement avant de réessayer (sinon message clair)
+
 ## 3.6.2 — 2026-11-14
 - La liste des dates indique les jours de représentation ★ (ou leur absence)
 
