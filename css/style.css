@@ -1200,3 +1200,12 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .msg .bubble { position: relative; }
 .msg-forwarded { font-size: 0.78rem; font-style: italic; opacity: 0.75; margin-bottom: 2px; }
 @media (pointer: coarse) { .msg .bubble { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }
+
+/* ---- Mise en forme des messages ---- */
+.format-bar { display: none; gap: 6px; padding: 4px 12px 0; }
+.format-bar[data-show="1"] { display: flex; }
+.format-bar button { min-width: 36px; min-height: 32px; padding: 0 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg-elev); color: inherit; font: inherit; }
+.msg-body em { font-style: italic; }
+.msg-body strong { font-weight: 700; }
+.msg-body s { text-decoration: line-through; }
+.select-bar { flex-wrap: wrap; }

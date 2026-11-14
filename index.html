@@ -252,6 +252,8 @@
         <button type="button" class="icon-btn" id="select-cancel" aria-label="Quitter la sélection">✕</button>
         <strong id="select-count" aria-live="polite"></strong>
         <button type="button" class="ghost small" id="select-copy">Copier</button>
+        <button type="button" class="ghost small" id="select-strike">Rayer</button>
+        <button type="button" class="ghost small" id="select-move" hidden>Déplacer</button>
         <button type="button" class="ghost small" id="select-forward">Transférer</button>
         <button type="button" class="ghost small danger" id="select-delete">Supprimer</button>
       </div>
@@ -274,6 +276,11 @@
       <input type="file" id="file-photo" accept="image/*" multiple hidden>
       <input type="file" id="file-camera" accept="image/*" capture="environment" hidden>
 
+      <div id="format-bar" class="format-bar" role="toolbar" aria-label="Mise en forme">
+        <button type="button" data-format="*" aria-label="Gras"><strong>G</strong></button>
+        <button type="button" data-format="_" aria-label="Italique"><em>I</em></button>
+        <button type="button" data-format="~" aria-label="Barré"><s>S</s></button>
+      </div>
       <form id="composer" class="composer" hidden>
         <button type="button" class="attach" id="composer-attach" aria-label="Ajouter une photo" aria-expanded="false">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
@@ -434,7 +441,8 @@
         <ul>
           <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
           <li><strong>Options d'un message</strong> : touche un message ou fais-le glisser vers la gauche pour afficher ses actions (Répondre, Citer, Copier, Transférer, Rayer, Déplacer pour les administrateurs, Supprimer).</li>
-          <li><strong>Sélectionner plusieurs messages</strong> : maintiens ton doigt sur un message ; il se coche, puis chaque appui en coche ou décoche un autre. La barre du haut propose alors <strong>Copier</strong>, <strong>Transférer</strong> et <strong>Supprimer</strong> (seulement si tu peux supprimer tous les messages choisis) ; ✕ ou « Retour » quitte la sélection.</li>
+          <li><strong>Mise en forme</strong> : écris <code>*gras*</code>, <code>_italique_</code> ou <code>~barré~</code> (le signe doit toucher le texte). Plus simple : sélectionne du texte dans la zone de saisie puis touche <strong>G</strong>, <strong>I</strong> ou <strong>S</strong> au-dessus du clavier (Ctrl+B et Ctrl+I sur ordinateur) ; un second appui retire la mise en forme.</li>
+          <li><strong>Sélectionner plusieurs messages</strong> : maintiens ton doigt sur un message ; il se coche, puis chaque appui en coche ou décoche un autre. La barre du haut propose alors <strong>Copier</strong>, <strong>Transférer</strong>, <strong>Rayer</strong> (tes messages), <strong>Déplacer</strong> (administrateurs) et <strong>Supprimer</strong> (seulement si tu peux agir sur tous les messages choisis) ; ✕ ou « Retour » quitte la sélection.</li>
           <li><strong>Transférer</strong> : envoie une copie d'un ou plusieurs messages (photos comprises) vers un autre sous-salon ou une personne. Le message copié porte la mention « Transféré de… ».</li>
           <li>Touche un message pour afficher ses actions : <strong>Répondre</strong> (le message d'origine s'affiche au-dessus de ta réponse, touche-le pour y retourner), <strong>Citer</strong> (copie un extrait dans ton message) et, pour tes propres messages, <strong>Rayer</strong> (le texte reste lisible mais barré ; « Rétablir » l'annule).</li>
           <li><strong>Photos</strong> : touche le <strong>+</strong> à gauche de la zone de saisie pour choisir une photo (ou, sur téléphone, en prendre une). Tu peux aussi <strong>coller</strong> une image copiée (Ctrl+V ou Cmd+V, ou « Coller » en appui long sur téléphone). Jusqu'à 4 photos par message, avec ou sans texte ; touche une photo reçue pour l'agrandir. Elles ne sont visibles que par les personnes qui ont accès au sous-salon.</li>

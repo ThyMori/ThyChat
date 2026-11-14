@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.28.0 — 2026-11-15
+- Sélection multiple : rayer et déplacer en plus de supprimer, transférer et copier
+- mise en forme des messages (*gras*, _italique_, ~barré~) avec boutons G, I, S
+
 ## 3.27.0 — 2026-11-15
 - Option Copier pour un ou plusieurs messages
 - sourdine rapide d'un seul fil depuis le menu ⋮

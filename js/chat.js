@@ -86,11 +86,30 @@ function initials(name, max = 1) {
   return words.slice(0, max).map((word) => Array.from(word)[0]).join("");
 }
 
+// Mise en forme à la WhatsApp : *gras*, _italique_, ~barré~ (le marqueur colle au texte et n'est pas au milieu d'un mot).
+const FORMAT_RE = /(^|[^\p{L}\p{N}])([*_~])(?!\2)(?=\S)((?:(?!\2)[^\n])*?(?!\2)\S)\2(?![\p{L}\p{N}])/u;
+const FORMAT_TAGS = { "*": "strong", _: "em", "~": "s" };
+
+function renderInline(container, text) {
+  let rest = text;
+  while (rest) {
+    const match = FORMAT_RE.exec(rest);
+    if (!match) break;
+    const before = rest.slice(0, match.index) + match[1];
+    if (before) container.append(document.createTextNode(before));
+    const node = document.createElement(FORMAT_TAGS[match[2]]);
+    renderInline(node, match[3]);
+    container.append(node);
+    rest = rest.slice(match.index + match[0].length);
+  }
+  if (rest) container.append(document.createTextNode(rest));
+}
+
 // Insère du texte brut en transformant les adresses http(s) en liens sûrs.
 function renderBody(container, text) {
   text.split(URL_RE).forEach((part, index) => {
     if (index % 2 === 0) {
-      if (part) container.append(document.createTextNode(part));
+      if (part) renderInline(container, part);
       return;
     }
     const [, url, tail] = part.match(/^(.*?)([.,;:!?)\]]*)$/);
@@ -1009,6 +1028,12 @@ export function createChat({ supabase, user }) {
     $("#select-count").textContent = n === 1 ? "1 message" : `${n} messages`;
     const picked = state.messages.filter((m) => state.multi.has(m.id));
     const deletable = picked.length > 0 && picked.every(canDelete);
+    const allMine = picked.length > 0 && picked.every((m) => m.user_id === user.id);
+    const allStruck = picked.length > 0 && picked.every((m) => m.struck_at);
+    $("#select-strike").textContent = allStruck ? "Rétablir" : "Rayer";
+    $("#select-strike").disabled = !allMine;
+    $("#select-strike").title = allMine ? "" : "Tu ne peux rayer que tes propres messages";
+    $("#select-move").hidden = !(isAdmin() && state.channel && state.channel.kind === "channel");
     $("#select-delete").disabled = !deletable;
     $("#select-delete").title = deletable ? "Supprimer la sélection" : "Tu ne peux supprimer que tes propres messages";
   }
@@ -1026,6 +1051,21 @@ export function createChat({ supabase, user }) {
     if (!state.multi.size) return;
     state.multi = new Set();
     renderMessages();
+  }
+
+  async function strikeSelected() {
+    const picked = state.messages.filter((m) => state.multi.has(m.id));
+    if (!picked.length || !picked.every((m) => m.user_id === user.id)) return;
+    const struck_at = picked.every((m) => m.struck_at) ? null : new Date().toISOString();
+    let failed = 0;
+    for (const message of picked) {
+      const { error } = await supabase.from("messages").update({ struck_at }).eq("id", message.id);
+      if (error) failed++;
+      else message.struck_at = struck_at;
+    }
+    state.multi = new Set();
+    renderMessages();
+    if (failed) toast(`${failed} message${failed > 1 ? "s" : ""} non modifié${failed > 1 ? "s" : ""}.`);
   }
 
   async function deleteSelected() {
@@ -1459,20 +1499,22 @@ export function createChat({ supabase, user }) {
   }
 
   // Déplacer un message (administrateurs) vers un autre sous-salon ou spectacle du même espace.
-  let movingId = null;
+  let movingIds = [];
 
-  function openMove(id) {
-    const message = state.messages.find((m) => m.id === id);
-    if (!message || !isAdmin() || !state.channel) return;
-    movingId = id;
+  function openMove(ids) {
+    const list = [].concat(ids);
+    const picked = state.messages.filter((m) => list.includes(m.id));
+    if (!picked.length || !isAdmin() || !state.channel) return;
+    movingIds = picked.map((m) => m.id);
+    $("#move-title").textContent = picked.length === 1 ? "Déplacer le message" : `Déplacer ${picked.length} messages`;
     setNotice("#move-message", "");
-    const list = $("#move-list");
-    list.replaceChildren();
+    const box = $("#move-list");
+    box.replaceChildren();
     for (const room of roomsOfWs(state.ws.id)) {
       const root = rootOf(room.id);
       const subs = subsOfRoom(room.id).filter((c) => c.id !== state.channel.id);
       if (!subs.length) continue;
-      list.append(el("li", "move-room", room.name));
+      box.append(el("li", "move-room", room.name));
       for (const channel of subs) {
         const item = el("li");
         const button = el("button", "pick-button");
@@ -1480,40 +1522,49 @@ export function createChat({ supabase, user }) {
         button.dataset.target = channel.id;
         button.append(el("span", "avatar small soft", isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1)), el("span", "pick-name", root && channel.id === root.id ? `${channel.name} (salon du spectacle)` : channel.name));
         item.append(button);
-        list.append(item);
+        box.append(item);
       }
     }
-    if (!list.children.length) list.append(el("li", "muted", "Aucun autre sous-salon."));
+    if (!box.children.length) box.append(el("li", "muted", "Aucun autre sous-salon."));
     openDialog("#dialog-move");
   }
 
   async function moveMessage(targetId) {
-    const message = state.messages.find((m) => m.id === movingId);
+    const picked = state.messages.filter((m) => movingIds.includes(m.id));
     const target = state.allChannels.find((c) => c.id === targetId);
-    if (!message || !target) return;
+    if (!picked.length || !target) return;
     const room = roomById(target.room_id);
     const dest = `${room ? room.name + " › " : ""}${target.name}`;
     const changesRoom = !state.channel || state.channel.room_id !== target.room_id;
-    const warn = changesRoom && (message.tag_ids || []).length ? " Ses dates (#) seront retirées, car elles appartiennent à un spectacle." : "";
-    if (!window.confirm(`Déplacer ce message vers « ${dest} » ?${warn}`)) return;
-    // Les photos sont déplacées d'abord (stockage), puis le message ; si le message échoue, on remet les photos.
-    let moved = [];
-    const paths = (message.attachments || []).map((a) => a.path).filter(Boolean);
-    try {
-      moved = await moveMessageImages(supabase, paths, target.id);
-    } catch (e) {
-      return setNotice("#move-message", "Photos non déplacées : " + (e.message || e) + " (exécute la migration 016 dans Supabase).");
-    }
-    const { error } = await supabase.rpc("move_message", { msg: message.id, target: target.id });
-    if (error) {
-      await moveBack(supabase, moved);
-      const missing = /move_message|PGRST202/.test(error.message || "") || error.code === "PGRST202";
-      return setNotice("#move-message", missing ? "Fonction absente : exécute la migration 015 dans Supabase." : "Déplacement impossible : " + error.message);
+    const warn = changesRoom && picked.some((m) => (m.tag_ids || []).length) ? " Leurs dates (#) seront retirées, car elles appartiennent à un spectacle." : "";
+    const what = picked.length === 1 ? "ce message" : `ces ${picked.length} messages`;
+    if (!window.confirm(`Déplacer ${what} vers « ${dest} » ?${warn}`)) return;
+    let done = 0;
+    for (const message of picked) {
+      // Les photos sont déplacées d'abord (stockage), puis le message ; si le message échoue, on remet les photos.
+      let moved = [];
+      const paths = (message.attachments || []).map((a) => a.path).filter(Boolean);
+      try {
+        moved = await moveMessageImages(supabase, paths, target.id);
+      } catch (e) {
+        setNotice("#move-message", "Photos non déplacées : " + (e.message || e) + " (exécute la migration 016 dans Supabase)." + (done ? ` ${done} message${done > 1 ? "s" : ""} déjà déplacé${done > 1 ? "s" : ""}.` : ""));
+        return;
+      }
+      const { error } = await supabase.rpc("move_message", { msg: message.id, target: target.id });
+      if (error) {
+        await moveBack(supabase, moved);
+        const missing = /move_message|PGRST202/.test(error.message || "") || error.code === "PGRST202";
+        setNotice("#move-message", (missing ? "Fonction absente : exécute la migration 015 dans Supabase." : "Déplacement impossible : " + error.message) + (done ? ` ${done} message${done > 1 ? "s" : ""} déjà déplacé${done > 1 ? "s" : ""}.` : ""));
+        return;
+      }
+      done++;
+      removeMessage(message.id);
     }
     closeDialog($("#dialog-move"));
-    movingId = null;
-    removeMessage(message.id);
-    toast(`Message déplacé vers « ${dest} ».`, "ok");
+    movingIds = [];
+    state.multi = new Set();
+    renderMessages();
+    toast(`${done === 1 ? "Message déplacé" : done + " messages déplacés"} vers « ${dest} ».`, "ok");
   }
 
   function removeMessage(id) {
@@ -4271,7 +4322,47 @@ export function createChat({ supabase, user }) {
       if (event.target.closest && event.target.closest(".msg")) event.preventDefault(); // pas de menu du navigateur
     });
     on($("#select-cancel"), "click", clearMulti);
+    // Mise en forme : sélectionne du texte puis touche G, I ou S (ou Ctrl+B / Ctrl+I) ; sans sélection, place les marqueurs autour du curseur.
+    const field = $("#composer-input");
+    const wrapSelection = (marker) => {
+      let { selectionStart: a, selectionEnd: b, value } = field;
+      while (a < b && /\s/.test(value[a])) a++;
+      while (b > a && /\s/.test(value[b - 1])) b--;
+      const around = value[a - 1] === marker && value[b] === marker;
+      const inner = value.slice(a, b);
+      let next;
+      let caret;
+      if (around) {
+        next = value.slice(0, a - 1) + inner + value.slice(b + 1);
+        caret = [a - 1, b - 1];
+      } else if (inner) {
+        next = value.slice(0, a) + marker + inner + marker + value.slice(b);
+        caret = [a + 1, b + 1];
+      } else {
+        next = value.slice(0, a) + marker + marker + value.slice(b);
+        caret = [a + 1, a + 1];
+      }
+      field.value = next;
+      field.setSelectionRange(caret[0], caret[1]);
+      field.dispatchEvent(new (field.ownerDocument.defaultView.Event)("input", { bubbles: true }));
+      field.focus();
+    };
+    on(field, "focus", () => ($("#format-bar").dataset.show = "1"));
+    on(field, "blur", () => delete $("#format-bar").dataset.show);
+    for (const button of [...document.querySelectorAll("#format-bar [data-format]")]) {
+      on(button, "pointerdown", (event) => event.preventDefault()); // garde le clavier ouvert et la sélection
+      on(button, "click", () => wrapSelection(button.dataset.format));
+    }
+    on(field, "keydown", (event) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
+      const marker = { b: "*", i: "_" }[event.key.toLowerCase()];
+      if (!marker) return;
+      event.preventDefault();
+      wrapSelection(marker);
+    });
     on($("#select-delete"), "click", deleteSelected);
+    on($("#select-strike"), "click", strikeSelected);
+    on($("#select-move"), "click", () => openMove([...state.multi]));
     on($("#select-copy"), "click", () => copyMessages([...state.multi]));
     on($("#select-forward"), "click", () => openForward([...state.multi]));
     on($("#forward-list"), "click", (event) => {
