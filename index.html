@@ -248,6 +248,12 @@
         <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
       </div>
 
+      <div id="select-bar" class="select-bar" hidden>
+        <button type="button" class="icon-btn" id="select-cancel" aria-label="Quitter la sélection">✕</button>
+        <strong id="select-count" aria-live="polite"></strong>
+        <button type="button" class="ghost small" id="select-forward">Transférer</button>
+        <button type="button" class="ghost small danger" id="select-delete">Supprimer</button>
+      </div>
       <div id="messages" class="messages" aria-live="polite" hidden></div>
 
       <div id="composer-extra" class="composer-extra" hidden>
@@ -426,6 +432,9 @@
         <h4>Écrire et répondre</h4>
         <ul>
           <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
+          <li><strong>Options d'un message</strong> : touche un message ou fais-le glisser vers la gauche pour afficher ses actions (Répondre, Citer, Transférer, Rayer, Déplacer pour les administrateurs, Supprimer).</li>
+          <li><strong>Sélectionner plusieurs messages</strong> : maintiens ton doigt sur un message ; il se coche, puis chaque appui en coche ou décoche un autre. La barre du haut propose alors <strong>Transférer</strong> et <strong>Supprimer</strong> (seulement si tu peux supprimer tous les messages choisis) ; ✕ ou « Retour » quitte la sélection.</li>
+          <li><strong>Transférer</strong> : envoie une copie d'un ou plusieurs messages (photos comprises) vers un autre sous-salon ou une personne. Le message copié porte la mention « Transféré de… ».</li>
           <li>Touche un message pour afficher ses actions : <strong>Répondre</strong> (le message d'origine s'affiche au-dessus de ta réponse, touche-le pour y retourner), <strong>Citer</strong> (copie un extrait dans ton message) et, pour tes propres messages, <strong>Rayer</strong> (le texte reste lisible mais barré ; « Rétablir » l'annule).</li>
           <li><strong>Photos</strong> : touche le <strong>+</strong> à gauche de la zone de saisie pour choisir une photo (ou, sur téléphone, en prendre une). Tu peux aussi <strong>coller</strong> une image copiée (Ctrl+V ou Cmd+V, ou « Coller » en appui long sur téléphone). Jusqu'à 4 photos par message, avec ou sans texte ; touche une photo reçue pour l'agrandir. Elles ne sont visibles que par les personnes qui ont accès au sous-salon.</li>
           <li><strong>Supprimer</strong> : tes messages, et ceux de tout le monde pour les administrateurs.</li>
@@ -625,6 +634,16 @@
       <p class="muted">Choisis le sous-salon d'arrivée. Les photos suivent le message ; ses dates (#) sont retirées si tu changes de spectacle.</p>
       <ul id="move-list" class="pick-list move-list"></ul>
       <p id="move-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Annuler</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-forward">
+      <h3 id="forward-title">Transférer le message</h3>
+      <p class="muted">Choisis où envoyer une copie : un sous-salon ou une personne. Les photos suivent ; le message garde la mention « Transféré de… ».</p>
+      <ul id="forward-list" class="pick-list move-list"></ul>
+      <p id="forward-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Annuler</button>
       </div>

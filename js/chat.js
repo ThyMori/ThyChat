@@ -6,7 +6,7 @@
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
 import { MAX_PDF_BYTES, cleanUrl, fileType, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
-import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack } from "./images.js";
+import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack, copyMessageImages } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
   safeAvatarUrl,
@@ -269,6 +269,7 @@ export function createChat({ supabase, user }) {
     replyTo: null, // message auquel on répond
     quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
     selectedId: null, // message touché (affiche « Supprimer »)
+    multi: new Set(), // messages cochés (appui long) pour agir par lot
     profiles: new Map(), // id -> { name, avatar }
     unread: new Map(), // id du salon -> nombre de messages non lus
     mutes: new Map(), // « scope:id » -> ligne de notification_mutes
@@ -327,15 +328,16 @@ export function createChat({ supabase, user }) {
     let start = null;
     node.addEventListener("touchstart", (e) => {
       const t = e.touches[0];
-      start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+      start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, target: e.target } : null;
     }, { ...opts, passive: true });
     node.addEventListener("touchend", (e) => {
       const t = e.changedTouches[0];
       if (!start || !t) return;
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
+      const origin = start.target;
       start = null;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) fn(dx < 0 ? -1 : 1);
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) fn(dx < 0 ? -1 : 1, origin);
     }, opts);
   }
 
@@ -914,7 +916,8 @@ export function createChat({ supabase, user }) {
 
       const classes = ["msg", mine ? "mine" : "theirs"];
       if (grouped) classes.push("grouped");
-      if (message.id === state.selectedId) classes.push("selected");
+      if (message.id === state.selectedId && !state.multi.size) classes.push("selected");
+      if (state.multi.has(message.id)) classes.push("picked");
       if (message.struck_at) classes.push("struck");
       const item = el("article", classes.join(" "));
       item.dataset.id = message.id;
@@ -939,9 +942,15 @@ export function createChat({ supabase, user }) {
       }
 
       const body = el("div", "msg-body");
+      let text = message.body;
+      const forwarded = /^↪ [^\n]*\n/.exec(text || "");
+      if (forwarded) {
+        bubble.append(el("div", "msg-forwarded", forwarded[0].trim()));
+        text = text.slice(forwarded[0].length);
+      }
       const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
       if (message.attachments && message.attachments.length) bubble.append(imagesBlock(message));
-      renderMessageBody(body, message.body, bodyTags);
+      renderMessageBody(body, text, bodyTags);
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
       body.append(time);
@@ -954,9 +963,9 @@ export function createChat({ supabase, user }) {
       }
       item.append(bubble);
 
-      if (message.id === state.selectedId) {
+      if (message.id === state.selectedId && !state.multi.size) {
         const actions = el("div", "msg-actions");
-        const actionList = [["reply", "Répondre"], ["quote", "Citer"]];
+        const actionList = [["reply", "Répondre"], ["quote", "Citer"], ["forward", "Transférer"]];
         if (mine) actionList.push(["strike", message.struck_at ? "Rétablir" : "Rayer"]);
         if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer"]);
         for (const [action, label] of actionList) {
@@ -981,7 +990,138 @@ export function createChat({ supabase, user }) {
       previous = message;
     }
 
+    box.classList.toggle("multi", state.multi.size > 0);
+    renderSelectBar();
     box.scrollTop = forceBottom || nearBottom ? box.scrollHeight : previousTop;
+  }
+
+  // --- Sélection de plusieurs messages (appui long, comme sur WhatsApp) ----------------------
+
+  const canDelete = (message) => message.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel");
+
+  function renderSelectBar() {
+    const bar = $("#select-bar");
+    const n = state.multi.size;
+    bar.hidden = n === 0;
+    if (!n) return;
+    $("#select-count").textContent = n === 1 ? "1 message" : `${n} messages`;
+    const picked = state.messages.filter((m) => state.multi.has(m.id));
+    const deletable = picked.length > 0 && picked.every(canDelete);
+    $("#select-delete").disabled = !deletable;
+    $("#select-delete").title = deletable ? "Supprimer la sélection" : "Tu ne peux supprimer que tes propres messages";
+  }
+
+  function toggleMulti(id) {
+    if (!state.messages.some((m) => m.id === id)) return;
+    if (!state.multi.size) guardHistory(); // « Retour » quitte la sélection
+    if (state.multi.has(id)) state.multi.delete(id);
+    else state.multi.add(id);
+    state.selectedId = null;
+    renderMessages();
+  }
+
+  function clearMulti() {
+    if (!state.multi.size) return;
+    state.multi = new Set();
+    renderMessages();
+  }
+
+  async function deleteSelected() {
+    const picked = state.messages.filter((m) => state.multi.has(m.id));
+    if (!picked.length || !picked.every(canDelete)) return;
+    const n = picked.length;
+    if (!window.confirm(n === 1 ? "Supprimer ce message ? Cette action est définitive." : `Supprimer ces ${n} messages ? Cette action est définitive.`)) return;
+    let failed = 0;
+    for (const message of picked) {
+      if (!(await deleteMessage(message.id, false))) failed++;
+    }
+    state.multi = new Set();
+    renderMessages();
+    if (failed) toast(`${failed} message${failed > 1 ? "s" : ""} non supprimé${failed > 1 ? "s" : ""}.`);
+  }
+
+  // --- Transférer des messages ------------------------------------------------------------
+
+  let forwardIds = [];
+
+  function openForward(ids) {
+    const picked = state.messages.filter((m) => ids.includes(m.id));
+    if (!picked.length || !state.ws) return;
+    forwardIds = picked.map((m) => m.id);
+    $("#forward-title").textContent = picked.length === 1 ? "Transférer le message" : `Transférer ${picked.length} messages`;
+    setNotice("#forward-message", "");
+    const list = $("#forward-list");
+    list.replaceChildren();
+    for (const room of roomsOfWs(state.ws.id)) {
+      const root = rootOf(room.id);
+      const subs = state.allChannels.filter((c) => c.room_id === room.id && c.kind === "channel");
+      if (!subs.length) continue;
+      list.append(el("li", "move-room", room.name));
+      for (const channel of subs) {
+        const item = el("li");
+        const button = el("button", "pick-button");
+        button.type = "button";
+        button.dataset.target = channel.id;
+        button.append(el("span", "avatar small soft", isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1)), el("span", "pick-name", root && channel.id === root.id ? `${channel.name} (salon du spectacle)` : channel.name));
+        item.append(button);
+        list.append(item);
+      }
+    }
+    const dms = state.allChannels.filter((c) => c.kind === "dm" && dmPartner(c));
+    if (dms.length) {
+      list.append(el("li", "move-room", "Messages privés"));
+      for (const channel of dms) {
+        const item = el("li");
+        const button = el("button", "pick-button");
+        button.type = "button";
+        button.dataset.target = channel.id;
+        button.append(avatarFor(dmPartner(channel), "small soft"), el("span", "pick-name", authorName(dmPartner(channel))));
+        item.append(button);
+        list.append(item);
+      }
+    }
+    if (!list.children.length) list.append(el("li", "muted", "Aucun sous-salon."));
+    openDialog("#dialog-forward");
+  }
+
+  async function forwardMessages(targetId) {
+    const target = state.allChannels.find((c) => c.id === targetId);
+    const picked = state.messages.filter((m) => forwardIds.includes(m.id));
+    if (!target || !picked.length) return;
+    const room = roomById(target.room_id);
+    const dest = target.kind === "dm" ? authorName(dmPartner(target)) : `${room ? room.name + " › " : ""}${target.name}`;
+    setNotice("#forward-message", "Transfert…", "info");
+    let done = 0;
+    for (const message of picked) {
+      const head = /^↪ /.test(message.body) ? "" : `↪ Transféré de ${authorName(message.user_id)}\n`;
+      const row = { channel_id: target.id, body: (head + message.body).slice(0, 8000) };
+      let copied = [];
+      try {
+        const attachments = message.attachments || [];
+        if (attachments.length) {
+          copied = await copyMessageImages(supabase, attachments, target.id);
+          row.attachments = copied;
+        }
+        const { data, error } = await supabase.from("messages").insert(row).select().single();
+        if (error) throw error;
+        done++;
+        if (state.channel && state.channel.id === target.id) {
+          await resolveImages([data]);
+          addMessage(data, true);
+        }
+      } catch (error) {
+        await removeMessageImages(supabase, copied.map((c) => c.path));
+        setNotice("#forward-message", `Transfert impossible : ${error && error.message ? error.message : "erreur"}`);
+        if (state.channel && state.channel.id === target.id) renderMessages();
+        return;
+      }
+    }
+    closeDialog($("#dialog-forward"));
+    forwardIds = [];
+    state.multi = new Set();
+    state.selectedId = null;
+    renderMessages();
+    toast(`${done === 1 ? "Message transféré" : done + " messages transférés"} vers « ${dest} ».`, "ok");
   }
 
   // --- Chargement des données ---------------------------------------------
@@ -1086,6 +1226,7 @@ export function createChat({ supabase, user }) {
     state.calendarOpen = false;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
     state.selectedId = null;
+    state.multi = new Set();
     if (!state.channel || state.channel.room_id !== previousRoom || state.focus) state.tagFilter = new Set();
     if (state.pendingFilter) {
       if (state.channel && tagById(state.pendingFilter)) state.tagFilter = new Set([state.pendingFilter]);
@@ -1345,6 +1486,7 @@ export function createChat({ supabase, user }) {
   function removeMessage(id) {
     if (!id || !state.messages.some((m) => m.id === id)) return;
     if (state.selectedId === id) state.selectedId = null;
+    state.multi.delete(id);
     state.messages = state.messages.filter((m) => m.id !== id);
     renderMessages();
   }
@@ -2171,6 +2313,7 @@ export function createChat({ supabase, user }) {
     if (!state.ws) return;
     state.calendarOpen = true;
     state.selectedId = null;
+    state.multi = new Set();
     if (roomId && roomById(roomId)) state.calScope = roomId;
     else if (state.calScope !== "all" && !roomById(state.calScope)) state.calScope = "ws";
     const now = new Date();
@@ -2694,18 +2837,19 @@ export function createChat({ supabase, user }) {
     if (state.calendarOpen) renderCalendar();
   }
 
-  async function deleteMessage(id) {
-    if (!window.confirm("Supprimer ce message ? Cette action est définitive.")) return;
+  async function deleteMessage(id, ask = true) {
+    if (ask && !window.confirm("Supprimer ce message ? Cette action est définitive.")) return false;
     const target = state.messages.find((m) => m.id === id);
     const { error } = await supabase.from("messages").delete().eq("id", id);
     if (error) {
       toast("Suppression impossible : " + error.message);
-      return;
+      return false;
     }
     if (target && target.attachments && target.attachments.length) {
       removeMessageImages(supabase, target.attachments.map((a) => a.path).filter(Boolean));
     }
     removeMessage(id);
+    return true;
   }
 
   function autosize() {
@@ -3912,8 +4056,16 @@ export function createChat({ supabase, user }) {
       renderPushStatus();
     });
     // Glisser vers la droite dans un fil : ouvre le menu (hors calendrier).
-    onSwipe($("#messages"), (dir) => {
-      if (dir > 0 && isMobile() && !state.calendarOpen) {
+    onSwipe($("#messages"), (dir, origin) => {
+      if (state.calendarOpen) return;
+      const row = origin && origin.closest ? origin.closest(".msg") : null;
+      if (dir < 0) {
+        // Glisser un message vers la gauche : ses options (répondre, citer, transférer, rayer, déplacer, supprimer).
+        if (row && !state.multi.size) {
+          state.selectedId = row.dataset.id;
+          renderMessages();
+        }
+      } else if (isMobile() && !state.multi.size) {
         guardHistory();
         $("#screen-app").classList.add("sidebar-open");
       }
@@ -4019,7 +4171,57 @@ export function createChat({ supabase, user }) {
     on($("#space-photo-remove"), "click", removeSpacePhoto);
     on($("#profile-form"), "submit", submitProfile);
 
+    // Appui long sur un message : début de la sélection multiple ; ensuite chaque appui coche ou décoche.
+    let press = null;
+    let swallowClick = false; // le relâchement d'un appui long ne doit pas compter comme un appui
+    const cancelPress = () => {
+      if (press) clearTimeout(press.timer);
+      press = null;
+    };
+    on($("#messages"), "pointerdown", (event) => {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const row = event.target.closest && event.target.closest(".msg");
+      if (!row || event.target.closest("a, button, .msg-actions")) return;
+      cancelPress();
+      const id = row.dataset.id;
+      press = {
+        x: event.clientX,
+        y: event.clientY,
+        timer: setTimeout(() => {
+          press = null;
+          swallowClick = true;
+          setTimeout(() => (swallowClick = false), 700);
+          if (navigator.vibrate) navigator.vibrate(15);
+          toggleMulti(id);
+        }, 450),
+      };
+    });
+    on($("#messages"), "pointermove", (event) => {
+      if (press && Math.hypot(event.clientX - press.x, event.clientY - press.y) > 10) cancelPress();
+    });
+    for (const type of ["pointerup", "pointercancel", "pointerleave"]) on($("#messages"), type, cancelPress);
+    on($("#messages"), "contextmenu", (event) => {
+      if (event.target.closest && event.target.closest(".msg")) event.preventDefault(); // pas de menu du navigateur
+    });
+    on($("#select-cancel"), "click", clearMulti);
+    on($("#select-delete"), "click", deleteSelected);
+    on($("#select-forward"), "click", () => openForward([...state.multi]));
+    on($("#forward-list"), "click", (event) => {
+      const button = event.target.closest("[data-target]");
+      if (button) forwardMessages(button.dataset.target);
+    });
+
     on($("#messages"), "click", (event) => {
+      if (swallowClick) {
+        swallowClick = false;
+        return;
+      }
+      if (state.multi.size) {
+        const picked = event.target.closest(".msg");
+        if (event.target.closest("a")) event.preventDefault();
+        if (picked) toggleMulti(picked.dataset.id);
+        return;
+      }
       const remove = event.target.closest("[data-action='delete']");
       if (remove) return deleteMessage(remove.dataset.id);
       const reply = event.target.closest("[data-action='reply']");
@@ -4030,6 +4232,8 @@ export function createChat({ supabase, user }) {
       if (strike) return toggleStrike(strike.dataset.id);
       const move = event.target.closest("[data-action='move']");
       if (move) return openMove(move.dataset.id);
+      const forward = event.target.closest("[data-action='forward']");
+      if (forward) return openForward([forward.dataset.id]);
       const pill = event.target.closest(".hash-pill");
       if (pill) return toggleTagFilter(pill.dataset.tag);
       const jump = event.target.closest(".msg-quote");
@@ -4289,6 +4493,11 @@ export function createChat({ supabase, user }) {
       const opened = [...document.querySelectorAll("dialog[open]")];
       if (opened.length) {
         for (const dialog of opened) closeDialog(dialog); // « Retour » ferme la boîte de dialogue
+        guardHistory();
+        return;
+      }
+      if (state.multi.size) {
+        clearMulti(); // « Retour » quitte la sélection de messages
         guardHistory();
         return;
       }

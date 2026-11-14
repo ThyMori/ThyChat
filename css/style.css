@@ -1187,3 +1187,16 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .tags-form[hidden], #tag-new[hidden] { display: none; }
 #tag-new { margin-top: 10px; }
 .sheet-form[hidden] { display: none; }
+
+/* ---- Sélection de messages par lot, transfert ---- */
+.select-bar { display: flex; align-items: center; gap: 8px; padding: 6px 10px; background: hsl(var(--h) 35% 22%); border-bottom: 1px solid var(--border); }
+.select-bar[hidden] { display: none; }
+.select-bar strong { flex: 1; min-width: 0; }
+.select-bar .danger { color: var(--danger); }
+.select-bar button:disabled { opacity: 0.4; }
+.messages.multi .msg { cursor: pointer; }
+.msg.picked { background: hsl(var(--h) 55% 50% / 0.2); }
+.msg.picked .bubble::after { content: "✓"; position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 0.8rem; line-height: 20px; text-align: center; }
+.msg .bubble { position: relative; }
+.msg-forwarded { font-size: 0.78rem; font-style: italic; opacity: 0.75; margin-bottom: 2px; }
+@media (pointer: coarse) { .msg .bubble { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; } }

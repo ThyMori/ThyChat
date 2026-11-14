@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.26.0 — 2026-11-15
+- Fils de discussion : sélection de plusieurs messages par appui long (suppression par lot), balayage vers la gauche pour les options d'un message, nouvelle option Transférer
+
 ## 3.25.0 — 2026-11-14
 - Documents et fiches techniques : PDF, images ou liens web
 - une fiche technique réunit plusieurs fichiers (plan son, plan lumière…)

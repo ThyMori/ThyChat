@@ -93,3 +93,21 @@ export async function moveBack(supabase, moved) {
     }
   }
 }
+
+// Copie des photos dans le dossier d'un autre sous-salon (transfert d'un message) : renvoie les nouvelles pièces jointes.
+export async function copyMessageImages(supabase, attachments, targetChannelId) {
+  const copied = [];
+  try {
+    for (const item of attachments) {
+      const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+      const to = `${targetChannelId}/${id}.jpg`;
+      const { error } = await supabase.storage.from(BUCKET).copy(item.path, to);
+      if (error) throw error;
+      copied.push({ path: to, w: item.w, h: item.h });
+    }
+  } catch (error) {
+    await removeMessageImages(supabase, copied.map((c) => c.path));
+    throw error;
+  }
+  return copied;
+}
