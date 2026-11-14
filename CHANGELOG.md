@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.20.3 — 2026-11-14
+- Suppression d'une date : la confirmation précise que ses PDF sont aussi supprimés
+
 ## 3.20.2 — 2026-11-14
 - Liste des dates de tournée en badges (nom + jours de début et de fin), boutons ✎ et × compacts
 

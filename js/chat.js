@@ -2246,7 +2246,9 @@ export function createChat({ supabase, user }) {
   async function deleteTag(id) {
     const tag = tagById(id);
     if (!tag) return;
-    if (!window.confirm(`Supprimer la date « ${tag.label} » ? Elle sera retirée des messages qui la portent.`)) return;
+    const nDocs = docsOfTag(id).length;
+    const docsNote = nDocs ? ` Ses ${nDocs} PDF seront aussi supprimés.` : "";
+    if (!window.confirm(`Supprimer la date « ${tag.label} » ? Elle sera retirée des messages qui la portent.${docsNote} Cette action est définitive.`)) return;
     const docPaths = docsOfTag(id).map((d) => d.path);
     const { error } = await supabase.from("tour_tags").delete().eq("id", id);
     if (error) return setNotice("#tags-message", "Suppression impossible : " + error.message);
