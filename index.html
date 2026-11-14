@@ -124,7 +124,10 @@
           <div class="brand-mark small" aria-hidden="true"></div>
           <strong>ThyChat</strong>
         </div>
-        <button type="button" class="icon-btn only-mobile" id="close-sidebar" aria-label="Fermer le menu">✕</button>
+        <span class="head-actions">
+          <button type="button" class="icon-btn info-btn" id="open-help" aria-label="Informations : toutes les fonctions de ThyChat" title="Informations">i</button>
+          <button type="button" class="icon-btn only-mobile" id="close-sidebar" aria-label="Fermer le menu">✕</button>
+        </span>
       </div>
 
       <button type="button" class="ws-button" id="workspace-button" aria-label="Changer d'espace">
@@ -363,6 +366,87 @@
           <button type="submit" class="primary" id="channel-submit">Créer</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="dialog-help" class="help">
+      <h3 id="help-title" tabindex="-1">Tout ce que fait ThyChat</h3>
+      <p class="muted">Un tour des fonctions, dans l'ordre où tu en auras besoin.</p>
+
+      <section>
+        <h4>S'y retrouver</h4>
+        <ul>
+          <li><strong>Espace</strong> : une production ou une compagnie, avec sa couleur et sa photo. Tu en changes avec le bouton en haut de la barre latérale.</li>
+          <li><strong>Spectacle</strong> : un spectacle en particulier, dans un espace. Il se plie et se déplie ; un cadenas indique qu'il est réservé à certaines personnes.</li>
+          <li><strong>Sous-salon</strong> : là où l'on discute, par métier ou par sujet (Tous, Technique, Musiciens…). Chaque spectacle a un sous-salon « Tous ».</li>
+          <li><strong>Message privé</strong> : une discussion à deux avec quelqu'un d'un de tes espaces (bouton + à côté de « Messages privés »).</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Écrire et répondre</h4>
+        <ul>
+          <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
+          <li>Touche un message pour afficher ses actions : <strong>Répondre</strong> (le message d'origine s'affiche au-dessus de ta réponse, touche-le pour y retourner), <strong>Citer</strong> (copie un extrait dans ton message) et, pour tes propres messages, <strong>Rayer</strong> (le texte reste lisible mais barré ; « Rétablir » l'annule).</li>
+          <li><strong>Supprimer</strong> : tes messages, et ceux de tout le monde pour les administrateurs.</li>
+          <li>Les liens sont cliquables.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Dates de tournée</h4>
+        <ul>
+          <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Les administrateurs les gèrent avec le bouton <strong>Gérer</strong> au-dessus de la conversation.</li>
+          <li>Dans un message, tape <strong>#</strong> puis le nom d'une date pour l'y rattacher (plusieurs possibles, facultatif).</li>
+          <li>Les pastilles « Dates » au-dessus de la conversation <strong>filtrent</strong> les messages ; « Toutes » efface le filtre.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Calendrier</h4>
+        <ul>
+          <li>Le bouton <strong>📅 Calendrier</strong> montre un mois avec une frise colorée par date de tournée et une ★ sur chaque représentation. Le menu choisit tous les spectacles de l'espace, tous tes espaces ou un seul spectacle.</li>
+          <li>Touche un jour pour voir ce qu'il contient, ou une frise pour ouvrir le spectacle filtré sur cette date.</li>
+          <li>Sous l'en-tête d'un spectacle, une <strong>frise de la semaine</strong> (la veille et les 6 jours suivants) ; la toucher ouvre le calendrier.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Notifications et non lus</h4>
+        <ul>
+          <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
+          <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
+          <li>Ce qui est en silence est atténué et marqué 🔕.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Ton profil</h4>
+        <ul>
+          <li>Touche ton nom en bas de la barre latérale : photo, nom affiché et adresse e-mail.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Pour les administrateurs</h4>
+        <ul>
+          <li><strong>Espace et membres</strong> : couleur et photo de l'espace, liste des membres, rôles (administrateur ou utilisateur), retrait d'une personne.</li>
+          <li><strong>Inviter</strong> : choisis une personne déjà présente dans tes espaces dans la liste, ou invite une nouvelle personne par e-mail. Coche les espaces, le rôle, et les spectacles ou sous-salons réservés qu'elle peut voir.</li>
+          <li><strong>+</strong> à côté de « Spectacles » crée un spectacle ; son ⚙ règle son nom et qui y a accès ; « + Nouveau sous-salon » en ajoute un, que tu peux ouvrir à tous ceux du spectacle ou réserver à certains.</li>
+          <li>L'administrateur général crée les espaces. Les administrateurs voient tout dans leur espace.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Installer l'application</h4>
+        <ul>
+          <li>Le bouton <strong>Installer l'application</strong> (barre latérale) ajoute ThyChat à ton écran d'accueil ou à ton ordinateur : plein écran, notifications et pastille sur l'icône. Il disparaît une fois l'application installée.</li>
+        </ul>
+      </section>
+
+      <p class="version app-version help-version"></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
     </dialog>
 
     <dialog id="dialog-tags">

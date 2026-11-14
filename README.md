@@ -128,6 +128,10 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 - Le **filtre** « Dates » au-dessus de la conversation n'affiche que les messages portant les dates choisies ; « Toutes » l'efface.
 - **Répondre** et **Citer** : toucher un message affiche ces deux actions. Répondre affiche le message d'origine au-dessus de la réponse (toucher la citation y mène) ; Citer copie un extrait dans le message en cours.
 
+## Aide intégrée
+
+Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes les fonctions. Quand tu ajoutes une fonction, mets-la aussi à jour dans `index.html` (`#dialog-help`).
+
 ## Calendrier
 
 - **Calendrier** (barre latérale) : vue mensuelle avec une frise colorée pour chaque date de tournée des spectacles auxquels tu as accès, et une ★ sur chaque jour de représentation. Un menu choisit entre tous les spectacles de l'espace, tous tes espaces, ou un seul spectacle. Toucher un jour liste ce qu'il contient ; toucher une frise ouvre le spectacle filtré sur cette date.

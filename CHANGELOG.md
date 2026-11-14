@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.5.0 — 2026-11-14
+- Bouton « i » : page d'aide qui explique toutes les fonctions
+- textes et pastilles plus petits sur téléphone
+
 ## 3.4.0 — 2026-11-14
 - Dates de tournée avec plage (début, fin) et dates de représentation ★
 - calendrier mensuel avec frises par date

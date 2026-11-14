@@ -2540,6 +2540,10 @@ export function createChat({ supabase, user }) {
     on($("#open-notifications"), "click", openNotifications);
     on($("#channel-bell"), "click", openNotifications);
     on($("#open-profile"), "click", openProfile);
+    on($("#open-help"), "click", () => {
+      openDialog("#dialog-help");
+      $("#help-title").focus();
+    });
     on($("#empty-action"), "click", () => emptyAction && emptyAction());
 
     const openFromList = (event) => {
