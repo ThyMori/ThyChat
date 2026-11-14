@@ -181,6 +181,10 @@
     <div id="backdrop" class="backdrop"></div>
 
     <section class="chat">
+      <div id="push-reminder" class="push-reminder" role="status" hidden>
+        <button type="button" class="push-reminder-open" id="push-reminder-open">🔔 Les notifications sont inactives : touche ici pour les activer.</button>
+        <button type="button" class="push-reminder-close" id="push-reminder-close" aria-label="Masquer ce rappel">×</button>
+      </div>
       <header class="chat-head">
         <button type="button" class="icon-btn only-mobile" id="open-sidebar" aria-label="Ouvrir le menu">☰</button>
         <span class="avatar small soft" id="channel-avatar" aria-hidden="true" hidden></span>
@@ -450,8 +454,9 @@
         <h4>Calendrier</h4>
         <ul>
           <li>Le bouton <strong>📅 Calendrier</strong> montre un mois avec une frise colorée par date de tournée et une ★ sur chaque représentation. Le menu choisit tous les spectacles de l'espace, tous tes espaces ou un seul spectacle.</li>
+          <li><strong>Bandeau jaune</strong> : quand les notifications sont inactives sur cet appareil, un rappel s'affiche en haut ; un appui ouvre leur réglage, la croix le masque jusqu'à la prochaine ouverture de l'application.</li>
           <li><strong>Menu ⋮</strong> (téléphone) : en haut à droite, il regroupe la liste des personnes du sous-salon (un appui ouvre le message privé avec elle), la recherche, les réglages du sous-salon, les notifications et la suppression d'une discussion privée.</li>
-          <li><strong>Glisser du doigt</strong> (téléphone) : vers la gauche sur le menu pour le fermer ; vers la gauche ou la droite sur le calendrier pour passer au mois suivant ou précédent.</li>
+          <li><strong>Glisser du doigt</strong> (téléphone) : vers la droite dans un fil de discussion pour ouvrir le menu ; vers la gauche sur le menu pour le fermer ; vers la gauche ou la droite sur le calendrier pour passer au mois suivant ou précédent.</li>
           <li>Touche un jour pour voir ce qu'il contient, ou une frise pour ouvrir le spectacle filtré sur cette date.</li>
           <li>Sous l'en-tête d'un spectacle, une <strong>frise de la semaine</strong> (la veille et les 6 jours suivants) ; la toucher ouvre le calendrier.</li>
         </ul>

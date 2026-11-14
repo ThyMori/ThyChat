@@ -3223,6 +3223,15 @@ export function createChat({ supabase, user }) {
 
   function renderPushStatus() {
     const status = state.pushStatus;
+    let dismissed = false;
+    try {
+      dismissed = sessionStorage.getItem("tc-push-reminder") === "1";
+    } catch {
+      /* stockage indisponible : le rappel reste affiché */
+    }
+    const remind = (status === "off" || status === "denied") && !dismissed;
+    $("#push-reminder").hidden = !remind;
+    document.querySelector("#screen-app .chat").classList.toggle("has-reminder", remind);
     const off = status !== "on";
     $("#notif-ic").querySelector(".ic:first-child").style.display = off ? "none" : "inline";
     $("#notif-ic").querySelector(".ic:last-child").style.display = off ? "inline" : "none";
@@ -3405,6 +3414,22 @@ export function createChat({ supabase, user }) {
     on($("#open-invite"), "click", openInvite);
     on($("#open-notifications"), "click", openNotifications);
     on($("#channel-bell"), "click", openNotifications);
+    on($("#push-reminder-open"), "click", openNotifications);
+    on($("#push-reminder-close"), "click", () => {
+      try {
+        sessionStorage.setItem("tc-push-reminder", "1");
+      } catch {
+        /* sans conséquence */
+      }
+      renderPushStatus();
+    });
+    // Glisser vers la droite dans un fil : ouvre le menu (hors calendrier).
+    onSwipe($("#messages"), (dir) => {
+      if (dir > 0 && isMobile() && !state.calendarOpen) {
+        guardHistory();
+        $("#screen-app").classList.add("sidebar-open");
+      }
+    }, opts);
     on($("#open-profile"), "click", openProfile);
     on($("#open-help"), "click", () => {
       openDialog("#dialog-help");

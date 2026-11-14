@@ -1102,3 +1102,10 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
   .chat-head .head-tools > .icon-btn { width: 100%; height: auto; min-height: 44px; white-space: nowrap; flex-direction: row; }
   .chat-head .head-tools > .icon-btn::after { white-space: nowrap; }
 }
+
+/* Rappel : notifications inactives (jaune d'avertissement, volontairement indépendant de la teinte de l'espace) */
+.push-reminder { display: flex; align-items: center; background: hsl(48 96% 56%); color: hsl(40 90% 12%); padding: calc(var(--safe-top) + 4px) 6px 4px 12px; }
+.push-reminder[hidden] { display: none; }
+.push-reminder-open { flex: 1; text-align: left; background: transparent; border: 0; color: inherit; font: inherit; font-size: 0.85rem; font-weight: 600; padding: 6px 4px; cursor: pointer; }
+.push-reminder-close { flex: none; width: 36px; height: 36px; background: transparent; border: 0; color: inherit; font-size: 1.4rem; line-height: 1; cursor: pointer; }
+.chat.has-reminder .chat-head { padding-top: 8px; }
