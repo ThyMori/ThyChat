@@ -1386,6 +1386,16 @@ export function createChat({ supabase, user }) {
 
   const currentRoomId = () => (state.channel && state.channel.kind === "channel" ? state.channel.room_id : null);
   const tagById = (id) => state.tags.find((t) => t.id === id);
+  // « 9–13 nov. », « 29 nov. → 2 déc. », « 13 nov. » (sans l'année : lisible en badge).
+  function shortRange(tag) {
+    if (!tag.start_date) return "";
+    const a = fromISO(tag.start_date);
+    const b = fromISO(tag.end_date || tag.start_date);
+    const m = (d) => d.toLocaleDateString("fr-FR", { month: "short" });
+    if (toISO(a) === toISO(b)) return `${a.getDate()} ${m(a)}`;
+    if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${a.getDate()}–${b.getDate()} ${m(b)}`;
+    return `${a.getDate()} ${m(a)} → ${b.getDate()} ${m(b)}`;
+  }
   const tagText = (tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
   // Dernier jour d'une date (fin, sinon dernière représentation, sinon début) ; une date est passée quand il est avant aujourd'hui.
   const tagLastDay = (tag) => tag.end_date || [...(tag.shows || [])].sort().pop() || tag.start_date || "";
@@ -2181,20 +2191,22 @@ export function createChat({ supabase, user }) {
     if (!tags.length) list.append(el("li", "muted", "Aucune date pour l'instant."));
     for (const tag of tags) {
       const row = el("li", "tag-row");
-      const shows = [...(tag.shows || [])].sort().map((iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }));
-      const first = firstShow(tag);
-      const info = first
-        ? ` · ★ 1re représentation le ${fromISO(first).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` + (shows.length > 1 ? ` (${shows.length} au total)` : "")
-        : " · aucune représentation ★";
-      const name = el("span", "pick-name", tagText(tag) + info);
-      if (tagIsPast(tag)) name.classList.add("is-past");
-      row.append(name);
-      const edit = el("button", "ghost small", "Modifier");
+      if (tagIsPast(tag)) row.classList.add("is-past");
+      const text = el("span", "tag-row-text");
+      text.append(el("strong", "", tag.label));
+      const days = shortRange(tag);
+      text.append(el("small", "muted", days || "sans date"));
+      row.append(text);
+      const edit = el("button", "ghost small tag-row-btn", "✎");
       edit.type = "button";
       edit.dataset.edit = tag.id;
-      const del = el("button", "ghost small", "Supprimer");
+      edit.setAttribute("aria-label", "Modifier " + tag.label);
+      edit.title = "Modifier";
+      const del = el("button", "ghost small tag-row-btn", "×");
       del.type = "button";
       del.dataset.del = tag.id;
+      del.setAttribute("aria-label", "Supprimer " + tag.label);
+      del.title = "Supprimer";
       row.append(edit, del);
       list.append(row);
     }

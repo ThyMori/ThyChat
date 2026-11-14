@@ -1124,5 +1124,14 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .tags-form input[type="text"] { flex: none; }
 .is-past, .tag-chip.is-past { text-decoration: line-through; opacity: 0.6; }
 .tag-chip.is-past small { text-decoration: line-through; }
-.tag-row { flex-wrap: wrap; }
-.tag-row .pick-name { flex: 1 1 100%; white-space: normal; overflow: visible; text-overflow: clip; }
+
+/* Liste des dates : chaque date est un badge (nom + jours de début et de fin) */
+#tags-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 36vh; padding: 0; }
+#tags-list > li.muted { flex: 1 1 100%; }
+.tag-row { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 14px; }
+.tag-row-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.tag-row-text strong { font-size: 0.92rem; }
+.tag-row-text small { font-size: 0.78rem; }
+.tag-row-btn { width: 30px; height: 30px; padding: 0; border-radius: 50%; font-size: 1rem; line-height: 1; }
+.tag-row.is-past { text-decoration: none; opacity: 0.6; }
+.tag-row.is-past strong, .tag-row.is-past small { text-decoration: line-through; }

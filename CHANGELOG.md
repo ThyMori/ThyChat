@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.20.2 — 2026-11-14
+- Liste des dates de tournée en badges (nom + jours de début et de fin), boutons ✎ et × compacts
+
 ## 3.20.1 — 2026-11-14
 - Dates rayées seulement le surlendemain du dernier jour (trajet retour)
 - précision que les jours de transport ne se comptent pas à la création
