@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.18.0 — 2026-11-14
+- Notification push à toutes les personnes concernées quand un PDF est ajouté (document d'une date ou fiche technique)
+
 ## 3.17.1 — 2026-11-14
 - Changer d'espace rouvre le dernier fil de cet espace (jamais un message privé)
 - page vide s'il n'y en a aucun

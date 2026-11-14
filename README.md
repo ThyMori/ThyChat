@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `014_document_notifications.sql` | notification push à toutes les personnes concernées quand un PDF est ajouté (document d'une date ou fiche technique) ; nécessite la migration 004 ; **redéployer `send-push`** |
 | `013_room_sheets.sql` | fiche technique PDF de chaque spectacle, avec la date de sa version (**indispensable à la version 3.12** ; après la 012) |
 | `012_tag_documents.sql` | documents PDF attachés aux dates de tournée : table `tag_documents` et stockage privé `tag-documents` (**indispensable à la version 3.10**) |
 | `011_search_accents.sql` | recherche dans les messages sans tenir compte des accents (sans elle, la recherche ignore seulement les majuscules) |

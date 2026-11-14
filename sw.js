@@ -4,7 +4,7 @@
 // Les appels à Supabase et aux CDN ne sont jamais interceptés ni mis en cache.
 // Gère aussi la réception des notifications push.
 
-const VERSION = "3.17.1"; // géré par scripts/bump-version.mjs
+const VERSION = "3.18.0"; // géré par scripts/bump-version.mjs
 const CACHE = `thychat-shell-${VERSION}`;
 const SHELL = [
   "./",
@@ -87,7 +87,7 @@ self.addEventListener("push", (event) => {
 
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
       const visible = windows.find((client) => client.visibilityState === "visible");
-      if (visible) {
+      if (visible && data.kind !== "doc") {
         // L'application est ouverte et visible : elle affiche déjà le message, pas de notification système.
         visible.postMessage({ type: "push", channel_id: data.channel_id, workspace_id: data.workspace_id });
         return;

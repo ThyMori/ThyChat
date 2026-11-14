@@ -1,7 +1,9 @@
 // Fonction Supabase « send-push » : envoie une notification push à chaque personne concernée
-// par un nouveau message (sauf l'auteur, et sauf les espaces / salons mis en silence).
+// par un nouveau message ou un nouveau PDF (date ou fiche technique), sauf l'auteur,
+// et sauf les espaces / salons mis en silence.
 //
-// Appelée par un Database Webhook sur INSERT de public.messages (voir README).
+// Appelée par les déclencheurs SQL (migrations 004 et 014) sur INSERT de public.messages,
+// public.tag_documents et public.room_sheets (voir README).
 // Secrets à définir : VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT, PUSH_WEBHOOK_SECRET.
 // Désactive « Enforce JWT Verification » : l'appel est authentifié par l'en-tête x-webhook-secret.
 
@@ -13,6 +15,92 @@ const json = (body: unknown, status = 200) =>
 
 const clip = (text: string, max: number) => (text.length > max ? text.slice(0, max - 1) + "…" : text);
 
+// Nouveau PDF (document d'une date ou fiche technique) : prévient toutes les personnes qui ont accès au spectacle.
+// deno-lint-ignore no-explicit-any
+async function notifyDocument(admin: any, table: string, doc: Record<string, any>) {
+  let roomId: string | null = null;
+  let detail = "";
+  if (table === "tag_documents") {
+    const { data: tag } = await admin.from("tour_tags").select("room_id, label").eq("id", doc.tag_id).maybeSingle();
+    if (!tag) return json({ ok: true, skipped: true });
+    roomId = tag.room_id;
+    detail = `${doc.name} · ${tag.label}`;
+  } else {
+    roomId = doc.room_id;
+    const day = String(doc.version_date || "").split("-").reverse().join("/");
+    detail = `Fiche technique${day ? " (version du " + day + ")" : ""}`;
+  }
+  const { data: room } = await admin.from("rooms").select("id, name, everyone, workspace_id").eq("id", roomId).maybeSingle();
+  if (!room) return json({ ok: true, skipped: true });
+  const { data: workspace } = await admin.from("workspaces").select("id, name").eq("id", room.workspace_id).maybeSingle();
+  const { data: sender } = await admin.from("profiles").select("display_name").eq("id", doc.created_by).maybeSingle();
+  const senderName = sender?.display_name || "Quelqu'un";
+
+  // Qui a accès au spectacle : administrateurs de l'espace, personnes assignées (ou tout le monde si ouvert à tous).
+  const { data: roomMembers } = await admin.from("room_members").select("user_id").eq("room_id", room.id);
+  const inRoom = new Set((roomMembers ?? []).map((row: { user_id: string }) => row.user_id));
+  const { data: members } = await admin.from("workspace_members").select("user_id, role").eq("workspace_id", room.workspace_id);
+  const recipients = new Set<string>();
+  for (const m of members ?? []) if (m.role === "admin" || room.everyone || inRoom.has(m.user_id)) recipients.add(m.user_id);
+  const { data: supers } = await admin.from("profiles").select("id").eq("is_super_admin", true);
+  for (const s of supers ?? []) recipients.add(s.id);
+  if (doc.created_by) recipients.delete(doc.created_by);
+
+  const now = Date.now();
+  const ids = [...recipients];
+  if (!ids.length) return json({ ok: true, sent: 0 });
+  const { data: mutes } = await admin.from("notification_mutes").select("*").in("user_id", ids);
+  const muted = (uid: string, scope: string, target: string) =>
+    (mutes ?? []).some(
+      // deno-lint-ignore no-explicit-any
+      (m: any) =>
+        m.user_id === uid && m.scope === scope && m.target_id === target && (m.forever || (m.muted_until && new Date(m.muted_until).getTime() > now)),
+    );
+  const targets = ids.filter((uid) => !muted(uid, "workspace", room.workspace_id) && !muted(uid, "room", room.id));
+  if (!targets.length) return json({ ok: true, sent: 0 });
+  const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
+  if (!subs?.length) return json({ ok: true, sent: 0 });
+
+  // Ouverture : le premier sous-salon du spectacle (celui ouvert à tous en priorité).
+  const { data: channels } = await admin
+    .from("channels")
+    .select("id, everyone, created_at")
+    .eq("room_id", room.id)
+    .eq("kind", "channel")
+    .order("everyone", { ascending: false })
+    .order("created_at", { ascending: true })
+    .limit(1);
+  const channelId = channels?.[0]?.id ?? null;
+
+  let sent = 0;
+  await Promise.all(
+    // deno-lint-ignore no-explicit-any
+    subs.map(async (sub: any) => {
+      const notification = JSON.stringify({
+        kind: "doc",
+        title: `📄 Nouveau PDF · ${room.name} · ${workspace?.name ?? "ThyChat"}`,
+        body: clip(`${senderName} a ajouté ${detail}`, 160),
+        tag: `doc-${room.id}`,
+        channel_id: channelId,
+        workspace_id: room.workspace_id,
+        url: `./?w=${room.workspace_id}${channelId ? "&c=" + channelId : ""}`,
+      });
+      try {
+        await webpush.sendNotification({ endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } }, notification, {
+          TTL: 60 * 60 * 24,
+          urgency: "normal",
+        });
+        sent++;
+      } catch (error) {
+        const status = (error as { statusCode?: number }).statusCode;
+        if (status === 404 || status === 410) await admin.from("push_subscriptions").delete().eq("id", sub.id);
+        else console.error("Envoi push échoué", status, (error as Error).message);
+      }
+    }),
+  );
+  return json({ ok: true, sent });
+}
+
 Deno.serve(async (req) => {
   if (req.headers.get("x-webhook-secret") !== Deno.env.get("PUSH_WEBHOOK_SECRET")) {
     return json({ error: "Non autorisé" }, 401);
@@ -20,8 +108,10 @@ Deno.serve(async (req) => {
 
   try {
     const payload = await req.json();
+    const table = payload?.table;
     const message = payload?.record;
-    if (payload?.type !== "INSERT" || payload?.table !== "messages" || !message || message.parent_id) {
+    const isDocument = table === "tag_documents" || table === "room_sheets";
+    if (payload?.type !== "INSERT" || !message || (table !== "messages" && !isDocument) || (table === "messages" && message.parent_id)) {
       return json({ ok: true, skipped: true });
     }
 
@@ -33,6 +123,8 @@ Deno.serve(async (req) => {
       Deno.env.get("VAPID_PUBLIC_KEY")!,
       Deno.env.get("VAPID_PRIVATE_KEY")!,
     );
+
+    if (isDocument) return await notifyDocument(admin, table, message);
 
     const { data: channel } = await admin
       .from("channels")
