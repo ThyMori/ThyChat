@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.17.1 — 2026-11-14
+- Changer d'espace rouvre le dernier fil de cet espace (jamais un message privé)
+- page vide s'il n'y en a aucun
+
 ## 3.17.0 — 2026-11-14
 - Menu : espace et membres, notifications, installation et déconnexion regroupés dans une roue crantée à côté du profil
 

@@ -1020,7 +1020,10 @@ export function createChat({ supabase, user }) {
     state.pendingDeepLink = null;
     const wanted = preferredId || deep?.w || readLast().ws;
     const target = state.workspaces.find((ws) => ws.id === wanted) || state.workspaces[0];
-    await selectWorkspace(target.id, deep?.c);
+    // Au démarrage on rouvre exactement ce qui était affiché (même un message privé) ; en changeant d'espace, non.
+    const last = readLast();
+    const reopen = deep?.c || (!preferredId && last.ws === target.id ? last.channel : undefined);
+    await selectWorkspace(target.id, reopen);
   }
 
   async function selectWorkspace(id, channelId) {
@@ -1029,8 +1032,12 @@ export function createChat({ supabase, user }) {
     writeLast({ ws: id });
     state.selectedId = null;
     renderWorkspaceHeader();
-    const remembered = readLast().channel;
-    await selectChannel(pickChannel(channelId || remembered));
+    if (channelId && state.allChannels.some((c) => c.id === channelId)) return selectChannel(channelId);
+    // Changement d'espace : dernier sous-salon ouvert dans CET espace, sinon le premier ; s'il n'y en a aucun, page vide.
+    const mine = salons();
+    const remembered = (readLast().chans || {})[id];
+    const target = mine.find((c) => c.id === remembered) || mine[0];
+    await selectChannel(target ? target.id : null);
   }
 
   async function selectChannel(id) {
@@ -1067,6 +1074,7 @@ export function createChat({ supabase, user }) {
     }
 
     writeLast({ channel: state.channel.id });
+    if (state.channel.kind !== "dm" && state.ws) writeLast({ chans: { ...(readLast().chans || {}), [state.ws.id]: state.channel.id } });
     if (state.channel.room_id) state.openRooms.add(state.channel.room_id);
     renderChannels();
     guardHistory();
