@@ -15,13 +15,49 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="stylesheet" href="css/style.css">
   <!-- Capture le fragment d'URL avant que Supabase ne le consomme (liens d'invitation / de réinitialisation). -->
-  <script>window.__initialHash = location.hash;</script>
+  <script>
+    window.__initialHash = location.hash;
+    // Filet de sécurité : si l'application n'a pas démarré après 8 s (fichier introuvable,
+    // ancienne version en cache…), on affiche l'erreur et un bouton de réinitialisation.
+    window.__lastError = "";
+    window.addEventListener("error", function (e) { window.__lastError = e.message || "Erreur de chargement"; });
+    window.addEventListener("unhandledrejection", function (e) {
+      window.__lastError = (e.reason && e.reason.message) || String(e.reason);
+    });
+    window.__showLoadingError = function () {
+      var box = document.getElementById("loading-error");
+      var detail = document.getElementById("loading-error-detail");
+      if (detail && window.__lastError) detail.textContent = window.__lastError;
+      if (box) box.hidden = false;
+    };
+    setTimeout(function () { if (!window.__booted) window.__showLoadingError(); }, 8000);
+    // Supprime le service worker et les caches (la session de connexion est conservée), puis recharge.
+    window.__resetApp = function () {
+      var tasks = [];
+      if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) {
+        tasks.push(navigator.serviceWorker.getRegistrations().then(function (list) {
+          return Promise.all(list.map(function (r) { return r.unregister(); }));
+        }));
+      }
+      if (window.caches) {
+        tasks.push(caches.keys().then(function (keys) {
+          return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+        }));
+      }
+      Promise.all(tasks).catch(function () {}).then(function () { location.reload(); });
+    };
+  </script>
 </head>
 <body>
 
   <main id="screen-loading" class="screen center" aria-live="polite">
     <div class="brand-mark" aria-hidden="true"></div>
     <p class="muted">Chargement…</p>
+    <div id="loading-error" class="notice" data-kind="error" role="alert" hidden>
+      <p>Un problème empêche le démarrage de l'application.</p>
+      <p id="loading-error-detail" class="fineprint"></p>
+      <button type="button" class="primary" onclick="window.__resetApp()">Réinitialiser et recharger</button>
+    </div>
   </main>
 
   <main id="screen-login" class="screen center" hidden>

@@ -5,6 +5,7 @@ const $ = (selector) => document.querySelector(selector);
 const SCREENS = ["loading", "login", "set-password", "app"];
 
 function show(name) {
+  if (name !== "loading") window.__booted = true;
   for (const screen of SCREENS) {
     $(`#screen-${screen}`).hidden = screen !== name;
   }
@@ -59,6 +60,14 @@ function friendlyAuthError(error) {
   if (/rate limit|too many/i.test(message)) return "Trop de tentatives. Réessaie dans quelques minutes.";
   if (/failed to fetch|network/i.test(message)) return "Connexion impossible. Vérifie ta connexion internet.";
   return message || "Une erreur est survenue.";
+}
+
+// Erreur au démarrage : on l'affiche avec un bouton de réinitialisation au lieu de rester bloqué.
+function showStartupError(error) {
+  console.error("Erreur de démarrage :", error);
+  window.__lastError = (error && error.message) || String(error);
+  show("loading");
+  window.__showLoadingError();
 }
 
 // --- Routage selon l'état de session --------------------------------------
@@ -122,7 +131,7 @@ async function main() {
     setTimeout(() => {
       if (event === "PASSWORD_RECOVERY") needsPassword = true;
       if (event === "SIGNED_OUT") needsPassword = false;
-      route(session);
+      route(session).catch(showStartupError);
     }, 0);
   });
 
@@ -232,4 +241,4 @@ $("#logout").addEventListener("click", async () => {
   await supabase.auth.signOut();
 });
 
-main();
+main().catch(showStartupError);

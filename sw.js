@@ -3,7 +3,7 @@
 // publiées sur GitHub Pages apparaissent tout de suite), repli sur le cache hors ligne.
 // Les appels à Supabase et aux CDN ne sont jamais interceptés ni mis en cache.
 
-const CACHE = "thychat-shell-v2";
+const CACHE = "thychat-shell-v3";
 const SHELL = [
   "./",
   "index.html",
@@ -38,7 +38,9 @@ self.addEventListener("fetch", (event) => {
   if (url.origin !== self.location.origin) return;
 
   event.respondWith(
-    fetch(request)
+    // « no-cache » : toujours revalider auprès du serveur, pour ne jamais mélanger
+    // d'anciens et de nouveaux fichiers (GitHub Pages met les fichiers en cache ~10 min).
+    fetch(request, { cache: "no-cache" })
       .then((response) => {
         if (response.ok) {
           const copy = response.clone();

@@ -51,6 +51,10 @@ body {
 
 .muted { color: var(--muted); margin: 0; }
 
+#loading-error { max-width: 360px; text-align: center; }
+#loading-error p { margin: 0 0 8px; }
+#loading-error .fineprint { margin: 0 0 4px; word-break: break-word; }
+
 /* Carte de connexion */
 .card {
   width: 100%;

@@ -58,3 +58,7 @@ Les administrateurs d'un espace créent les canaux et gèrent les membres ; les 
 - [ ] Notifications push
 - [ ] Indicateurs de messages non lus
 - [ ] Gestion des membres (retirer, changer de rôle) et des canaux (renommer, supprimer)
+
+## Dépannage
+
+**L'écran reste sur « Chargement… »** : après 8 secondes, l'application affiche un bandeau avec le détail de l'erreur et un bouton **Réinitialiser et recharger**. Il supprime le service worker et les caches (la session de connexion est conservée). Si le bandeau n'apparaît pas, faire un rechargement forcé (Ctrl/Cmd + Maj + R) ou vider les données du site dans le navigateur.
