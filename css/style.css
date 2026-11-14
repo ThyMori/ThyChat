@@ -1043,3 +1043,10 @@ dialog.docs { width: min(560px, 94vw); }
 .dm-zone .channel-item[aria-current="true"] { background: hsl(220 7% 20%); }
 .dm-zone .avatar.soft, .chat.is-dm .avatar.soft { background: hsl(220 7% 23%); color: hsl(220 12% 82%); }
 .chat.is-dm .msg-quote { border-left-color: hsl(215 14% 60%); }
+
+/* Fiche technique */
+.sheet-form { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; padding-top: 6px; border-top: 1px solid var(--border); }
+.sheet-form h4 { margin: 8px 0 0; }
+.doc-open.latest { border-color: var(--accent); }
+.doc-name.two { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
+.doc-name.two small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

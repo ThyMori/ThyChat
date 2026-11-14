@@ -38,3 +38,15 @@ export async function signDocument(supabase, path) {
   if (error || !data || !data.signedUrl) throw error || new Error("Lien indisponible");
   return data.signedUrl;
 }
+
+// Fiche technique d'un spectacle : rangée dans <salon>/fiche/<identifiant>.pdf (même stockage privé).
+export async function uploadRoomSheet(supabase, roomId, file) {
+  const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
+  const path = `${roomId}/fiche/${id}.pdf`;
+  const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
+    contentType: "application/pdf",
+    cacheControl: "3600",
+  });
+  if (error) throw error;
+  return { path, name: String(file.name || "Fiche technique.pdf").slice(0, 160), size_bytes: file.size };
+}

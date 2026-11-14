@@ -5,7 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
-import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadTagDocument, removeTagDocuments, signDocument } from "./documents.js";
+import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocument } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
@@ -245,6 +245,7 @@ export function createChat({ supabase, user }) {
     allChannels: [], // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     dmActivity: new Map(), // id du message privé -> date du dernier message
+    sheets: [], // fiches techniques des spectacles : { id, room_id, name, path, version_date, size_bytes }
     tagDocs: [], // documents PDF des dates : { id, tag_id, name, path, size_bytes }
     focus: null, // message à montrer à l'ouverture d'un sous-salon (résultat de recherche) : { id, at }
     channel: null,
@@ -470,6 +471,9 @@ export function createChat({ supabase, user }) {
     // Documents des dates (migration 012 : sans elle, simplement aucun document).
     const docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at").order("created_at");
     state.tagDocs = docsResult.error ? [] : docsResult.data || [];
+    // Fiches techniques (migration 013 : sans elle, simplement aucune fiche).
+    const sheetsResult = await supabase.from("room_sheets").select("id, room_id, name, path, version_date, size_bytes, created_at");
+    state.sheets = sheetsResult.error ? [] : sheetsResult.data || [];
 
     const dmIds = state.allChannels.filter((c) => c.kind === "dm").map((c) => c.id);
     state.dmMembers = new Map();
@@ -1125,6 +1129,7 @@ export function createChat({ supabase, user }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tag_documents" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_sheets" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channel_members" }, refreshStructureSoon)
       .subscribe();
@@ -1371,7 +1376,10 @@ export function createChat({ supabase, user }) {
     const roomId = currentRoomId();
     const tags = roomId ? tagsOfRoom(roomId) : [];
     const manage = Boolean(roomId) && isAdmin();
-    $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage);
+    const sheets = roomId ? sheetsOfRoom(roomId) : [];
+    $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage && !sheets.length);
+    $("#room-sheet").hidden = !roomId || (!sheets.length && !manage);
+    $("#room-sheet-label").textContent = sheets.length ? `Fiche technique · ${shortDate(sheets[0].version_date)}` : "Fiche technique";
     $("#tags-manage").hidden = !manage;
     const roomDocs = roomId ? docsOfRoom(roomId) : [];
     $("#tags-docs").hidden = !roomId || (!roomDocs.length && !manage);
@@ -1508,8 +1516,18 @@ export function createChat({ supabase, user }) {
       if (today < tag.start_date) section.append(el("p", "travel-note", "Veille : départ demain"));
       else if (today > (tag.end_date || tag.start_date)) section.append(el("p", "travel-note", "Lendemain : retour"));
       if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
+      const sheet = sheetsOfRoom(tag.room_id)[0];
+      if (sheet) {
+        const open = el("button", "doc-open latest");
+        open.type = "button";
+        open.dataset.openDoc = sheet.id;
+        const text = el("span", "doc-name two");
+        text.append(el("strong", "", "Fiche technique"), el("small", "muted", `Version du ${shortDate(sheet.version_date)}`));
+        open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
+        section.append(open);
+      }
       const docs = docsOfTag(tag.id);
-      if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document."));
+      if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document pour cette date."));
       for (const doc of docs) {
         const open = el("button", "doc-open");
         open.type = "button";
@@ -1529,6 +1547,102 @@ export function createChat({ supabase, user }) {
     return state.tagDocs.filter((d) => ids.has(d.tag_id));
   };
   let docsTarget = null; // date qui reçoit les fichiers choisis
+
+  // Fiches techniques : la version la plus récente d'abord.
+  const sheetsOfRoom = (roomId) =>
+    state.sheets
+      .filter((s) => s.room_id === roomId)
+      .sort((a, b) => b.version_date.localeCompare(a.version_date) || String(b.created_at).localeCompare(String(a.created_at)));
+
+  function openSheet() {
+    const roomId = currentRoomId();
+    if (!roomId) return;
+    const room = roomById(roomId);
+    $("#sheet-title").textContent = room ? `Fiche technique · ${room.name}` : "Fiche technique";
+    $("#sheet-note").textContent = isAdmin()
+      ? "Ajoute chaque nouvelle version du PDF (15 Mo au plus) en précisant sa date : la plus récente est mise en avant, les précédentes restent consultables."
+      : "La version la plus récente est mise en avant ; les précédentes restent consultables.";
+    $("#sheet-form").hidden = !isAdmin();
+    $("#sheet-date").value = toISO(new Date());
+    setNotice("#sheet-message", "");
+    renderSheet();
+    openDialog("#dialog-sheet");
+  }
+
+  function sheetRow(sheet, latest) {
+    const row = el("div", "doc-row");
+    const open = el("button", "doc-open" + (latest ? " latest" : ""));
+    open.type = "button";
+    open.dataset.openSheet = sheet.id;
+    const text = el("span", "doc-name two");
+    text.append(el("strong", "", `Version du ${shortDate(sheet.version_date)}`), el("small", "muted", sheet.name));
+    open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
+    row.append(open);
+    if (isAdmin()) {
+      const del = el("button", "icon-btn tiny", "");
+      del.type = "button";
+      del.dataset.delSheet = sheet.id;
+      del.title = "Retirer cette version";
+      del.setAttribute("aria-label", "Retirer la version du " + shortDate(sheet.version_date));
+      del.append(icon("x"));
+      row.append(del);
+    }
+    return row;
+  }
+
+  function renderSheet() {
+    const box = $("#sheet-list");
+    box.replaceChildren();
+    const list = sheetsOfRoom(currentRoomId());
+    if (!list.length) {
+      box.append(el("p", "muted", "Aucune fiche technique pour l'instant."));
+      return;
+    }
+    const latest = el("section", "docs-tag");
+    latest.append(el("strong", "", "Version la plus récente"), sheetRow(list[0], true));
+    box.append(latest);
+    if (list.length > 1) {
+      const older = el("section", "docs-tag");
+      older.append(el("strong", "", "Versions précédentes"));
+      for (const sheet of list.slice(1)) older.append(sheetRow(sheet, false));
+      box.append(older);
+    }
+  }
+
+  async function addSheet(file) {
+    const roomId = currentRoomId();
+    if (!roomId || !isAdmin() || !file) return;
+    const date = $("#sheet-date").value;
+    if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
+    if (!isPdf(file)) return setNotice("#sheet-message", `« ${file.name} » n'est pas un PDF.`);
+    if (file.size > MAX_PDF_BYTES) return setNotice("#sheet-message", `« ${file.name} » dépasse 15 Mo.`);
+    setNotice("#sheet-message", "Envoi…", "info");
+    let stored = null;
+    try {
+      stored = await uploadRoomSheet(supabase, roomId, file);
+      const { data, error } = await supabase.from("room_sheets").insert({ room_id: roomId, version_date: date, ...stored }).select().single();
+      if (error) throw error;
+      state.sheets.push(data);
+      setNotice("#sheet-message", "");
+    } catch (error) {
+      if (stored) await removeTagDocuments(supabase, [stored.path]);
+      const text = error && error.message ? error.message : "envoi impossible";
+      setNotice("#sheet-message", `Envoi impossible : ${text}${/bucket|not found|room_sheets/i.test(text) ? " (exécute les migrations 012 et 013)" : ""}`);
+    }
+    renderSheet();
+    renderTagBar();
+  }
+
+  async function deleteSheet(id) {
+    const sheet = state.sheets.find((s) => s.id === id);
+    if (!sheet || !window.confirm(`Retirer la version du ${shortDate(sheet.version_date)} ?`)) return;
+    const { error } = await supabase.from("room_sheets").delete().eq("id", id);
+    if (error) return setNotice("#sheet-message", "Suppression impossible : " + error.message);
+    state.sheets = state.sheets.filter((s) => s.id !== id);
+    await removeTagDocuments(supabase, [sheet.path]);
+    renderSheet();
+    renderTagBar();
+  }
 
   function openDocs() {
     if (!currentRoomId()) return;
@@ -1621,7 +1735,7 @@ export function createChat({ supabase, user }) {
   }
 
   async function openDocument(id, noticeSelector = "#docs-message") {
-    const doc = state.tagDocs.find((d) => d.id === id);
+    const doc = state.tagDocs.find((d) => d.id === id) || state.sheets.find((s) => s.id === id);
     if (!doc) return;
     // La fenêtre est ouverte tout de suite (clic de la personne) pour ne pas être bloquée, puis dirigée vers le PDF.
     const tab = window.open("", "_blank");
@@ -2342,7 +2456,7 @@ export function createChat({ supabase, user }) {
   async function deleteRoom() {
     if (!editingRoom) return;
     if (!window.confirm(`Supprimer le spectacle « ${editingRoom.name} », ses sous-salons et tous leurs messages ? Cette action est définitive.`)) return;
-    const docPaths = docsOfRoom(editingRoom.id).map((d) => d.path);
+    const docPaths = [...docsOfRoom(editingRoom.id), ...sheetsOfRoom(editingRoom.id)].map((d) => d.path);
     const { error } = await supabase.from("rooms").delete().eq("id", editingRoom.id);
     if (error) return setNotice("#room-message", "Suppression impossible : " + error.message);
     removeTagDocuments(supabase, docPaths);
@@ -3368,6 +3482,22 @@ export function createChat({ supabase, user }) {
     });
     on($("#tags-manage"), "click", openTagsDialog);
     on($("#tags-docs"), "click", openDocs);
+    on($("#room-sheet"), "click", openSheet);
+    on($("#sheet-list"), "click", (event) => {
+      const open = event.target.closest("[data-open-sheet]");
+      const del = event.target.closest("[data-del-sheet]");
+      if (open) openDocument(open.dataset.openSheet, "#sheet-message");
+      else if (del) deleteSheet(del.dataset.delSheet);
+    });
+    on($("#sheet-pick"), "click", () => {
+      if (!$("#sheet-date").value) return setNotice("#sheet-message", "Indique d'abord la date de la version.");
+      $("#sheet-file").click();
+    });
+    on($("#sheet-file"), "change", (event) => {
+      const file = event.target.files[0];
+      event.target.value = "";
+      addSheet(file);
+    });
     on($("#open-current"), "click", openCurrent);
     on($("#channel-current"), "click", openCurrent);
     on($("#current-list"), "click", async (event) => {

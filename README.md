@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `013_room_sheets.sql` | fiche technique PDF de chaque spectacle, avec la date de sa version (**indispensable à la version 3.12** ; après la 012) |
 | `012_tag_documents.sql` | documents PDF attachés aux dates de tournée : table `tag_documents` et stockage privé `tag-documents` (**indispensable à la version 3.10**) |
 | `011_search_accents.sql` | recherche dans les messages sans tenir compte des accents (sans elle, la recherche ignore seulement les majuscules) |
 | `010_private_messages_global.sql` | messages privés communs à tous les espaces (une seule discussion par paire, doublons fusionnés), suppression d'une discussion privée (**indispensable à la version 3.7** ; redéployer `send-push`) |
@@ -166,6 +167,8 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 
 - **Dates en cours** : quand une date est en cours (de **la veille du début au lendemain de la fin**, pour les trajets aller et retour), un bouton « Dates en cours » (point lumineux) apparaît dans le menu et dans l'en-tête de tous les écrans, y compris le calendrier. Il liste ces dates de tous tes spectacles, avec leurs documents, la mention « Veille : départ demain » ou « Lendemain : retour » selon le jour, la mention « Représentation aujourd'hui » et un accès direct au spectacle. Les documents sont aussi listés dans le détail d'un jour du calendrier.
 - Les documents sont visibles par toutes les personnes qui ont accès au spectacle (règle RLS des tables et du stockage).
+
+- **Fiche technique** : chaque spectacle a une fiche technique PDF (bouton « Fiche technique » de la barre des dates). Les administrateurs ajoutent chaque nouvelle version en précisant sa **date** ; la plus récente est mise en avant et les précédentes restent consultables. Elle est lisible par toutes les personnes qui ont accès au spectacle, et aussi depuis « Dates en cours ». Fichiers dans le stockage privé `tag-documents/<spectacle>/fiche/…`.
 
 ## Recherche et liste des messages privés
 

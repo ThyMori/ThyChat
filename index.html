@@ -231,6 +231,7 @@
       <div id="tag-bar" class="tag-bar" hidden>
         <span class="tag-bar-title">Dates</span>
         <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
+        <button type="button" class="ghost small" id="room-sheet" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg> <span id="room-sheet-label">Fiche technique</span></button>
         <button type="button" class="ghost small" id="tags-docs" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h6"/></svg> <span id="tags-docs-label">Documents</span></button>
         <button type="button" class="ghost small" id="tags-manage" hidden>Gérer</button>
       </div>
@@ -432,6 +433,7 @@
       <section>
         <h4>Documents des dates</h4>
         <ul>
+          <li><strong>Fiche technique</strong> : le bouton « Fiche technique » de la barre des dates ouvre la fiche technique du spectacle (PDF), avec la <strong>date de sa version</strong>. Les administrateurs ajoutent une nouvelle version quand elle change (en indiquant sa date) : la plus récente est mise en avant et les anciennes restent consultables. Toutes les personnes concernées par le spectacle peuvent la lire, y compris depuis « Dates en cours ».</li>
           <li><strong>Dates en cours</strong> : quand une date de tournée est en cours (de la veille du début au lendemain de la fin, pour tenir compte des trajets), un bouton « Dates en cours » apparaît dans le menu et en haut de chaque écran. Il ouvre la liste de ces dates dans tous tes spectacles, avec leurs documents (un toucher pour ouvrir le PDF) et un accès direct au spectacle.</li>
           <li>Le bouton <strong>Documents</strong> de la barre des dates (sous l'en-tête d'un spectacle) liste, date par date, les PDF utiles : feuilles de route, billets de train, livrets d'accueil… Touche un document pour l'ouvrir.</li>
           <li>Les <strong>administrateurs</strong> ajoutent des PDF (15 Mo au plus chacun) avec « Ajouter un PDF », et les retirent avec la croix. Toutes les personnes qui ont accès au spectacle peuvent les ouvrir ; les fichiers ne sont pas publics.</li>
@@ -481,6 +483,25 @@
       </section>
 
       <p class="version app-version help-version"></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-sheet" class="docs">
+      <h3 id="sheet-title" tabindex="-1">Fiche technique</h3>
+      <p class="muted" id="sheet-note"></p>
+      <div id="sheet-list" class="docs-list"></div>
+      <form id="sheet-form" class="sheet-form" hidden>
+        <h4>Ajouter une version</h4>
+        <label for="sheet-date">Date de la version</label>
+        <input type="date" id="sheet-date" required>
+        <input type="file" id="sheet-file" accept="application/pdf,.pdf" hidden>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" id="sheet-pick">Choisir le PDF et envoyer</button>
+        </div>
+      </form>
+      <p id="sheet-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
       </div>

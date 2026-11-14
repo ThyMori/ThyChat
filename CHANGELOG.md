@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.12.0 — 2026-11-14
+- Fiche technique PDF par spectacle, avec la date de chaque version, lisible par les personnes concernées
+
 ## 3.11.3 — 2026-11-14
 - Messages privés : couleurs neutres, indépendantes de la production ouverte
 
