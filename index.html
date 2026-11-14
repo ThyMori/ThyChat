@@ -86,6 +86,7 @@
       </form>
 
       <p class="fineprint">Accès sur invitation uniquement.</p>
+      <p class="fineprint version app-version"></p>
     </section>
   </main>
 
@@ -143,10 +144,12 @@
 
       <div class="sidebar-foot">
         <button type="button" class="ghost" id="open-members" hidden>Espace et membres</button>
+        <button type="button" class="ghost" id="open-install" hidden>Installer l'application</button>
         <div class="me">
           <span id="me-name"></span>
           <button type="button" class="ghost" id="logout">Déconnexion</button>
         </div>
+        <p class="version app-version"></p>
       </div>
     </aside>
 
@@ -161,6 +164,17 @@
           <p id="channel-desc" class="muted"></p>
         </div>
       </header>
+      <div id="install-banner" class="install-banner" role="region" aria-label="Installer l'application" hidden>
+        <img class="install-icon" src="icons/icon-192.png" alt="" width="40" height="40">
+        <div class="install-text">
+          <strong>Installe ThyChat</strong>
+          <span>Un accès en un geste depuis ton écran d'accueil, en plein écran, comme une vraie application.</span>
+        </div>
+        <div class="install-actions">
+          <button type="button" class="primary small" id="install-now">Voir comment</button>
+          <button type="button" class="ghost small" id="install-later">Plus tard</button>
+        </div>
+      </div>
 
       <div id="empty-state" class="empty" hidden>
         <h3 id="empty-title"></h3>
@@ -179,6 +193,55 @@
     </section>
 
     <div id="toast" class="toast" role="status" hidden></div>
+
+    <dialog id="dialog-install">
+      <h3 id="install-title" tabindex="-1">Installer ThyChat</h3>
+      <p class="muted">Installée, ThyChat s'ouvre en plein écran depuis ton écran d'accueil ou ton dock, comme n'importe quelle application, sans passer par le navigateur.</p>
+      <button type="button" class="primary" id="install-prompt" hidden>Installer maintenant</button>
+
+      <div id="install-how" class="install-how">
+        <details data-platform="ios">
+          <summary>iPhone et iPad <span class="here" hidden>Ton appareil</span></summary>
+          <ol>
+            <li>Ouvre ThyChat dans <strong>Safari</strong>.</li>
+            <li>Touche le bouton <strong>Partager</strong> (le carré avec une flèche vers le haut), en bas de l'écran.</li>
+            <li>Fais défiler et touche <strong>Sur l'écran d'accueil</strong>.</li>
+            <li>Touche <strong>Ajouter</strong>. L'icône ThyChat apparaît sur ton écran d'accueil : ouvre l'application depuis là.</li>
+          </ol>
+        </details>
+        <details data-platform="android">
+          <summary>Téléphone Android <span class="here" hidden>Ton appareil</span></summary>
+          <ol>
+            <li>Ouvre ThyChat dans <strong>Chrome</strong>.</li>
+            <li>Touche le menu <strong>⋮</strong> en haut à droite.</li>
+            <li>Touche <strong>Installer l'application</strong> (ou <strong>Ajouter à l'écran d'accueil</strong>), puis confirme.</li>
+          </ol>
+        </details>
+        <details data-platform="desktop-chromium">
+          <summary>Ordinateur : Chrome, Edge, Brave <span class="here" hidden>Ton appareil</span></summary>
+          <ol>
+            <li>Dans la barre d'adresse, à droite, clique sur l'icône <strong>Installer</strong> (un écran avec une flèche).</li>
+            <li>Si tu ne la vois pas : menu <strong>⋮</strong> puis <strong>Installer ThyChat</strong> (ou <strong>Enregistrer et partager</strong> puis <strong>Installer</strong> sur Chrome).</li>
+            <li>Confirme. ThyChat s'ouvre dans sa propre fenêtre et s'ajoute à tes applications.</li>
+          </ol>
+        </details>
+        <details data-platform="mac-safari">
+          <summary>Mac : Safari <span class="here" hidden>Ton appareil</span></summary>
+          <ol>
+            <li>Dans la barre de menus, clique sur <strong>Fichier</strong>.</li>
+            <li>Choisis <strong>Ajouter au Dock</strong>, puis confirme.</li>
+          </ol>
+        </details>
+        <details data-platform="firefox-desktop">
+          <summary>Ordinateur : Firefox <span class="here" hidden>Ton appareil</span></summary>
+          <p>Firefox ne permet pas d'installer des applications web sur ordinateur. Ouvre ThyChat dans Chrome, Edge ou Safari pour l'installer, ou épingle simplement l'onglet.</p>
+        </details>
+      </div>
+
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
 
     <dialog id="dialog-switch">
       <h3>Mes espaces</h3>

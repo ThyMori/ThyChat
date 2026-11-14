@@ -3,7 +3,8 @@
 // publiées sur GitHub Pages apparaissent tout de suite), repli sur le cache hors ligne.
 // Les appels à Supabase et aux CDN ne sont jamais interceptés ni mis en cache.
 
-const CACHE = "thychat-shell-v4";
+const VERSION = "1.1.0"; // géré par scripts/bump-version.mjs
+const CACHE = `thychat-shell-${VERSION}`;
 const SHELL = [
   "./",
   "index.html",
@@ -12,6 +13,8 @@ const SHELL = [
   "js/supabase.js",
   "js/chat.js",
   "js/themes.js",
+  "js/install.js",
+  "js/version.js",
   "js/config.js",
   "manifest.webmanifest",
   "icons/icon.svg",

@@ -1,7 +1,15 @@
 import { supabase, isConfigured } from "./supabase.js";
 import { createChat } from "./chat.js";
+import { initInstall } from "./install.js";
+import { VERSION } from "./version.js";
 
 const $ = (selector) => document.querySelector(selector);
+
+// Numéro de version, affiché en petit en bas de la connexion et de la barre latérale.
+for (const node of document.querySelectorAll(".app-version")) node.textContent = `v${VERSION}`;
+
+// Rappel et guide d'installation (écoute dès le départ : le navigateur n'envoie son invitation qu'une fois).
+initInstall();
 const SCREENS = ["loading", "login", "set-password", "app"];
 
 function show(name) {

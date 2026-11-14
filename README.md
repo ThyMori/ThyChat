@@ -14,6 +14,10 @@ js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
 js/chat.js              interface de messagerie (espaces, discussions, messages en temps réel, membres)
 js/themes.js            palette de couleurs : une couleur par espace
+js/install.js           rappel et guide d'installation de l'application
+js/version.js           numéro de version affiché en bas de l'application
+scripts/bump-version.mjs  incrémente la version (version.js, sw.js, CHANGELOG.md)
+CHANGELOG.md            journal des versions
 sw.js                   service worker (coquille hors ligne)
 manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
@@ -59,6 +63,14 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 ## Couleurs des espaces
 
 Chaque espace (une production, une compagnie…) a sa couleur, qui teinte toute l'interface : fond, barre latérale, bulles, boutons. À la création, ThyChat propose une couleur pas encore utilisée par tes autres espaces ; les administrateurs la changent dans **Espace et membres**. La palette est dans `js/themes.js`.
+
+## Versions
+
+Le numéro (`MAJEUR.FONCTION.ESTHÉTIQUE`) est affiché en petit en bas de l'application. À chaque livraison : `node scripts/bump-version.mjs <major|feature|fix> "description"`, puis commit. `--check` vérifie la cohérence. Détails dans `CLAUDE.md` et `CHANGELOG.md`.
+
+## Installer l'application
+
+Un bandeau propose l'installation (reportable une semaine, trois fois maximum) et le bouton **Installer l'application** du menu ouvre un guide adapté à l'appareil : iPhone/iPad, Android, Chrome/Edge, Safari sur Mac. Sur Chrome, Edge et Android, le bouton déclenche l'installation native.
 
 ## Feuille de route
 

@@ -528,3 +528,38 @@ dialog p { margin-top: 0; }
   .bubble { max-width: 86%; }
 }
 @media (min-width: 761px) { .only-mobile { display: none; } }
+
+/* --- Installation de l'application (rappel + guide) ------------------------ */
+.install-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+}
+.install-banner[hidden] { display: none; }
+.install-icon { border-radius: 10px; flex: none; }
+.install-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; font-size: 0.85rem; }
+.install-text span { color: var(--muted, inherit); opacity: 0.8; }
+.install-actions { display: flex; gap: 8px; flex: none; }
+button.small { padding: 6px 12px; font-size: 0.85rem; width: auto; }
+@media (max-width: 760px) {
+  .install-banner { flex-wrap: wrap; }
+  .install-actions { width: 100%; justify-content: flex-end; }
+}
+
+.install-how { display: flex; flex-direction: column; gap: 8px; margin: 14px 0; }
+.install-how details { border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; background: var(--bg-input); }
+.install-how summary { cursor: pointer; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.install-how ol { margin: 10px 0 2px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.9rem; }
+.install-how p { margin: 10px 0 2px; font-size: 0.9rem; }
+.here {
+  flex: none; white-space: nowrap; font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 999px;
+  background: var(--accent); color: var(--accent-ink);
+}
+.here[hidden] { display: none; }
+
+/* --- Numéro de version ----------------------------------------------------- */
+.version { margin: 8px 0 0; font-size: 0.7rem; opacity: 0.55; text-align: center; letter-spacing: 0.03em; }
+.install-actions button { padding: 8px 14px; font-size: 0.85rem; width: auto; line-height: 1.2; }
