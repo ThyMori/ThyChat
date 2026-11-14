@@ -1410,7 +1410,7 @@ export function createChat({ supabase, user }) {
     $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage && !sheets.length);
     $("#room-sheet").hidden = !roomId || (!sheets.length && !manage);
     $("#room-sheet-label").textContent = sheets.length ? `Fiche technique · ${shortDate(sheets[0].version_date)}` : "Fiche technique";
-    $("#tags-manage").hidden = !manage;
+    $("#channel-dates").hidden = !manage || state.calendarOpen;
     const roomDocs = roomId ? docsOfRoom(roomId) : [];
     $("#tags-docs").hidden = !roomId || (!roomDocs.length && !manage);
     $("#tags-docs-label").textContent = roomDocs.length ? `Documents (${roomDocs.length})` : "Documents";
@@ -1688,7 +1688,7 @@ export function createChat({ supabase, user }) {
     const admin = isAdmin();
     const tags = tagsOfRoom(roomId).filter((t) => admin || docsOfTag(t.id).length);
     if (!tags.length) {
-      box.append(el("p", "muted", admin ? "Crée d'abord une date de tournée (bouton « Gérer »)." : "Aucun document pour l'instant."));
+      box.append(el("p", "muted", admin ? "Crée d'abord une date de tournée (menu ⋮ > « Gérer les dates de tournée »)." : "Aucun document pour l'instant."));
       return;
     }
     for (const tag of tags) {
@@ -3616,7 +3616,7 @@ export function createChat({ supabase, user }) {
       state.replyTo = null;
       renderComposerExtra();
     });
-    on($("#tags-manage"), "click", openTagsDialog);
+    on($("#channel-dates"), "click", openTagsDialog);
     on($("#tags-docs"), "click", openDocs);
     on($("#room-sheet"), "click", openSheet);
     on($("#sheet-list"), "click", (event) => {

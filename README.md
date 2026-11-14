@@ -129,7 +129,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 
 ## Dates de tournée, réponses et citations
 
-- **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom, un début et une fin, et les dates de représentation ★) dans **Gérer**, au-dessus de la conversation. Elles sont attachées au **spectacle** et servent dans tous ses sous-salons.
+- **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom, un début et une fin, et les dates de représentation ★) dans le menu **⋮** en haut à droite (« Gérer les dates de tournée »). Elles sont attachées au **spectacle** et servent dans tous ses sous-salons.
 - Dans un message, taper **#** propose les dates du spectacle ; le choix ajoute une pastille au message (plusieurs possibles, facultatif).
 - Le **filtre** « Dates » au-dessus de la conversation n'affiche que les messages portant les dates choisies ; « Toutes » l'efface.
 - **Répondre** et **Citer** : toucher un message affiche ces deux actions. Répondre affiche le message d'origine au-dessus de la réponse (toucher la citation y mène) ; Citer copie un extrait dans le message en cours.
