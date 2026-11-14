@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.24.2 — 2026-11-14
+- Le salon racine d'un spectacle (Général) affiche une maison ⌂ au lieu du G
+
 ## 3.24.1 — 2026-11-14
 - Fenêtre des dates de tournée : le formulaire n'apparaît plus qu'avec le bouton + Ajouter une date (ou en modifiant une date)
 

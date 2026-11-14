@@ -416,6 +416,7 @@ export function createChat({ supabase, user }) {
     const pick = (list) => list.slice().sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name, "fr"))[0] || null;
     return pick(all.filter((c) => c.everyone)) || pick(all);
   }
+  const ROOT_GLYPH = "⌂"; // le salon racine d'un spectacle (« Général ») porte une maison plutôt qu'un G
   const isRoot = (channel) => Boolean(channel && channel.kind === "channel" && rootOf(channel.room_id)?.id === channel.id);
   const subsOfRoom = (roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
   const roomById = (id) => state.allRooms.find((r) => r.id === id) || null;
@@ -699,7 +700,7 @@ export function createChat({ supabase, user }) {
       item.classList.add("dm");
       item.append(partner ? avatarFor(partner, "tiny soft") : el("span", "avatar tiny soft", "?"));
     } else {
-      item.append(el("span", "avatar tiny soft", initials(channel.name, 1)));
+      item.append(el("span", "avatar tiny soft", isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1)));
     }
 
     const text = el("span", "channel-text");
@@ -822,7 +823,7 @@ export function createChat({ supabase, user }) {
       avatar.className = partner.className;
       avatar.append(...partner.childNodes);
     } else if (channel) {
-      avatar.textContent = initials(channel.name, 1);
+      avatar.textContent = isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1);
     }
     avatar.hidden = !channel;
     const rootRoom = channel && isRoot(channel) ? roomById(channel.room_id) : null;
@@ -1299,7 +1300,7 @@ export function createChat({ supabase, user }) {
         const button = el("button", "pick-button");
         button.type = "button";
         button.dataset.target = channel.id;
-        button.append(el("span", "avatar small soft", initials(channel.name, 1)), el("span", "pick-name", root && channel.id === root.id ? `${channel.name} (salon du spectacle)` : channel.name));
+        button.append(el("span", "avatar small soft", isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1)), el("span", "pick-name", root && channel.id === root.id ? `${channel.name} (salon du spectacle)` : channel.name));
         item.append(button);
         list.append(item);
       }
