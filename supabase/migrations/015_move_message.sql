@@ -2,7 +2,7 @@
 -- (en cas d'erreur). À coller dans Supabase > SQL Editor > Run. Rejouable.
 --
 -- Règles : réservé aux administrateurs ; même espace ; pas de messages privés ; les photos suivent le message
--- (déplacées dans le dossier du nouveau sous-salon) ; les dates (#) sont retirées si on change de spectacle
+-- (déplacées par l'application, voir migration 016) ; les dates (#) sont retirées si on change de spectacle
 -- (elles appartiennent à un spectacle) ; les citations du message déplacé sont retirées.
 
 create or replace function public.move_message(msg uuid, target uuid)
@@ -35,13 +35,16 @@ begin
 
   same_room := src.room_id is not distinct from dst.room_id;
 
+  if exists (select 1 from public.messages where parent_id = msg and jsonb_array_length(attachments) > 0) then
+    raise exception 'Une réponse contient une photo : déplacement impossible';
+  end if;
+
   -- Le message d'abord, puis ses éventuelles réponses.
   for r in select * from public.messages where id = msg or parent_id = msg order by (parent_id is not null) loop
     newitems := '[]'::jsonb;
     for item in select * from jsonb_array_elements(r.attachments) loop
       old_path := item->>'path';
       new_path := dst.id::text || '/' || substr(old_path, 38);
-      update storage.objects set name = new_path where bucket_id = 'message-images' and name = old_path;
       newitems := newitems || jsonb_build_array(jsonb_set(item, '{path}', to_jsonb(new_path)));
     end loop;
 

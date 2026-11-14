@@ -65,3 +65,31 @@ export async function removeChannelImages(supabase, channelId) {
     /* sans conséquence : la discussion est supprimée quand même */
   }
 }
+
+// Déplace réellement des photos vers le dossier d'un autre sous-salon (administrateurs).
+// Renvoie { moved: [[ancien, nouveau], …] } ; en cas d'échec, remet en place ce qui avait été déplacé et lève l'erreur.
+export async function moveMessageImages(supabase, paths, targetChannelId) {
+  const moved = [];
+  try {
+    for (const from of paths) {
+      const to = `${targetChannelId}/${from.slice(from.indexOf("/") + 1)}`;
+      const { error } = await supabase.storage.from(BUCKET).move(from, to);
+      if (error) throw error;
+      moved.push([from, to]);
+    }
+  } catch (error) {
+    await moveBack(supabase, moved);
+    throw error;
+  }
+  return moved;
+}
+
+export async function moveBack(supabase, moved) {
+  for (const [from, to] of moved) {
+    try {
+      await supabase.storage.from(BUCKET).move(to, from);
+    } catch {
+      /* à la main : le fichier reste dans le dossier d'arrivée */
+    }
+  }
+}

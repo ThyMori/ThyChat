@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.22.1 — 2026-11-14
+- Déplacer un message : les photos sont réellement déplacées dans le stockage (migration 016)
+
 ## 3.22.0 — 2026-11-14
 - Un administrateur peut déplacer un message vers un autre sous-salon ou spectacle (bouton Déplacer)
 

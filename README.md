@@ -115,7 +115,8 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
-| `015_move_message.sql` | un administrateur déplace un message vers un autre sous-salon ou spectacle (les photos suivent, les dates # sont retirées si le spectacle change) ; **indispensable à la version 3.22** |
+| `016_move_message_photos.sql` | correctif du déplacement des photos : l'application les déplace dans le stockage ; autorisation de déplacement pour les administrateurs (**à exécuter après la 015**) |
+| `015_move_message.sql` | un administrateur déplace un message vers un autre sous-salon ou spectacle (les dates # sont retirées si le spectacle change) ; **indispensable à la version 3.22, avec la 016** |
 | `014_document_notifications.sql` | notification push à toutes les personnes concernées quand un PDF est ajouté (document d'une date ou fiche technique) ; nécessite la migration 004 ; **redéployer `send-push`** |
 | `013_room_sheets.sql` | fiche technique PDF de chaque spectacle, avec la date de sa version (**indispensable à la version 3.12** ; après la 012) |
 | `012_tag_documents.sql` | documents PDF attachés aux dates de tournée : table `tag_documents` et stockage privé `tag-documents` (**indispensable à la version 3.10**) |

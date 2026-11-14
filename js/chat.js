@@ -6,7 +6,7 @@
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
 import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
-import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths } from "./images.js";
+import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
   safeAvatarUrl,
@@ -1317,8 +1317,17 @@ export function createChat({ supabase, user }) {
     const changesRoom = !state.channel || state.channel.room_id !== target.room_id;
     const warn = changesRoom && (message.tag_ids || []).length ? " Ses dates (#) seront retirées, car elles appartiennent à un spectacle." : "";
     if (!window.confirm(`Déplacer ce message vers « ${dest} » ?${warn}`)) return;
+    // Les photos sont déplacées d'abord (stockage), puis le message ; si le message échoue, on remet les photos.
+    let moved = [];
+    const paths = (message.attachments || []).map((a) => a.path).filter(Boolean);
+    try {
+      moved = await moveMessageImages(supabase, paths, target.id);
+    } catch (e) {
+      return setNotice("#move-message", "Photos non déplacées : " + (e.message || e) + " (exécute la migration 016 dans Supabase).");
+    }
     const { error } = await supabase.rpc("move_message", { msg: message.id, target: target.id });
     if (error) {
+      await moveBack(supabase, moved);
       const missing = /move_message|PGRST202/.test(error.message || "") || error.code === "PGRST202";
       return setNotice("#move-message", missing ? "Fonction absente : exécute la migration 015 dans Supabase." : "Déplacement impossible : " + error.message);
     }
