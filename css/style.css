@@ -1059,3 +1059,13 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
   .sidebar { height: 100vh; height: 100dvh; overflow-y: auto; }
   .sidebar-foot { margin-top: auto; }
 }
+
+/* Barre des dates : rien ne se chevauche ; sur téléphone les boutons passent sur une 2e ligne. */
+.tag-bar > button { flex: none; white-space: nowrap; }
+.tag-bar .tag-chips { overflow-x: auto; }
+.tag-bar .tag-chip { flex: none; white-space: nowrap; }
+@media (max-width: 760px) {
+  .tag-bar { flex-wrap: wrap; row-gap: 6px; overflow-x: visible; }
+  .tag-bar .tag-chips { flex: 1 1 0; min-width: 0; }
+  .tag-bar > button { font-size: 0.82rem; padding: 6px 10px; }
+}

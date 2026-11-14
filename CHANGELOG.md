@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.12.4 — 2026-11-14
+- Téléphone : la barre des dates n'a plus de textes qui se chevauchent
+
 ## 3.12.3 — 2026-11-14
 - Téléphone : le bas de la liste (version, déconnexion) reste visible
 
