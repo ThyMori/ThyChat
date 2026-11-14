@@ -18,7 +18,7 @@ const cors = {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, "Content-Type": "application/json" } });
 
-type Assignment = { workspace_id: string; role: "admin" | "member"; channel_ids?: string[] };
+type Assignment = { workspace_id: string; role: "admin" | "member"; room_ids?: string[]; channel_ids?: string[] };
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -86,6 +86,20 @@ Deno.serve(async (req) => {
         .upsert({ workspace_id: a.workspace_id, user_id: userId, role: a.role }, { onConflict: "workspace_id,user_id" });
       if (error) return json({ error: error.message }, 400);
 
+      // Salons (spectacles) réservés.
+      const wantedRooms = Array.isArray(a.room_ids) ? a.room_ids.filter((id) => typeof id === "string") : [];
+      if (wantedRooms.length) {
+        const { data: validRooms } = await admin.from("rooms").select("id").eq("workspace_id", a.workspace_id).in("id", wantedRooms);
+        const rows = (validRooms ?? []).map((r) => ({ room_id: r.id, user_id: userId }));
+        if (rows.length) {
+          const { error: roomError } = await admin
+            .from("room_members")
+            .upsert(rows, { onConflict: "room_id,user_id", ignoreDuplicates: true });
+          if (roomError) return json({ error: roomError.message }, 400);
+        }
+      }
+
+      // Sous-salons réservés.
       const wanted = Array.isArray(a.channel_ids) ? a.channel_ids.filter((id) => typeof id === "string") : [];
       if (wanted.length) {
         const { data: valid } = await admin

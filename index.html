@@ -142,7 +142,7 @@
 
       <div class="section-title">
         <span>Salons</span>
-        <button type="button" class="icon-btn" id="new-channel" title="Nouveau salon" aria-label="Nouveau salon" hidden>+</button>
+        <button type="button" class="icon-btn" id="new-channel" title="Nouveau salon (un spectacle)" aria-label="Nouveau salon" hidden>+</button>
       </div>
       <nav id="channel-list" class="channel-list" aria-label="Salons"></nav>
 
@@ -177,7 +177,7 @@
           <h2 id="channel-title">ThyChat</h2>
           <p id="channel-desc" class="muted"></p>
         </div>
-        <button type="button" class="icon-btn" id="channel-edit" title="Accès au salon" aria-label="Accès au salon" hidden>⚙</button>
+        <button type="button" class="icon-btn" id="channel-edit" title="Réglages du sous-salon" aria-label="Réglages du sous-salon" hidden>⚙</button>
         <button type="button" class="icon-btn bell" id="channel-bell" title="Notifications" aria-label="Notifications" hidden>🔔</button>
       </header>
       <div id="install-banner" class="install-banner" role="region" aria-label="Installer l'application" hidden>
@@ -284,23 +284,48 @@
       </form>
     </dialog>
 
+    <dialog id="dialog-room">
+      <form id="room-form" novalidate>
+        <h3 id="room-dialog-title">Nouveau salon</h3>
+        <p class="muted">Un salon, c'est un spectacle en particulier. Il contient des sous-salons (Tous, Technique, Musiciens…).</p>
+        <label for="room-name">Nom du salon</label>
+        <input id="room-name" type="text" maxlength="80" autocomplete="off" required>
+        <label for="room-description">Description (facultatif)</label>
+        <input id="room-description" type="text" maxlength="200" autocomplete="off">
+        <fieldset class="access">
+          <legend>Qui y a accès ?</legend>
+          <label class="choice"><input type="radio" name="room-access" value="everyone" checked> Tous les utilisateurs de l'espace</label>
+          <label class="choice"><input type="radio" name="room-access" value="some"> Seulement certaines personnes</label>
+          <ul id="room-pick" class="pick-list" hidden></ul>
+          <p class="muted hint">Les administrateurs de l'espace voient tous les salons.</p>
+        </fieldset>
+        <p id="room-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="danger" id="room-delete" hidden>Supprimer le salon</button>
+          <button type="button" class="ghost" data-close>Annuler</button>
+          <button type="submit" class="primary" id="room-submit">Créer</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="dialog-channel">
       <form id="channel-form" novalidate>
-        <h3 id="channel-dialog-title">Nouveau salon</h3>
-        <label for="channel-name">Nom du salon</label>
+        <h3 id="channel-dialog-title">Nouveau sous-salon</h3>
+        <p class="muted" id="channel-room-note"></p>
+        <label for="channel-name">Nom du sous-salon</label>
         <input id="channel-name" type="text" maxlength="60" autocomplete="off" required>
         <label for="channel-description">Description (facultatif)</label>
         <input id="channel-description" type="text" maxlength="200" autocomplete="off">
         <fieldset class="access">
           <legend>Qui y a accès ?</legend>
-          <label class="choice"><input type="radio" name="channel-access" value="everyone" checked> Tous les utilisateurs de l'espace</label>
+          <label class="choice"><input type="radio" name="channel-access" value="everyone" checked> <span id="channel-everyone-label">Tous ceux qui ont accès au salon</span></label>
           <label class="choice"><input type="radio" name="channel-access" value="some"> Seulement certaines personnes</label>
           <ul id="channel-pick" class="pick-list" hidden></ul>
-          <p class="muted hint">Les administrateurs de l'espace voient tous les salons.</p>
+          <p class="muted hint">Les administrateurs de l'espace voient tous les sous-salons.</p>
         </fieldset>
         <p id="channel-message" class="notice" role="alert" hidden></p>
         <div class="dialog-actions">
-          <button type="button" class="danger" id="channel-delete" hidden>Supprimer le salon</button>
+          <button type="button" class="danger" id="channel-delete" hidden>Supprimer le sous-salon</button>
           <button type="button" class="ghost" data-close>Annuler</button>
           <button type="submit" class="primary" id="channel-submit">Créer</button>
         </div>
@@ -328,8 +353,12 @@
       </section>
       <h4>Espaces</h4>
       <ul id="mute-spaces" class="mute-list"></ul>
-      <h4 id="mute-salons-title">Salons</h4>
+      <h4 id="mute-rooms-title">Salons</h4>
+      <ul id="mute-rooms" class="mute-list"></ul>
+      <h4 id="mute-salons-title">Sous-salons</h4>
       <ul id="mute-channels" class="mute-list"></ul>
+      <h4 id="mute-dms-title">Messages privés</h4>
+      <ul id="mute-dms" class="mute-list"></ul>
       <p id="notif-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
@@ -372,9 +401,9 @@
           <ul id="invite-spaces" class="pick-list"></ul>
         </fieldset>
         <fieldset class="access" id="invite-salons-box" hidden>
-          <legend>Salons à accès restreint</legend>
+          <legend>Accès restreint</legend>
           <div id="invite-salons"></div>
-          <p class="muted hint">Les salons ouverts à tous sont accessibles automatiquement.</p>
+          <p class="muted hint">Les salons et sous-salons ouverts à tous sont accessibles automatiquement.</p>
         </fieldset>
         <p class="muted hint">La personne reçoit un e-mail pour créer son mot de passe. Si elle a déjà un compte, elle est simplement ajoutée.</p>
         <p id="invite-message" class="notice" role="alert" hidden></p>

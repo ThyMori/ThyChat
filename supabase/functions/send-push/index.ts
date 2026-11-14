@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
 
     const { data: channel } = await admin
       .from("channels")
-      .select("id, name, kind, everyone, workspace_id")
+      .select("id, name, kind, everyone, workspace_id, room_id")
       .eq("id", message.channel_id)
       .maybeSingle();
     if (!channel) return json({ ok: true, skipped: true });
@@ -44,20 +44,26 @@ Deno.serve(async (req) => {
     const { data: workspace } = await admin.from("workspaces").select("id, name").eq("id", channel.workspace_id).maybeSingle();
     const { data: sender } = await admin.from("profiles").select("display_name").eq("id", message.user_id).maybeSingle();
     const senderName = sender?.display_name || "Quelqu'un";
+    let roomName = "";
 
-    // Qui peut lire ce salon ?
+    // Qui peut lire ce sous-salon ? (accès au salon ET ouvert à tous ou assigné ; les administrateurs voient tout)
     const { data: chMembers } = await admin.from("channel_members").select("user_id").eq("channel_id", channel.id);
     const inChannel = new Set((chMembers ?? []).map((row) => row.user_id));
     let recipients = new Set<string>();
     if (channel.kind === "dm") {
       recipients = inChannel;
     } else {
+      const { data: room } = await admin.from("rooms").select("id, name, everyone").eq("id", channel.room_id).maybeSingle();
+      const { data: roomMembers } = await admin.from("room_members").select("user_id").eq("room_id", channel.room_id);
+      const inRoom = new Set((roomMembers ?? []).map((row) => row.user_id));
+      roomName = room?.name ?? "";
       const { data: members } = await admin
         .from("workspace_members")
         .select("user_id, role")
         .eq("workspace_id", channel.workspace_id);
       for (const m of members ?? []) {
-        if (m.role === "admin" || channel.everyone || inChannel.has(m.user_id)) recipients.add(m.user_id);
+        const roomOk = room?.everyone || inRoom.has(m.user_id);
+        if (m.role === "admin" || (roomOk && (channel.everyone || inChannel.has(m.user_id)))) recipients.add(m.user_id);
       }
       const { data: supers } = await admin.from("profiles").select("id").eq("is_super_admin", true);
       for (const s of supers ?? []) recipients.add(s.id);
@@ -77,7 +83,8 @@ Deno.serve(async (req) => {
           m.target_id === target &&
           (m.forever || (m.muted_until && new Date(m.muted_until).getTime() > now)),
       );
-    const mutedFor = (uid: string, ws: string, ch: string) => isMuted(uid, "workspace", ws) || isMuted(uid, "channel", ch);
+    const mutedFor = (uid: string, ws: string, ch: string) =>
+      isMuted(uid, "workspace", ws) || isMuted(uid, "channel", ch) || (channel.room_id ? isMuted(uid, "room", channel.room_id) : false);
 
     const targets = ids.filter((uid) => !mutedFor(uid, channel.workspace_id, channel.id));
     if (!targets.length) return json({ ok: true, sent: 0 });
@@ -103,8 +110,13 @@ Deno.serve(async (req) => {
             (m.forever || (m.muted_until && new Date(m.muted_until).getTime() > now)),
         );
       let total = 0;
+      const { data: roomRows } = await admin.from("channels").select("id, room_id").in("id", ((counts ?? []) as { channel_id: string }[]).map((r) => r.channel_id));
+      const roomOf = new Map((roomRows ?? []).map((r) => [r.id, r.room_id]));
       for (const row of (counts ?? []) as { channel_id: string; workspace_id: string; unread: number }[]) {
-        if (!muted("workspace", row.workspace_id) && !muted("channel", row.channel_id)) total += Number(row.unread);
+        const room = roomOf.get(row.channel_id);
+        if (!muted("workspace", row.workspace_id) && !muted("channel", row.channel_id) && !(room && muted("room", room))) {
+          total += Number(row.unread);
+        }
       }
       badgeCache.set(uid, total);
       return total;
@@ -113,7 +125,7 @@ Deno.serve(async (req) => {
     await Promise.all(
       subs.map(async (sub) => {
         const notification = JSON.stringify({
-          title: isDm ? senderName : `${channel.name} · ${workspace?.name ?? "ThyChat"}`,
+          title: isDm ? senderName : `${roomName ? roomName + " › " : ""}${channel.name} · ${workspace?.name ?? "ThyChat"}`,
           body: isDm ? text : `${senderName} : ${text}`,
           tag: channel.id,
           channel_id: channel.id,

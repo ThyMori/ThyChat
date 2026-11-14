@@ -8,6 +8,11 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.0.0 — 2026-11-14
+- Nouvelle hiérarchie : espace (production ou compagnie) > salon (un spectacle) > sous-salon (par métier), avec deux niveaux d'accès
+- les salons existants deviennent des salons avec un sous-salon « Tous »
+- migration 005 et fonctions invite-member / send-push à redéployer
+
 ## 2.0.3 — 2026-11-14
 - Bouton « Retour » du téléphone : ramène à la liste des salons ou ferme la fenêtre ouverte, au lieu de bloquer sur un écran gris
 

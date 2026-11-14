@@ -9,6 +9,7 @@ import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.
 import { safeAvatarUrl, uploadAvatar, removeAvatar, saveName, changeEmail } from "./profile.js";
 
 const LAST_KEY = "thychat:last";
+const OPEN_KEY = "thychat:open";
 const PAGE_SIZE = 100;
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
@@ -29,6 +30,22 @@ function readLast() {
     return JSON.parse(localStorage.getItem(LAST_KEY)) || {};
   } catch {
     return {};
+  }
+}
+
+function readOpen() {
+  try {
+    return new Set(JSON.parse(localStorage.getItem(OPEN_KEY)) || []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writeOpen(set) {
+  try {
+    localStorage.setItem(OPEN_KEY, JSON.stringify([...set]));
+  } catch {
+    /* stockage indisponible : sans conséquence */
   }
 }
 
@@ -129,7 +146,9 @@ export function createChat({ supabase, user }) {
   const state = {
     workspaces: [], // { id, name, role, theme }
     ws: null,
-    allChannels: [], // tous les salons et messages privés visibles : { id, workspace_id, name, description, kind, everyone }
+    allRooms: [], // salons (spectacles) visibles : { id, workspace_id, name, description, everyone }
+    openRooms: readOpen(), // salons dépliés dans la barre latérale
+    allChannels: [], // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     channel: null,
     messages: [],
@@ -151,7 +170,9 @@ export function createChat({ supabase, user }) {
   let structureTimer = null;
   let expiryTimer = null;
   let pendingTheme = DEFAULT_THEME.key;
-  let editingChannel = null; // salon en cours de modification (null = création)
+  let editingChannel = null; // sous-salon en cours de modification (null = création)
+  let channelRoomId = null; // salon (spectacle) du sous-salon en cours de création
+  let editingRoom = null; // salon (spectacle) en cours de modification (null = création)
 
   // --- Petits utilitaires d'interface ------------------------------------
 
@@ -229,10 +250,14 @@ export function createChat({ supabase, user }) {
   // --- Salons, messages privés, silences ------------------------------------
 
   const byName = (a, b) => a.name.localeCompare(b.name, "fr");
+  // Ouvert à tous d'abord (« Tous »), puis les accès restreints, chacun par ordre alphabétique.
+  const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b);
   const channelsOfWs = (wsId) => state.allChannels.filter((c) => c.workspace_id === wsId);
-  // Salons ouverts à tous d'abord (« Tous »), puis les salons à accès restreint, chacun par ordre alphabétique.
-const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b);
-  const salons = () => (state.ws ? channelsOfWs(state.ws.id).filter((c) => c.kind === "channel").sort(bySalon) : []);
+  const roomsOfWs = (wsId) => state.allRooms.filter((r) => r.workspace_id === wsId).sort(bySalon);
+  const subsOfRoom = (roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
+  const roomById = (id) => state.allRooms.find((r) => r.id === id) || null;
+  // Tous les sous-salons de l'espace courant, salon par salon.
+  const salons = () => (state.ws ? roomsOfWs(state.ws.id).flatMap((room) => subsOfRoom(room.id)) : []);
   const dmPartner = (channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
   const dms = () =>
     state.ws
@@ -263,14 +288,41 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     return { count, all, muted: isMuted(state.mutes, "workspace", wsId) };
   }
 
+  function roomUnread(room) {
+    let count = 0;
+    let all = 0;
+    for (const channel of subsOfRoom(room.id)) {
+      const n = state.unread.get(channel.id) || 0;
+      all += n;
+      if (!muted(channel)) count += n;
+    }
+    return { count, all, muted: isMuted(state.mutes, "room", room.id) || isMuted(state.mutes, "workspace", room.workspace_id) };
+  }
+
+  // Ligne de silence qui s'applique à un sous-salon : le sien, sinon celui du salon, sinon celui de l'espace.
+  function mutedRowFor(channel) {
+    if (isMuted(state.mutes, "channel", channel.id)) return channelMute(channel.id);
+    if (channel.room_id && isMuted(state.mutes, "room", channel.room_id)) return state.mutes.get(muteKey("room", channel.room_id));
+    if (isMuted(state.mutes, "workspace", channel.workspace_id)) return wsMute(channel.workspace_id);
+    return null;
+  }
+
   function totalBadge() {
     return badgeTotal(state.unread, state.allChannels, state.mutes);
   }
 
   async function loadStructure() {
+    const roomsResult = await supabase.from("rooms").select("id, workspace_id, name, description, everyone").order("name");
+    if (stopped) return false;
+    if (roomsResult.error) {
+      showFatal(roomsResult.error);
+      return false;
+    }
+    state.allRooms = roomsResult.data || [];
+
     const channelsResult = await supabase
       .from("channels")
-      .select("id, workspace_id, name, description, kind, everyone")
+      .select("id, workspace_id, room_id, name, description, kind, everyone")
       .order("name");
     if (stopped) return false;
     if (channelsResult.error) {
@@ -425,6 +477,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     const item = el("button", "channel-item");
     item.type = "button";
     item.dataset.id = channel.id;
+    if (channel.kind === "channel") item.classList.add("sub");
     if (state.channel && state.channel.id === channel.id) item.setAttribute("aria-current", "true");
     const isMuted = muted(channel);
     if (isMuted) item.classList.add("is-muted");
@@ -433,7 +486,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const partner = dmPartner(channel);
       item.append(partner ? avatarFor(partner) : el("span", "avatar soft", "?"));
     } else {
-      item.append(el("span", "avatar soft", initials(channel.name, 1)));
+      item.append(el("span", "avatar tiny soft", initials(channel.name, 1)));
     }
 
     const text = el("span", "channel-text");
@@ -444,7 +497,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     const side = el("span", "channel-side");
     if (channel.kind === "channel" && !channel.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
     if (isMuted) {
-      const label = muteLabel(channelMute(channel.id)) || muteLabel(wsMute(channel.workspace_id)) || "Silence";
+      const label = muteLabel(mutedRowFor(channel)) || "Silence";
       side.append(flag("🔕", "mute-ic", label));
     }
     const n = state.unread.get(channel.id) || 0;
@@ -453,10 +506,61 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     return item;
   }
 
+  const roomOpen = (room) => state.openRooms.has(room.id) || Boolean(state.channel && state.channel.room_id === room.id);
+
+  // Un salon (spectacle) : une ligne qui se déplie sur ses sous-salons.
+  function roomGroup(room) {
+    const group = el("div", "room-group");
+    const open = roomOpen(room);
+    const info = roomUnread(room);
+    if (info.muted) group.classList.add("is-muted");
+
+    const head = el("div", "room-head");
+    const toggle = el("button", "room-toggle");
+    toggle.type = "button";
+    toggle.dataset.room = room.id;
+    toggle.setAttribute("aria-expanded", String(open));
+    toggle.append(el("span", "chev", open ? "▾" : "▸"), el("span", "avatar small soft", initials(room.name, 1)));
+    const text = el("span", "channel-text");
+    text.append(el("span", "channel-name", room.name));
+    if (room.description) text.append(el("span", "channel-sub", room.description));
+    toggle.append(text);
+    const side = el("span", "channel-side");
+    if (!room.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
+    if (info.muted) side.append(flag("🔕", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Salon en silence"));
+    const n = info.muted ? info.all : info.count;
+    if (!open && n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
+    toggle.append(side);
+    head.append(toggle);
+
+    if (isAdmin()) {
+      const edit = el("button", "icon-btn tiny", "⚙");
+      edit.type = "button";
+      edit.dataset.roomEdit = room.id;
+      edit.title = "Réglages du salon";
+      edit.setAttribute("aria-label", "Réglages du salon " + room.name);
+      head.append(edit);
+    }
+    group.append(head);
+
+    if (open) {
+      const subs = subsOfRoom(room.id);
+      for (const channel of subs) group.append(channelItem(channel));
+      if (!subs.length) group.append(el("p", "muted empty-sub", "Aucun sous-salon pour toi ici."));
+      if (isAdmin()) {
+        const add = el("button", "add-sub", "+ Nouveau sous-salon");
+        add.type = "button";
+        add.dataset.newSub = room.id;
+        group.append(add);
+      }
+    }
+    return group;
+  }
+
   function renderChannels() {
     const list = $("#channel-list");
     list.replaceChildren();
-    for (const channel of salons()) list.append(channelItem(channel));
+    if (state.ws) for (const room of roomsOfWs(state.ws.id)) list.append(roomGroup(room));
 
     const dmList = $("#dm-list");
     dmList.replaceChildren();
@@ -483,12 +587,12 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     const parts = [];
     if (channel && state.ws) parts.push(state.ws.name);
     if (channel && channel.kind === "dm") parts.push("Message privé");
-    else if (channel && channel.description) parts.push(channel.description);
-    let muteNote = "";
-    if (channel) {
-      const row = isMuted(state.mutes, "channel", channel.id) ? channelMute(channel.id) : wsMute(channel.workspace_id);
-      muteNote = muteLabel(row);
+    else if (channel) {
+      const room = roomById(channel.room_id);
+      if (room) parts.push(room.name);
+      if (channel.description) parts.push(channel.description);
     }
+    const muteNote = channel ? muteLabel(mutedRowFor(channel)) : "";
     if (muteNote) parts.push("🔕 " + muteNote);
     $("#channel-desc").textContent = parts.join(" · ");
 
@@ -592,7 +696,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     setView("empty", {
       title: "La base n'est pas prête",
       text:
-        "Exécute le fichier supabase/migrations/003_roles_salons_push.sql (ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
+        "Exécute le fichier supabase/migrations/005_rooms.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
         error.message +
         ")",
     });
@@ -682,16 +786,18 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       setView("empty", {
         title: "Aucun salon",
         text: isAdmin()
-          ? "Crée le premier salon de cet espace (par exemple « Tous » ou « Technique »)."
+          ? "Crée le premier salon de cet espace : un spectacle, avec ses sous-salons (Tous, Technique, Musiciens…)."
           : "Tu n'as accès à aucun salon dans cet espace pour l'instant. Un administrateur peut t'y ajouter.",
         action: isAdmin() ? "Créer un salon" : "",
-        onAction: () => openChannelDialog(null),
+        onAction: () => openRoomDialog(null),
       });
       closeSidebar();
       return;
     }
 
     writeLast({ channel: state.channel.id });
+    if (state.channel.room_id) state.openRooms.add(state.channel.room_id);
+    renderChannels();
     guardHistory();
     setView("chat");
     state.messages = [];
@@ -730,6 +836,8 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     state.realtime = supabase
       .channel("thychat:live")
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, onRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channel_members" }, refreshStructureSoon)
       .subscribe();
@@ -887,8 +995,11 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       button.disabled = false;
       return setNotice("#workspace-message", "Création impossible : " + error.message);
     }
-    // Le créateur est devenu administrateur (trigger SQL) : on crée un premier salon ouvert à tous.
-    await supabase.from("channels").insert({ workspace_id: data.id, name: "Tous", everyone: true });
+    // Le créateur est devenu administrateur (trigger SQL) : on crée un premier salon et son sous-salon « Tous ».
+    const room = await supabase.from("rooms").insert({ workspace_id: data.id, name: "Général", everyone: true }).select().single();
+    if (room.data) {
+      await supabase.from("channels").insert({ workspace_id: data.id, room_id: room.data.id, name: "Tous", everyone: true });
+    }
     button.disabled = false;
     closeDialog($("#dialog-workspace"));
     if (!state.themeColumn) toast(THEME_SQL_HINT, "info");
@@ -940,12 +1051,134 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     }
   }
 
-  const accessMode = () => document.querySelector('input[name="channel-access"]:checked')?.value || "everyone";
+  const accessMode = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || "everyone";
 
-  async function openChannelDialog(channel) {
+  // Utilisateurs (non administrateurs) qui ont accès à un salon : base du choix pour ses sous-salons.
+  async function roomUsers(room) {
+    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
+    if (room.everyone) return users;
+    const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
+    const ids = new Set((data || []).map((row) => row.user_id));
+    return users.filter((row) => ids.has(row.user_id));
+  }
+
+  // Aligne une table d'assignations (room_members ou channel_members) sur la liste cochée.
+  async function syncMembers(table, keyColumn, keyValue, wanted) {
+    const { data: current } = await supabase.from(table).select("user_id").eq(keyColumn, keyValue);
+    const have = new Set((current || []).map((row) => row.user_id));
+    const want = new Set(wanted);
+    const added = [...want].filter((id) => !have.has(id));
+    const removed = [...have].filter((id) => !want.has(id));
+    if (added.length) await supabase.from(table).insert(added.map((id) => ({ [keyColumn]: keyValue, user_id: id })));
+    if (removed.length) await supabase.from(table).delete().eq(keyColumn, keyValue).in("user_id", removed);
+  }
+
+  // --- Salons (spectacles) ---
+
+  async function openRoomDialog(room) {
+    if (!state.ws || !isAdmin()) return;
+    editingRoom = room || null;
+    $("#room-dialog-title").textContent = room ? "Salon" : "Nouveau salon";
+    $("#room-submit").textContent = room ? "Enregistrer" : "Créer";
+    $("#room-delete").hidden = !room;
+    $("#room-name").value = room ? room.name : "";
+    $("#room-description").value = room?.description || "";
+    const mode = room && !room.everyone ? "some" : "everyone";
+    for (const radio of document.querySelectorAll('input[name="room-access"]')) radio.checked = radio.value === mode;
+    setNotice("#room-message", "");
+    $("#room-pick").hidden = mode !== "some";
+    openDialog("#dialog-room");
+    $("#room-name").focus();
+
+    let checked = new Set();
+    if (room) {
+      const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
+      checked = new Set((data || []).map((row) => row.user_id));
+    }
+    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
+    renderPick($("#room-pick"), users, checked);
+  }
+
+  async function submitRoom(event) {
+    event.preventDefault();
+    const name = $("#room-name").value.trim();
+    const description = $("#room-description").value.trim();
+    if (!name) return setNotice("#room-message", "Donne un nom au salon.");
+    const everyone = accessMode("room-access") === "everyone";
+    const picked = [...document.querySelectorAll("#room-pick input:checked")].map((box) => box.value);
+
+    const button = $("#room-submit");
+    button.disabled = true;
+    setNotice("#room-message", "");
+    const fail = (error) => {
+      button.disabled = false;
+      setNotice("#room-message", error.code === "23505" ? "Un salon porte déjà ce nom." : "Enregistrement impossible : " + error.message);
+    };
+
+    let room;
+    let firstChannel = null;
+    if (editingRoom) {
+      const { data, error } = await supabase
+        .from("rooms")
+        .update({ name, description: description || null, everyone })
+        .eq("id", editingRoom.id)
+        .select()
+        .single();
+      if (error) return fail(error);
+      room = data;
+      if (!everyone) await syncMembers("room_members", "room_id", room.id, picked);
+    } else {
+      const { data, error } = await supabase
+        .from("rooms")
+        .insert({ workspace_id: state.ws.id, name, description: description || null, everyone })
+        .select()
+        .single();
+      if (error) return fail(error);
+      room = data;
+      if (!everyone && picked.length) {
+        await supabase.from("room_members").insert(picked.map((id) => ({ room_id: room.id, user_id: id })));
+      }
+      // Chaque salon démarre avec un sous-salon « Tous ».
+      const first = await supabase
+        .from("channels")
+        .insert({ workspace_id: state.ws.id, room_id: room.id, name: "Tous", everyone: true })
+        .select()
+        .single();
+      firstChannel = first.data;
+    }
+
+    button.disabled = false;
+    const created = !editingRoom;
+    editingRoom = null;
+    closeDialog($("#dialog-room"));
+    if (created) state.openRooms.add(room.id);
+    await refreshStructure();
+    if (created && firstChannel) await selectChannel(firstChannel.id);
+  }
+
+  async function deleteRoom() {
+    if (!editingRoom) return;
+    if (!window.confirm(`Supprimer le salon « ${editingRoom.name} », ses sous-salons et tous leurs messages ? Cette action est définitive.`)) return;
+    const { error } = await supabase.from("rooms").delete().eq("id", editingRoom.id);
+    if (error) return setNotice("#room-message", "Suppression impossible : " + error.message);
+    closeDialog($("#dialog-room"));
+    editingRoom = null;
+    await refreshStructure();
+  }
+
+  // --- Sous-salons ---
+
+  async function openChannelDialog(channel, roomId) {
     if (!state.ws || !isAdmin()) return;
     editingChannel = channel || null;
-    $("#channel-dialog-title").textContent = channel ? "Salon" : "Nouveau salon";
+    channelRoomId = channel ? channel.room_id : roomId;
+    const room = roomById(channelRoomId);
+    if (!room) return;
+    $("#channel-dialog-title").textContent = channel ? "Sous-salon" : "Nouveau sous-salon";
+    $("#channel-room-note").textContent = `Dans le salon « ${room.name} ».`;
+    $("#channel-everyone-label").textContent = room.everyone
+      ? "Tous les utilisateurs de l'espace"
+      : `Tous ceux qui ont accès à « ${room.name} »`;
     $("#channel-submit").textContent = channel ? "Enregistrer" : "Créer";
     $("#channel-delete").hidden = !channel;
     $("#channel-name").value = channel ? channel.name : "";
@@ -962,17 +1195,16 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const { data } = await supabase.from("channel_members").select("user_id").eq("channel_id", channel.id);
       checked = new Set((data || []).map((row) => row.user_id));
     }
-    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
-    renderPick($("#channel-pick"), users, checked);
+    renderPick($("#channel-pick"), await roomUsers(room), checked);
   }
 
   async function submitChannel(event) {
     event.preventDefault();
     const name = $("#channel-name").value.trim().replace(/^#+\s*/, "");
     const description = $("#channel-description").value.trim();
-    if (!name) return setNotice("#channel-message", "Donne un nom au salon.");
+    if (!name) return setNotice("#channel-message", "Donne un nom au sous-salon.");
 
-    const everyone = accessMode() === "everyone";
+    const everyone = accessMode("channel-access") === "everyone";
     const picked = [...document.querySelectorAll("#channel-pick input:checked")].map((box) => box.value);
 
     const button = $("#channel-submit");
@@ -989,22 +1221,12 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
         .single();
       if (error) return channelError(error, button);
       channel = data;
-      // Aligne la liste des personnes assignées.
-      const { data: current } = await supabase.from("channel_members").select("user_id").eq("channel_id", channel.id);
-      const have = new Set((current || []).map((row) => row.user_id));
-      const want = new Set(everyone ? [] : picked);
-      const added = [...want].filter((id) => !have.has(id));
-      const removed = [...have].filter((id) => !want.has(id));
-      if (everyone) {
-        // Ouvert à tous : les assignations n'ont plus d'effet, on les garde pour un éventuel retour.
-      } else {
-        if (added.length) await supabase.from("channel_members").insert(added.map((id) => ({ channel_id: channel.id, user_id: id })));
-        if (removed.length) await supabase.from("channel_members").delete().eq("channel_id", channel.id).in("user_id", removed);
-      }
+      // Ouvert à tous : les assignations n'ont plus d'effet, on les garde pour un éventuel retour.
+      if (!everyone) await syncMembers("channel_members", "channel_id", channel.id, picked);
     } else {
       const { data, error } = await supabase
         .from("channels")
-        .insert({ workspace_id: state.ws.id, name, description: description || null, everyone })
+        .insert({ workspace_id: state.ws.id, room_id: channelRoomId, name, description: description || null, everyone })
         .select()
         .single();
       if (error) return channelError(error, button);
@@ -1015,21 +1237,23 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     }
 
     button.disabled = false;
-    closeDialog($("#dialog-channel"));
-    await refreshStructure();
-    if (!editingChannel) await selectChannel(channel.id);
+    const created = !editingChannel;
     editingChannel = null;
+    closeDialog($("#dialog-channel"));
+    if (created) state.openRooms.add(channelRoomId);
+    await refreshStructure();
+    if (created) await selectChannel(channel.id);
   }
 
   function channelError(error, button) {
     button.disabled = false;
-    const text = error.code === "23505" ? "Un salon porte déjà ce nom." : "Enregistrement impossible : " + error.message;
+    const text = error.code === "23505" ? "Un sous-salon porte déjà ce nom dans ce salon." : "Enregistrement impossible : " + error.message;
     setNotice("#channel-message", text);
   }
 
   async function deleteChannel() {
     if (!editingChannel) return;
-    if (!window.confirm(`Supprimer le salon « ${editingChannel.name} » et tous ses messages ? Cette action est définitive.`)) return;
+    if (!window.confirm(`Supprimer le sous-salon « ${editingChannel.name} » et tous ses messages ? Cette action est définitive.`)) return;
     const { error } = await supabase.from("channels").delete().eq("id", editingChannel.id);
     if (error) return setNotice("#channel-message", "Suppression impossible : " + error.message);
     closeDialog($("#dialog-channel"));
@@ -1182,20 +1406,29 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const checkbox = row.querySelector("input");
       const role = row.querySelector("select").value;
       if (!checkbox.checked || role === "admin") continue;
-      const restricted = channelsOfWs(checkbox.value).filter((c) => c.kind === "channel" && !c.everyone).sort(byName);
-      if (!restricted.length) continue;
+      const wsId = checkbox.value;
+      const rooms = roomsOfWs(wsId);
+      const entries = [];
+      for (const room of rooms) {
+        if (!room.everyone) entries.push({ kind: "room", id: room.id, label: room.name });
+        for (const sub of subsOfRoom(room.id)) {
+          if (!sub.everyone) entries.push({ kind: "channel", id: sub.id, label: `${room.name} › ${sub.name}` });
+        }
+      }
+      if (!entries.length) continue;
       any = true;
-      const ws = state.workspaces.find((w) => w.id === checkbox.value);
+      const ws = state.workspaces.find((w) => w.id === wsId);
       const group = el("div", "invite-group");
       group.append(el("strong", "", ws.name));
-      for (const channel of restricted) {
+      for (const entry of entries) {
         const label = el("label", "pick-row");
         const input = el("input");
         input.type = "checkbox";
-        input.value = channel.id;
+        input.value = entry.id;
         input.dataset.ws = ws.id;
-        input.checked = kept.has(channel.id);
-        label.append(input, el("span", "pick-name", channel.name));
+        input.dataset.kind = entry.kind;
+        input.checked = kept.has(entry.id);
+        label.append(input, el("span", "pick-name", entry.label));
         group.append(label);
       }
       box.append(group);
@@ -1224,11 +1457,16 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const checkbox = row.querySelector("input");
       if (!checkbox.checked) continue;
       const role = row.querySelector("select").value;
-      const channelIds =
+      const picked =
         role === "admin"
           ? []
-          : [...document.querySelectorAll(`#invite-salons input[data-ws="${checkbox.value}"]:checked`)].map((i) => i.value);
-      assignments.push({ workspace_id: checkbox.value, role, channel_ids: channelIds });
+          : [...document.querySelectorAll(`#invite-salons input[data-ws="${checkbox.value}"]:checked`)];
+      assignments.push({
+        workspace_id: checkbox.value,
+        role,
+        room_ids: picked.filter((i) => i.dataset.kind === "room").map((i) => i.value),
+        channel_ids: picked.filter((i) => i.dataset.kind === "channel").map((i) => i.value),
+      });
     }
     if (!assignments.length) return setNotice("#invite-message", "Choisis au moins un espace.");
 
@@ -1434,15 +1672,40 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     spaces.replaceChildren();
     for (const ws of state.workspaces) spaces.append(muteRow("workspace", ws.id, ws.name, ""));
 
+    const rooms = $("#mute-rooms");
+    rooms.replaceChildren();
+    const roomList = state.ws ? roomsOfWs(state.ws.id) : [];
+    $("#mute-rooms-title").textContent = state.ws ? `Salons de « ${state.ws.name} »` : "Salons";
+    for (const room of roomList) {
+      const extra = isMuted(state.mutes, "workspace", room.workspace_id) ? "Espace en silence" : "";
+      rooms.append(muteRow("room", room.id, room.name, extra));
+    }
+    if (!roomList.length) rooms.append(el("li", "muted", "Aucun salon."));
+
+    // Sous-salons du salon ouvert.
+    const current = state.channel && state.channel.kind === "channel" ? roomById(state.channel.room_id) : null;
     const channels = $("#mute-channels");
     channels.replaceChildren();
-    $("#mute-salons-title").textContent = state.ws ? `Salons de « ${state.ws.name} »` : "Salons";
-    const list = state.ws ? [...salons(), ...dms()] : [];
-    for (const channel of list) {
-      const extra = isMuted(state.mutes, "workspace", channel.workspace_id) ? "Espace en silence" : "";
-      channels.append(muteRow("channel", channel.id, channelTitle(channel), extra));
+    const subs = current ? subsOfRoom(current.id) : [];
+    $("#mute-salons-title").textContent = current ? `Sous-salons de « ${current.name} »` : "Sous-salons";
+    for (const channel of subs) {
+      let extra = "";
+      if (isMuted(state.mutes, "workspace", channel.workspace_id)) extra = "Espace en silence";
+      else if (isMuted(state.mutes, "room", channel.room_id)) extra = "Salon en silence";
+      channels.append(muteRow("channel", channel.id, channel.name, extra));
     }
-    if (!list.length) channels.append(el("li", "muted", "Aucun salon."));
+    $("#mute-salons-title").hidden = !current;
+    channels.hidden = !current;
+
+    const dmList = state.ws ? dms() : [];
+    const dmBox = $("#mute-dms");
+    dmBox.replaceChildren();
+    for (const channel of dmList) {
+      const extra = isMuted(state.mutes, "workspace", channel.workspace_id) ? "Espace en silence" : "";
+      dmBox.append(muteRow("channel", channel.id, channelTitle(channel), extra));
+    }
+    $("#mute-dms-title").hidden = !dmList.length;
+    dmBox.hidden = !dmList.length;
   }
 
   function openNotifications() {
@@ -1512,8 +1775,10 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       closeDialog($("#dialog-switch"));
       selectWorkspace(row.dataset.id);
     });
-    on($("#new-channel"), "click", () => openChannelDialog(null));
+    on($("#new-channel"), "click", () => openRoomDialog(null));
     on($("#channel-edit"), "click", () => state.channel && openChannelDialog(state.channel));
+    on($("#room-delete"), "click", deleteRoom);
+    on($("#room-form"), "submit", submitRoom);
     on($("#channel-delete"), "click", deleteChannel);
     on($("#new-dm"), "click", openDmPicker);
     on($("#open-members"), "click", openMembers);
@@ -1527,7 +1792,23 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const button = event.target.closest(".channel-item");
       if (button) selectChannel(button.dataset.id);
     };
-    on($("#channel-list"), "click", openFromList);
+    on($("#channel-list"), "click", (event) => {
+      const edit = event.target.closest("[data-room-edit]");
+      if (edit) return openRoomDialog(roomById(edit.dataset.roomEdit));
+      const add = event.target.closest("[data-new-sub]");
+      if (add) return openChannelDialog(null, add.dataset.newSub);
+      const toggle = event.target.closest(".room-toggle");
+      if (toggle) {
+        const id = toggle.dataset.room;
+        // Un salon qui contient le sous-salon ouvert reste déplié.
+        if (state.openRooms.has(id)) state.openRooms.delete(id);
+        else state.openRooms.add(id);
+        writeOpen(state.openRooms);
+        renderChannels();
+        return;
+      }
+      openFromList(event);
+    });
     on($("#dm-list"), "click", openFromList);
 
     on($("#dm-pick"), "click", (event) => {
@@ -1537,7 +1818,12 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
 
     for (const radio of document.querySelectorAll('input[name="channel-access"]')) {
       on(radio, "change", () => {
-        $("#channel-pick").hidden = accessMode() !== "some";
+        $("#channel-pick").hidden = accessMode("channel-access") !== "some";
+      });
+    }
+    for (const radio of document.querySelectorAll('input[name="room-access"]')) {
+      on(radio, "change", () => {
+        $("#room-pick").hidden = accessMode("room-access") !== "some";
       });
     }
 
@@ -1555,10 +1841,12 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       const select = event.target.closest(".mute-select");
       if (select) setMute(select.dataset.scope, select.dataset.id, select.value);
     });
-    on($("#mute-channels"), "change", (event) => {
-      const select = event.target.closest(".mute-select");
-      if (select) setMute(select.dataset.scope, select.dataset.id, select.value);
-    });
+    for (const id of ["#mute-rooms", "#mute-channels", "#mute-dms"]) {
+      on($(id), "change", (event) => {
+        const select = event.target.closest(".mute-select");
+        if (select) setMute(select.dataset.scope, select.dataset.id, select.value);
+      });
+    }
     on($("#push-toggle"), "click", togglePush);
     on($("#push-install"), "click", () => {
       closeDialog($("#dialog-notifications"));
@@ -1683,6 +1971,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     unsubscribe();
     state.workspaces = [];
     state.ws = null;
+    state.allRooms = [];
     state.allChannels = [];
     state.channel = null;
     state.messages = [];

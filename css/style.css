@@ -565,7 +565,7 @@ button.small { padding: 6px 12px; font-size: 0.85rem; width: auto; }
 .install-actions button { padding: 8px 14px; font-size: 0.85rem; width: auto; line-height: 1.2; }
 
 /* --- Salons, messages privés, non lus, silences ---------------------------- */
-.dm-list { flex: none; max-height: 30vh; padding-bottom: 6px; }
+.dm-list { flex: none; max-height: 14vh; padding-bottom: 6px; }
 .dm-list[hidden] { display: none; }
 .channel-side, .ws-flags { flex: none; display: inline-flex; align-items: center; gap: 6px; }
 .ws-flags:empty { display: none; }
@@ -686,8 +686,47 @@ button.danger:hover { opacity: 1; border-color: var(--muted); }
 /* Resserrage : plus de place pour la liste des salons */
 .sidebar-foot { gap: 6px; padding-top: 10px; }
 .sidebar-foot > button.ghost { padding: 8px 12px; font-size: 0.9rem; }
-#channel-list { flex: 1 1 auto; min-height: 110px; }
-.dm-list { max-height: 22vh; }
+#channel-list { flex: 1 1 auto; min-height: 200px; }
+.dm-list { max-height: 18vh; }
 .pick-row, .choice { margin: 0; padding: 4px 0; }
 .pick-list .pick-row { min-height: 36px; }
 fieldset.access { margin-top: 10px; }
+
+/* --- Salons (spectacles) et sous-salons --- */
+.room-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; }
+.room-head { display: flex; align-items: center; gap: 4px; }
+.room-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.room-toggle:hover { background: var(--bg-input); }
+.room-toggle .chev { width: 1em; flex: none; color: var(--muted); }
+.room-group.is-muted .room-toggle .channel-name { opacity: 0.6; font-style: italic; }
+.channel-item.sub { margin-left: 22px; width: calc(100% - 22px); padding-top: 4px; padding-bottom: 4px; gap: 10px; }
+.avatar.tiny { width: 26px; height: 26px; font-size: 0.7rem; }
+.icon-btn.tiny { width: 28px; height: 28px; font-size: 0.85rem; flex: none; }
+.add-sub {
+  margin: 2px 0 2px 22px;
+  padding: 6px 10px;
+  border: 1px dashed var(--border, var(--muted));
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-align: left;
+  cursor: pointer;
+}
+.add-sub:hover { color: inherit; border-color: var(--accent); }
+.empty-sub { margin: 2px 0 2px 30px; font-size: 0.85rem; }

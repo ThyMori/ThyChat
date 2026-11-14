@@ -1,6 +1,6 @@
 // Silences (espace ou salon) : fonctions pures, sans accès au réseau ni au DOM.
 //
-// Une ligne de la table notification_mutes : { scope: "workspace"|"channel", target_id, muted_until, forever }.
+// Une ligne de la table notification_mutes : { scope: "workspace"|"room"|"channel", target_id, muted_until, forever }.
 
 export const MUTE_CHOICES = [
   { key: "off", label: "Notifications activées" },
@@ -32,9 +32,13 @@ export function isMuted(mutes, scope, id, now = Date.now()) {
   return isActive(mutes.get(muteKey(scope, id)), now);
 }
 
-// Un salon est silencieux s'il l'est lui-même ou si son espace l'est.
+// Un sous-salon est silencieux s'il l'est lui-même, ou si son salon (spectacle) ou son espace l'est.
 export function channelMuted(mutes, channel, now = Date.now()) {
-  return isMuted(mutes, "channel", channel.id, now) || isMuted(mutes, "workspace", channel.workspace_id, now);
+  return (
+    isMuted(mutes, "channel", channel.id, now) ||
+    (channel.room_id ? isMuted(mutes, "room", channel.room_id, now) : false) ||
+    isMuted(mutes, "workspace", channel.workspace_id, now)
+  );
 }
 
 // Choix actuellement appliqué à une ligne (pour pré-sélectionner la liste).

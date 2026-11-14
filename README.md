@@ -1,6 +1,6 @@
 # ThyChat
 
-Messagerie professionnelle pour les équipes de spectacle vivant : espaces par équipe (une production, une compagnie), salons par métier, messages privés, notifications push. Accès sur invitation uniquement.
+Messagerie professionnelle pour les équipes de spectacle vivant : espaces (une production, une compagnie), salons (un spectacle) et sous-salons (par métier), messages privés, notifications push. Accès sur invitation uniquement.
 
 **Stack** : PWA statique (HTML / CSS / JavaScript, sans étape de build) hébergée sur GitHub Pages, avec [Supabase](https://supabase.com) pour l'authentification, la base Postgres et le temps réel.
 
@@ -12,7 +12,7 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
-js/chat.js              interface de messagerie (espaces, salons, messages privés, non lus, membres, invitations)
+js/chat.js              interface de messagerie (espaces, salons, sous-salons, messages privés, non lus, membres, invitations)
 js/notify.js            silences (8 h, 1 semaine, toujours) et pastille de l'icône
 js/push.js              abonnement aux notifications push de l'appareil
 js/profile.js           photo, nom et e-mail du profil
@@ -57,10 +57,10 @@ Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fo
 | Rôle | Peut |
 | --- | --- |
 | **Administrateur général** (toi) | Créer des espaces, inviter n'importe qui dans n'importe quel espace (en administrateur ou en utilisateur), administrer tous les espaces. Ne lit jamais les messages privés des autres. |
-| **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des salons et choisir qui y a accès, changer la couleur. Voit tous les salons de l'espace. |
-| **Utilisateur** | Lire et écrire dans les salons où il est assigné (ou ouverts à tous), écrire en privé aux autres personnes de ses espaces, régler ses notifications et son profil. |
+| **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des salons et des sous-salons et choisir qui y a accès, changer la couleur. Voit tout dans l'espace. |
+| **Utilisateur** | Lire et écrire dans les sous-salons auxquels il a accès, écrire en privé aux autres personnes de ses espaces, régler ses notifications et son profil. |
 
-Un **salon** est soit ouvert à tous les utilisateurs de l'espace (comme « Tous »), soit réservé aux personnes assignées (« Technique », « Musiciens », « Comédiens », « Production »…, repérés par un cadenas). Les **messages privés** ne relient que deux personnes d'un même espace.
+La hiérarchie : un **espace** (une production ou une compagnie) contient des **salons** (un spectacle en particulier), qui contiennent des **sous-salons** (« Tous », « Technique », « Musiciens »…). Deux niveaux d'accès : un salon est ouvert à tous les utilisateurs de l'espace ou réservé aux personnes assignées ; dans un salon, chaque sous-salon est ouvert à tous ceux qui ont accès au salon ou réservé à certains d'entre eux (cadenas). Chaque nouveau salon démarre avec un sous-salon « Tous ». Les **messages privés** ne relient que deux personnes d'un même espace.
 
 **Devenir administrateur général** (une seule fois, dans le SQL Editor de Supabase, avec ton adresse) :
 
@@ -105,7 +105,7 @@ Sans ces fonctions, ThyChat marche quand même : les pastilles de non lus foncti
 
 ## Notifications
 
-Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du salon : activer ou non sur l'appareil, puis par **espace** et par **salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace ou un salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
+Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du salon : activer ou non sur l'appareil, puis par **espace**, par **salon** et par **sous-salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace, un salon ou un sous-salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
 
 ## Mettre à jour la base
 
@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `005_rooms.sql` | salons (spectacles) et sous-salons : les salons existants deviennent des salons avec un sous-salon « Tous » (**indispensable à la version 3** ; redéployer aussi les fonctions `invite-member` et `send-push`) |
 | `003_roles_salons_push.sql` | administrateur général, salons par assignation, messages privés, non lus, silences, notifications push, photos de profil (**indispensable à la version 2**) |
 
 ## Couleurs des espaces
@@ -139,7 +140,7 @@ Un bandeau propose l'installation (reportable une semaine, trois fois maximum) e
 - [ ] Fils de discussion, messages épinglés, recherche
 - [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
 - [x] Messages privés, salons par assignation, rôles, invitations, profil avec photo
-- [x] Notifications push, silences par espace / salon, pastilles de non lus
+- [x] Notifications push, silences par espace / salon / sous-salon, pastilles de non lus
 - [ ] Invitation par numéro de téléphone (fournisseur de SMS)
 
 ## Dépannage
