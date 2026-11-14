@@ -54,3 +54,14 @@ export async function signPaths(supabase, paths) {
   for (const row of data || []) if (row.signedUrl && row.path) out.set(row.path, row.signedUrl);
   return out;
 }
+
+// Retire toutes les photos rangées pour un sous-salon (suppression d'une discussion privée).
+export async function removeChannelImages(supabase, channelId) {
+  try {
+    const { data } = await supabase.storage.from(BUCKET).list(channelId, { limit: 1000 });
+    const paths = (data || []).filter((f) => f.name).map((f) => `${channelId}/${f.name}`);
+    await removeMessageImages(supabase, paths);
+  } catch {
+    /* sans conséquence : la discussion est supprimée quand même */
+  }
+}

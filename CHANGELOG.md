@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.7.0 — 2026-11-14
+- Messages privés communs à tous les espaces (une seule discussion par paire)
+- suppression d'une discussion privée entière
+
 ## 3.6.4 — 2026-11-14
 - Étoile de représentation centrée sur le jour et posée sur la frise de la date (calendrier et frise du spectacle)
 

@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
           (m.forever || (m.muted_until && new Date(m.muted_until).getTime() > now)),
       );
     const mutedFor = (uid: string, ws: string, ch: string) =>
-      isMuted(uid, "workspace", ws) || isMuted(uid, "channel", ch) || (channel.room_id ? isMuted(uid, "room", channel.room_id) : false);
+      (channel.kind !== "dm" && isMuted(uid, "workspace", ws)) || isMuted(uid, "channel", ch) || (channel.room_id ? isMuted(uid, "room", channel.room_id) : false);
 
     const targets = ids.filter((uid) => !mutedFor(uid, channel.workspace_id, channel.id));
     if (!targets.length) return json({ ok: true, sent: 0 });

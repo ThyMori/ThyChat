@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `010_private_messages_global.sql` | messages privés communs à tous les espaces (une seule discussion par paire, doublons fusionnés), suppression d'une discussion privée (**indispensable à la version 3.7** ; redéployer `send-push`) |
 | `009_message_images.sql` | photos dans les messages : stockage privé `message-images`, message sans texte, contrôle du dossier (**indispensable à la version 3.6** ; redéployer `send-push` pour la notification « 📷 Photo ») |
 | `007_strike_space_photo.sql` | messages rayés par leur auteur, photo de chaque espace (**à exécuter avant d'utiliser la version 3.3**) |
 | `008_date_ranges.sql` | plage de dates (début, fin) et dates de représentation ★ pour chaque date de tournée (**indispensable à la version 3.4**) |
@@ -149,6 +150,11 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 - Le bouton **+** de la zone de saisie ajoute une photo (galerie, ou appareil photo sur téléphone) ; on peut aussi **coller** une image du presse-papier. Jusqu'à 4 photos par message, avec ou sans texte.
 - Chaque image est réduite (1600 px au plus) et convertie en JPEG avant l'envoi, puis rangée dans le stockage privé `message-images/<sous-salon>/…`. Les règles RLS du stockage n'autorisent la lecture et l'envoi qu'aux personnes qui ont accès au sous-salon ; l'affichage passe par des liens temporaires de 24 h.
 - Supprimer un message supprime aussi ses photos.
+
+## Messages privés
+
+- Une discussion privée entre deux personnes est unique : elle apparaît dans **tous** les espaces que les deux personnes ont en commun, quel que soit l'espace ouvert. Le silence d'un espace ne la concerne pas.
+- La poubelle 🗑 de l'en-tête supprime toute la discussion (messages et photos) **pour les deux personnes**. Les administrateurs ne voient jamais les messages privés.
 
 ## Couleurs des espaces
 

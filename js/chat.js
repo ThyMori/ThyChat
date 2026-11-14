@@ -5,7 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
-import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, signPaths } from "./images.js";
+import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
   safeAvatarUrl,
@@ -382,12 +382,9 @@ export function createChat({ supabase, user }) {
   // Tous les sous-salons de l'espace courant, salon par salon.
   const salons = () => (state.ws ? roomsOfWs(state.ws.id).flatMap((room) => subsOfRoom(room.id)) : []);
   const dmPartner = (channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
+  // Les messages privés ne dépendent d'aucun espace : ils apparaissent dans tous.
   const dms = () =>
-    state.ws
-      ? channelsOfWs(state.ws.id)
-          .filter((c) => c.kind === "dm")
-          .sort((a, b) => channelTitle(a).localeCompare(channelTitle(b), "fr"))
-      : [];
+    state.allChannels.filter((c) => c.kind === "dm").sort((a, b) => channelTitle(a).localeCompare(channelTitle(b), "fr"));
 
   function channelTitle(channel) {
     if (channel.kind !== "dm") return channel.name;
@@ -404,6 +401,7 @@ export function createChat({ supabase, user }) {
     let count = 0;
     let all = 0;
     for (const channel of channelsOfWs(wsId)) {
+      if (channel.kind === "dm") continue; // comptés à part : visibles dans tous les espaces
       const n = state.unread.get(channel.id) || 0;
       all += n;
       if (!muted(channel)) count += n;
@@ -426,7 +424,7 @@ export function createChat({ supabase, user }) {
   function mutedRowFor(channel) {
     if (isMuted(state.mutes, "channel", channel.id)) return channelMute(channel.id);
     if (channel.room_id && isMuted(state.mutes, "room", channel.room_id)) return state.mutes.get(muteKey("room", channel.room_id));
-    if (isMuted(state.mutes, "workspace", channel.workspace_id)) return wsMute(channel.workspace_id);
+    if (channel.kind !== "dm" && isMuted(state.mutes, "workspace", channel.workspace_id)) return wsMute(channel.workspace_id);
     return null;
   }
 
@@ -711,6 +709,7 @@ export function createChat({ supabase, user }) {
       $("#channel-desc").textContent = state.ws ? state.ws.name : "";
       $("#channel-bell").hidden = true;
       $("#channel-edit").hidden = true;
+      $("#channel-delete-dm").hidden = true;
       return;
     }
     avatar.className = "avatar small soft";
@@ -726,7 +725,7 @@ export function createChat({ supabase, user }) {
     $("#channel-title").textContent = channel ? channelTitle(channel) : state.ws ? state.ws.name : "ThyChat";
 
     const parts = [];
-    if (channel && state.ws) parts.push(state.ws.name);
+    if (channel && state.ws && channel.kind !== "dm") parts.push(state.ws.name);
     if (channel && channel.kind === "dm") parts.push("Message privé");
     else if (channel) {
       const room = roomById(channel.room_id);
@@ -743,6 +742,7 @@ export function createChat({ supabase, user }) {
     bell.classList.toggle("is-muted", Boolean(channel && muted(channel)));
     bell.title = muteNote || "Notifications";
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
+    $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
   }
 
   // Pastilles de non lus : listes, bouton d'espace, titre de l'onglet et icône de l'application.
@@ -875,7 +875,7 @@ export function createChat({ supabase, user }) {
     setView("empty", {
       title: "La base n'est pas prête",
       text:
-        "Exécute les fichiers supabase/migrations/005_rooms.sql, 006_tags_replies.sql, 007_strike_space_photo.sql, 008_date_ranges.sql puis 009_message_images.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
+        "Exécute les fichiers supabase/migrations/005_rooms.sql, 006_tags_replies.sql, 007_strike_space_photo.sql, 008_date_ranges.sql, 009_message_images.sql puis 010_private_messages_global.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
         error.message +
         ")",
     });
@@ -2166,6 +2166,23 @@ export function createChat({ supabase, user }) {
     }
   }
 
+  // Supprime toute la discussion privée, pour les deux personnes.
+  async function deleteDm() {
+    const channel = state.channel;
+    if (!channel || channel.kind !== "dm") return;
+    const partner = dmPartner(channel);
+    const name = partner ? authorName(partner) : "cette personne";
+    if (!window.confirm(`Supprimer toute la discussion privée avec ${name} ? Tous les messages et photos disparaissent pour vous deux. Cette action est définitive.`)) return;
+    await removeChannelImages(supabase, channel.id);
+    const { error } = await supabase.from("channels").delete().eq("id", channel.id);
+    if (error) {
+      toast("Suppression impossible : " + error.message);
+      return;
+    }
+    toast("Discussion supprimée.", "ok");
+    await refreshStructure();
+  }
+
   async function startDm(otherId) {
     const { data, error } = await supabase.rpc("open_dm", { ws: state.ws.id, other: otherId });
     if (error) return setNotice("#dm-message", error.message);
@@ -2699,6 +2716,7 @@ export function createChat({ supabase, user }) {
       selectWorkspace(row.dataset.id);
     });
     on($("#new-channel"), "click", () => openRoomDialog(null));
+    on($("#channel-delete-dm"), "click", deleteDm);
     on($("#channel-edit"), "click", () => state.channel && openChannelDialog(state.channel));
     on($("#room-delete"), "click", deleteRoom);
     on($("#room-form"), "submit", submitRoom);

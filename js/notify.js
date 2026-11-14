@@ -37,7 +37,7 @@ export function channelMuted(mutes, channel, now = Date.now()) {
   return (
     isMuted(mutes, "channel", channel.id, now) ||
     (channel.room_id ? isMuted(mutes, "room", channel.room_id, now) : false) ||
-    isMuted(mutes, "workspace", channel.workspace_id, now)
+    (channel.kind !== "dm" && isMuted(mutes, "workspace", channel.workspace_id, now))
   );
 }
 
