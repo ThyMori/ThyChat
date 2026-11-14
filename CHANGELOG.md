@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.6.1 — 2026-11-14
+- Création d'un sous-salon ou d'un spectacle : plus d'erreur de sécurité à l'enregistrement
+
 ## 3.6.0 — 2026-11-14
 - Photos dans les messages : bouton +, collage d'une image du presse-papier, jusqu'à 4 photos, agrandissement
 

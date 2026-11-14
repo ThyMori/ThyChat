@@ -135,6 +135,7 @@ const excerpt = (text, max = 90) => {
   const flat = String(text || "").replace(/^(> .*\n?)+/, "").replace(/\s+/g, " ").trim();
   return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 };
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16)));
 const PHOTO_LABEL = "📷 Photo";
 const messageExcerpt = (message, max = 90) =>
   excerpt(message && message.body, max) || (message && message.attachments && message.attachments.length ? PHOTO_LABEL : "");
@@ -2012,12 +2013,11 @@ export function createChat({ supabase, user }) {
         await supabase.from("room_members").insert(picked.map((id) => ({ room_id: room.id, user_id: id })));
       }
       // Chaque salon démarre avec un sous-salon « Tous ».
+      const firstId = newId();
       const first = await supabase
         .from("channels")
-        .insert({ workspace_id: state.ws.id, room_id: room.id, name: "Tous", everyone: true })
-        .select()
-        .single();
-      firstChannel = first.data;
+        .insert({ id: firstId, workspace_id: state.ws.id, room_id: room.id, name: "Tous", everyone: true });
+      if (!first.error) firstChannel = { id: firstId };
     }
 
     button.disabled = false;
@@ -2097,13 +2097,14 @@ export function createChat({ supabase, user }) {
       // Ouvert à tous : les assignations n'ont plus d'effet, on les garde pour un éventuel retour.
       if (!everyone) await syncMembers("channel_members", "channel_id", channel.id, picked);
     } else {
-      const { data, error } = await supabase
+      // L'identifiant est créé ici : on évite de relire la ligne juste après l'insertion
+      // (la règle de lecture ne la « voit » pas encore et refuserait toute l'opération).
+      const id = newId();
+      const { error } = await supabase
         .from("channels")
-        .insert({ workspace_id: state.ws.id, room_id: channelRoomId, name, description: description || null, everyone })
-        .select()
-        .single();
+        .insert({ id, workspace_id: state.ws.id, room_id: channelRoomId, name, description: description || null, everyone });
       if (error) return channelError(error, button);
-      channel = data;
+      channel = { id };
       if (!everyone && picked.length) {
         await supabase.from("channel_members").insert(picked.map((id) => ({ channel_id: channel.id, user_id: id })));
       }
