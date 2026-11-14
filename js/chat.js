@@ -315,6 +315,24 @@ export function createChat({ supabase, user }) {
     }
   }
 
+  // Geste horizontal net (> 60 px, plus horizontal que vertical) : appelle fn(-1) vers la gauche, fn(1) vers la droite.
+  function onSwipe(node, fn, opts) {
+    if (!node) return;
+    let start = null;
+    node.addEventListener("touchstart", (e) => {
+      const t = e.touches[0];
+      start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY } : null;
+    }, { ...opts, passive: true });
+    node.addEventListener("touchend", (e) => {
+      const t = e.changedTouches[0];
+      if (!start || !t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      start = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) fn(dx < 0 ? -1 : 1);
+    }, opts);
+  }
+
   function closeSidebar() {
     $("#screen-app").classList.remove("sidebar-open");
   }
@@ -3568,6 +3586,13 @@ export function createChat({ supabase, user }) {
         openCalendar(currentRoomId());
       }
     });
+    // Glisser du doigt : à gauche sur la liste pour la fermer ; à gauche/droite sur le calendrier pour changer de mois.
+    onSwipe($("#sidebar"), (dir) => {
+      if (dir < 0 && isMobile()) closeSidebar();
+    }, opts);
+    onSwipe($("#calendar"), (dir) => {
+      if (state.calendarOpen) shiftMonth(dir < 0 ? 1 : -1);
+    }, opts);
     on($("#cal-prev"), "click", () => shiftMonth(-1));
     on($("#cal-next"), "click", () => shiftMonth(1));
     on($("#cal-today"), "click", () => {

@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.13.0 — 2026-11-14
+- Téléphone : glisser pour fermer le menu et pour changer de mois dans le calendrier
+- listes plus compactes
+
 ## 3.12.4 — 2026-11-14
 - Téléphone : la barre des dates n'a plus de textes qui se chevauchent
 

@@ -1069,3 +1069,9 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
   .tag-bar .tag-chips { flex: 1 1 0; min-width: 0; }
   .tag-bar > button { font-size: 0.82rem; padding: 6px 10px; }
 }
+
+/* Mobile : listes plus compactes pour que le pied de la liste tienne à l'écran. */
+@media (max-width: 760px) {
+  .dm-list { max-height: 16dvh; }
+  #channel-list { min-height: 64px; }
+}
