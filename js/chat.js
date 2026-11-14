@@ -1689,8 +1689,8 @@ export function createChat({ supabase, user }) {
     if (!tags.length) list.append(el("li", "muted", "Aucune date pour l'instant."));
     for (const tag of tags) {
       const row = el("li", "tag-row");
-      const shows = (tag.shows || []).length;
-      row.append(el("span", "pick-name", tagText(tag) + (shows ? ` · ★ ${shows}` : "")));
+      const shows = (tag.shows || []).map((iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }));
+      row.append(el("span", "pick-name", tagText(tag) + (shows.length ? ` · ★ ${shows.join(", ")}` : " · aucune représentation ★")));
       const edit = el("button", "ghost small", "Modifier");
       edit.type = "button";
       edit.dataset.edit = tag.id;
