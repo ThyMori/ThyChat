@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.11.0 — 2026-11-14
+- Dates en cours : accès rapide (menu et en-tête de tous les écrans) aux documents et au spectacle
+- documents aussi dans le détail du calendrier
+
 ## 3.10.0 — 2026-11-14
 - Documents PDF par date de tournée (feuilles de route, billets, livrets) ajoutés par les administrateurs, lisibles par les membres
 

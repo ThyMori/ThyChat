@@ -163,6 +163,9 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 - Chaque date de tournée peut recevoir des PDF (feuilles de route, billets, livrets d'accueil…), ajoutés par les **administrateurs de l'espace** depuis le bouton **Documents** de la barre des dates. Tous les membres ayant accès au spectacle peuvent les ouvrir.
 - Les fichiers (15 Mo au plus, PDF uniquement) sont dans le stockage privé `tag-documents/<spectacle>/<date>/…` ; la lecture passe par des liens temporaires d'une heure. Les règles RLS (table et stockage) réservent l'ajout et la suppression aux administrateurs. Supprimer une date ou un spectacle supprime ses documents.
 
+- **Dates en cours** : quand la plage d'une date couvre aujourd'hui, un bouton « Dates en cours » (point lumineux) apparaît dans le menu et dans l'en-tête de tous les écrans, y compris le calendrier. Il liste les dates du jour de tous tes spectacles, avec leurs documents, la mention « Représentation aujourd'hui » et un accès direct au spectacle. Les documents sont aussi listés dans le détail d'un jour du calendrier.
+- Les documents sont visibles par toutes les personnes qui ont accès au spectacle (règle RLS des tables et du stockage).
+
 ## Recherche et liste des messages privés
 
 - La loupe 🔍 ouvre la recherche dans les messages, sans tenir compte des accents ni des majuscules (migration 011 ; au moins 2 caractères) : dans tout ce que tu peux lire, ou dans le sous-salon ouvert ; 50 résultats les plus récents. Un résultat ouvre le sous-salon sur le message (même ancien), y compris dans un autre espace. Les règles RLS limitent déjà la lecture aux messages auxquels tu as accès.

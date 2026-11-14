@@ -1008,3 +1008,13 @@ dialog.docs { width: min(560px, 94vw); }
 .doc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-open small { flex: none; }
 #tags-docs .ic { width: 1em; height: 1em; }
+
+/* Dates en cours : accès rapide */
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 hsl(var(--h) 85% 62% / 0.6); animation: live-pulse 2s infinite; flex: none; }
+@keyframes live-pulse { 0% { box-shadow: 0 0 0 0 hsl(var(--h) 85% 62% / 0.55); } 70%, 100% { box-shadow: 0 0 0 8px hsl(var(--h) 85% 62% / 0); } }
+.current-open { display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 0 12px 8px; text-align: left; border-color: hsl(var(--h) 55% 42%); }
+.current-open[hidden], .current-btn[hidden] { display: none; }
+.current-open .unread { margin-left: auto; }
+.current-btn { width: auto; min-width: 40px; padding: 0 12px; gap: 6px; font-size: 0.8rem; color: var(--text); border-color: hsl(var(--h) 55% 42%); }
+.show-today { margin: 0; font-size: 0.85rem; color: #ffd75e; }
+@media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }

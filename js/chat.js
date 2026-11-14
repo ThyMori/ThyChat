@@ -816,6 +816,7 @@ export function createChat({ supabase, user }) {
     renderChannels();
     renderHeader();
     renderTagBar();
+    renderCurrentButtons();
     if (state.calendarOpen) renderCalendar();
   }
 
@@ -1389,6 +1390,7 @@ export function createChat({ supabase, user }) {
       box.prepend(clear);
     }
     renderWeekStrip();
+    renderCurrentButtons();
   }
 
   function toggleTagFilter(id) {
@@ -1430,6 +1432,68 @@ export function createChat({ supabase, user }) {
     box.hidden = !box.childNodes.length;
     renderPendingImages();
     $("#composer-extra").hidden = state.calendarOpen || (!reply && box.hidden && $("#composer-images").hidden);
+  }
+
+  // --- Dates en cours : accès rapide depuis n'importe où -----------------------------------
+
+  // Dates dont la plage couvre aujourd'hui, dans tous les spectacles accessibles.
+  function currentDates() {
+    const today = toISO(new Date());
+    return state.tags
+      .filter((t) => t.start_date && t.start_date <= today && today <= (t.end_date || t.start_date) && roomById(t.room_id))
+      .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.label.localeCompare(b.label, "fr"));
+  }
+
+  function renderCurrentButtons() {
+    const list = currentDates();
+    const n = list.length;
+    $("#open-current").hidden = !n;
+    $("#current-count").textContent = String(n);
+    $("#current-label").textContent = n === 1 ? "1 date en cours" : "Dates en cours";
+    $("#channel-current").hidden = !n;
+    $("#channel-current-count").textContent = String(n);
+    $("#channel-current").title = n === 1 ? "1 date en cours" : `${n} dates en cours`;
+  }
+
+  function openCurrent() {
+    setNotice("#current-message", "");
+    renderCurrent();
+    openDialog("#dialog-current");
+  }
+
+  function renderCurrent() {
+    const box = $("#current-list");
+    box.replaceChildren();
+    const today = toISO(new Date());
+    const list = currentDates();
+    if (!list.length) {
+      box.append(el("p", "muted", "Aucune date n'est en cours aujourd'hui."));
+      return;
+    }
+    for (const tag of list) {
+      const room = roomById(tag.room_id);
+      const ws = state.workspaces.find((w) => w.id === room.workspace_id);
+      const section = el("section", "docs-tag");
+      const head = el("div", "docs-tag-head");
+      head.append(el("strong", "", `${room.name} · ${tag.label}`));
+      head.append(el("small", "muted", [state.workspaces.length > 1 && ws ? ws.name : "", rangeText(tag)].filter(Boolean).join(" · ")));
+      const go = el("button", "ghost small", "Ouvrir le spectacle");
+      go.type = "button";
+      go.dataset.goTag = tag.id;
+      head.append(go);
+      section.append(head);
+      if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
+      const docs = docsOfTag(tag.id);
+      if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document."));
+      for (const doc of docs) {
+        const open = el("button", "doc-open");
+        open.type = "button";
+        open.dataset.openDoc = doc.id;
+        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        section.append(open);
+      }
+      box.append(section);
+    }
   }
 
   // --- Documents PDF des dates -------------------------------------------------------------
@@ -1531,7 +1595,7 @@ export function createChat({ supabase, user }) {
     renderTagBar();
   }
 
-  async function openDocument(id) {
+  async function openDocument(id, noticeSelector = "#docs-message") {
     const doc = state.tagDocs.find((d) => d.id === id);
     if (!doc) return;
     // La fenêtre est ouverte tout de suite (clic de la personne) pour ne pas être bloquée, puis dirigée vers le PDF.
@@ -1542,7 +1606,9 @@ export function createChat({ supabase, user }) {
       else window.location.href = url;
     } catch (error) {
       if (tab) tab.close();
-      setNotice("#docs-message", "Ouverture impossible : " + (error && error.message ? error.message : "lien indisponible"));
+      const text = "Ouverture impossible : " + (error && error.message ? error.message : "lien indisponible");
+      if (noticeSelector) setNotice(noticeSelector, text);
+      else toast(text);
     }
   }
 
@@ -1729,6 +1795,13 @@ export function createChat({ supabase, user }) {
       const star = (tag.shows || []).includes(state.calDay) ? " ★ représentation" : "";
       row.append(el("span", "cal-swatch"), el("span", "", `${roomById(tag.room_id)?.name || ""} · ${tag.label}${star}`));
       box.append(row);
+      for (const doc of docsOfTag(tag.id)) {
+        const open = el("button", "doc-open");
+        open.type = "button";
+        open.dataset.openDoc = doc.id;
+        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        box.append(open);
+      }
     }
   }
 
@@ -3270,6 +3343,18 @@ export function createChat({ supabase, user }) {
     });
     on($("#tags-manage"), "click", openTagsDialog);
     on($("#tags-docs"), "click", openDocs);
+    on($("#open-current"), "click", openCurrent);
+    on($("#channel-current"), "click", openCurrent);
+    on($("#current-list"), "click", async (event) => {
+      const open = event.target.closest("[data-open-doc]");
+      const go = event.target.closest("[data-go-tag]");
+      if (open) openDocument(open.dataset.openDoc, "#current-message");
+      else if (go) {
+        closeDialog($("#dialog-current"));
+        closeSidebar();
+        await openTagFromCalendar(go.dataset.goTag);
+      }
+    });
     on($("#docs-list"), "click", (event) => {
       const add = event.target.closest("[data-add-doc]");
       const open = event.target.closest("[data-open-doc]");
@@ -3333,6 +3418,8 @@ export function createChat({ supabase, user }) {
       }
     });
     on($("#cal-detail"), "click", (event) => {
+      const doc = event.target.closest("[data-open-doc]");
+      if (doc) return openDocument(doc.dataset.openDoc, "");
       const row = event.target.closest("[data-open-tag]");
       if (row) openTagFromCalendar(row.dataset.openTag);
     });
@@ -3415,7 +3502,10 @@ export function createChat({ supabase, user }) {
       }
     };
     on(document, "visibilitychange", () => {
-      if (document.visibilityState === "visible") refresh();
+      if (document.visibilityState === "visible") {
+        refresh();
+        renderCurrentButtons(); // le jour a pu changer
+      }
     });
     on(window, "online", refresh);
 

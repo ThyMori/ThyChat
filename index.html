@@ -145,6 +145,11 @@
       </button>
 
       <button type="button" class="ghost calendar-open" id="open-calendar">📅 Calendrier</button>
+      <button type="button" class="ghost current-open" id="open-current" hidden>
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="current-label">Dates en cours</span>
+        <span class="unread" id="current-count"></span>
+      </button>
 
       <div class="section-title">
         <span>Spectacles</span>
@@ -183,6 +188,7 @@
           <h2 id="channel-title">ThyChat</h2>
           <p id="channel-desc" class="muted"></p>
         </div>
+        <button type="button" class="icon-btn current-btn" id="channel-current" title="Dates en cours" aria-label="Dates en cours" hidden><span class="live-dot" aria-hidden="true"></span><span id="channel-current-count"></span></button>
         <button type="button" class="icon-btn" id="channel-edit" title="Réglages du sous-salon" aria-label="Réglages du sous-salon" hidden>⚙</button>
         <button type="button" class="icon-btn" id="channel-search" title="Rechercher dans les messages" aria-label="Rechercher dans les messages" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
         <button type="button" class="icon-btn" id="channel-delete-dm" title="Supprimer la discussion" aria-label="Supprimer la discussion privée" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></button>
@@ -426,6 +432,7 @@
       <section>
         <h4>Documents des dates</h4>
         <ul>
+          <li><strong>Dates en cours</strong> : quand une date de tournée a lieu aujourd'hui, un bouton « Dates en cours » apparaît dans le menu et en haut de chaque écran. Il ouvre la liste des dates du jour dans tous tes spectacles, avec leurs documents (un toucher pour ouvrir le PDF) et un accès direct au spectacle.</li>
           <li>Le bouton <strong>Documents</strong> de la barre des dates (sous l'en-tête d'un spectacle) liste, date par date, les PDF utiles : feuilles de route, billets de train, livrets d'accueil… Touche un document pour l'ouvrir.</li>
           <li>Les <strong>administrateurs</strong> ajoutent des PDF (15 Mo au plus chacun) avec « Ajouter un PDF », et les retirent avec la croix. Toutes les personnes qui ont accès au spectacle peuvent les ouvrir ; les fichiers ne sont pas publics.</li>
         </ul>
@@ -474,6 +481,16 @@
       </section>
 
       <p class="version app-version help-version"></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-current" class="docs">
+      <h3 id="current-title" tabindex="-1">Dates en cours</h3>
+      <p class="muted">Les dates de tournée d'aujourd'hui dans tous tes spectacles : accès direct aux documents.</p>
+      <div id="current-list" class="docs-list"></div>
+      <p id="current-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
       </div>
