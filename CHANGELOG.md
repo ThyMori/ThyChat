@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.11.2 — 2026-11-14
+- Dates en cours : pastilles et cartes à la couleur de la production concernée
+
 ## 3.11.1 — 2026-11-14
 - Dates en cours : de la veille du début au lendemain de la fin (trajets aller et retour)
 

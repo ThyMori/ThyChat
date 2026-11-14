@@ -1010,12 +1010,17 @@ dialog.docs { width: min(560px, 94vw); }
 #tags-docs .ic { width: 1em; height: 1em; }
 
 /* Dates en cours : accès rapide */
-.live-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 0 hsl(var(--h) 85% 62% / 0.6); animation: live-pulse 2s infinite; flex: none; }
+.live-dots { display: inline-flex; gap: 4px; align-items: center; }
+.live-dot { width: 9px; height: 9px; border-radius: 50%; background: hsl(var(--h) 80% 62%); box-shadow: 0 0 0 0 hsl(var(--h) 85% 62% / 0.6); animation: live-pulse 2s infinite; flex: none; align-self: center; }
 @keyframes live-pulse { 0% { box-shadow: 0 0 0 0 hsl(var(--h) 85% 62% / 0.55); } 70%, 100% { box-shadow: 0 0 0 8px hsl(var(--h) 85% 62% / 0); } }
-.current-open { display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 0 12px 8px; text-align: left; border-color: hsl(var(--h) 55% 42%); }
+.current-open { display: flex; align-items: center; gap: 8px; width: calc(100% - 24px); margin: 0 12px 8px; text-align: left; border-color: hsl(var(--btn-h, var(--h)) 55% 42%); background: hsl(var(--btn-h, var(--h)) 40% 16% / 0.6); }
 .current-open[hidden], .current-btn[hidden] { display: none; }
 .current-open .unread { margin-left: auto; }
-.current-btn { width: auto; min-width: 40px; padding: 0 12px; gap: 6px; font-size: 0.8rem; color: var(--text); border-color: hsl(var(--h) 55% 42%); }
+.current-btn { width: auto; min-width: 40px; padding: 0 12px; gap: 6px; font-size: 0.8rem; color: var(--text); border-color: hsl(var(--btn-h, var(--h)) 55% 42%); background: hsl(var(--btn-h, var(--h)) 40% 16% / 0.6); }
 .show-today { margin: 0; font-size: 0.85rem; color: #ffd75e; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
 .travel-note { margin: 0; font-size: 0.85rem; color: var(--muted); font-style: italic; }
+.docs-tag.colored { border-left: 4px solid hsl(var(--h) 65% 52%); }
+.docs-tag.colored .docs-tag-head strong { color: hsl(var(--h) 80% 78%); }
+.docs-tag.colored .doc-open:hover { border-color: hsl(var(--h) 65% 52%); }
+.current-open .unread { background: hsl(var(--btn-h, var(--h)) 72% 62%); }

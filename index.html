@@ -146,7 +146,7 @@
 
       <button type="button" class="ghost calendar-open" id="open-calendar">📅 Calendrier</button>
       <button type="button" class="ghost current-open" id="open-current" hidden>
-        <span class="live-dot" aria-hidden="true"></span>
+        <span class="live-dots" id="current-dots" aria-hidden="true"></span>
         <span id="current-label">Dates en cours</span>
         <span class="unread" id="current-count"></span>
       </button>
@@ -188,7 +188,7 @@
           <h2 id="channel-title">ThyChat</h2>
           <p id="channel-desc" class="muted"></p>
         </div>
-        <button type="button" class="icon-btn current-btn" id="channel-current" title="Dates en cours" aria-label="Dates en cours" hidden><span class="live-dot" aria-hidden="true"></span><span id="channel-current-count"></span></button>
+        <button type="button" class="icon-btn current-btn" id="channel-current" title="Dates en cours" aria-label="Dates en cours" hidden><span class="live-dots" id="channel-current-dots" aria-hidden="true"></span><span id="channel-current-count"></span></button>
         <button type="button" class="icon-btn" id="channel-edit" title="Réglages du sous-salon" aria-label="Réglages du sous-salon" hidden>⚙</button>
         <button type="button" class="icon-btn" id="channel-search" title="Rechercher dans les messages" aria-label="Rechercher dans les messages" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
         <button type="button" class="icon-btn" id="channel-delete-dm" title="Supprimer la discussion" aria-label="Supprimer la discussion privée" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></button>

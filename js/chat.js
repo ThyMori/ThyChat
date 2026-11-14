@@ -1446,9 +1446,27 @@ export function createChat({ supabase, user }) {
       .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.label.localeCompare(b.label, "fr"));
   }
 
+  // Une pastille par couleur de production concernée (la plus proche en premier), au plus 3.
+  function fillDots(box, list) {
+    box.replaceChildren();
+    const hues = [...new Set(list.map(hueOfTag))].slice(0, 3);
+    for (const hue of hues) {
+      const dot = el("span", "live-dot");
+      dot.style.setProperty("--h", String(hue));
+      box.append(dot);
+    }
+    return hues[0];
+  }
+
   function renderCurrentButtons() {
     const list = currentDates();
     const n = list.length;
+    const hue = fillDots($("#current-dots"), list);
+    fillDots($("#channel-current-dots"), list);
+    for (const sel of ["#open-current", "#channel-current"]) {
+      if (hue === undefined) $(sel).style.removeProperty("--btn-h");
+      else $(sel).style.setProperty("--btn-h", String(hue));
+    }
     $("#open-current").hidden = !n;
     $("#current-count").textContent = String(n);
     $("#current-label").textContent = n === 1 ? "1 date en cours" : "Dates en cours";
@@ -1475,9 +1493,10 @@ export function createChat({ supabase, user }) {
     for (const tag of list) {
       const room = roomById(tag.room_id);
       const ws = state.workspaces.find((w) => w.id === room.workspace_id);
-      const section = el("section", "docs-tag");
+      const section = el("section", "docs-tag colored");
+      section.style.setProperty("--h", String(hueOfTag(tag)));
       const head = el("div", "docs-tag-head");
-      head.append(el("strong", "", `${room.name} · ${tag.label}`));
+      head.append(el("span", "live-dot"), el("strong", "", `${room.name} · ${tag.label}`));
       head.append(el("small", "muted", [state.workspaces.length > 1 && ws ? ws.name : "", rangeText(tag)].filter(Boolean).join(" · ")));
       const go = el("button", "ghost small", "Ouvrir le spectacle");
       go.type = "button";
