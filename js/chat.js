@@ -854,7 +854,9 @@ export function createChat({ supabase, user }) {
     bell.querySelector(".ic:first-child").style.display = bellOff ? "none" : "inline";
     bell.querySelector(".ic:last-child").style.display = bellOff ? "inline" : "none";
     bell.classList.toggle("is-muted", Boolean(channel && muted(channel)));
-    bell.title = muteNote || "Notifications";
+    bell.title = muteNote || "Sourdine de ce fil";
+    const bellLabel = bellOff ? "Sourdine active : réglages de ce fil" : "Mettre ce fil en sourdine";
+    bell.setAttribute("aria-label", bellLabel);
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
     $("#channel-search").hidden = !channel;
@@ -965,7 +967,7 @@ export function createChat({ supabase, user }) {
 
       if (message.id === state.selectedId && !state.multi.size) {
         const actions = el("div", "msg-actions");
-        const actionList = [["reply", "Répondre"], ["quote", "Citer"], ["forward", "Transférer"]];
+        const actionList = [["reply", "Répondre"], ["quote", "Citer"], ["copy", "Copier"], ["forward", "Transférer"]];
         if (mine) actionList.push(["strike", message.struck_at ? "Rétablir" : "Rayer"]);
         if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer"]);
         for (const [action, label] of actionList) {
@@ -1038,6 +1040,37 @@ export function createChat({ supabase, user }) {
     state.multi = new Set();
     renderMessages();
     if (failed) toast(`${failed} message${failed > 1 ? "s" : ""} non supprimé${failed > 1 ? "s" : ""}.`);
+  }
+
+  // Copie le texte d'un ou plusieurs messages (le texte seul, sans la mention « Transféré »).
+  const plainText = (message) => String(message.body || "").replace(/^↪ [^\n]*\n/, "");
+
+  async function copyMessages(ids) {
+    const picked = state.messages.filter((m) => ids.includes(m.id));
+    if (!picked.length) return;
+    const text = picked.length === 1 ? plainText(picked[0]) : picked.map((m) => `${authorName(m.user_id)} : ${plainText(m)}`).join("\n");
+    let ok = false;
+    try {
+      await navigator.clipboard.writeText(text);
+      ok = true;
+    } catch {
+      try {
+        const area = document.createElement("textarea");
+        area.value = text;
+        area.setAttribute("readonly", "");
+        area.style.cssText = "position:fixed;opacity:0;top:0;left:0";
+        document.body.append(area);
+        area.select();
+        ok = document.execCommand("copy");
+        area.remove();
+      } catch {
+        ok = false;
+      }
+    }
+    state.selectedId = null;
+    state.multi = new Set();
+    renderMessages();
+    toast(ok ? (picked.length === 1 ? "Message copié." : `${picked.length} messages copiés.`) : "Copie impossible sur cet appareil.", ok ? "ok" : undefined);
   }
 
   // --- Transférer des messages ------------------------------------------------------------
@@ -3946,6 +3979,28 @@ export function createChat({ supabase, user }) {
     dmBox.hidden = !dmList.length;
   }
 
+  // Sourdine rapide d'un seul fil (menu ⋮) ; les réglages complets restent dans « Notifications ».
+  function openChannelMute() {
+    const channel = state.channel;
+    if (!channel) return;
+    $("#mute-title").textContent = `Sourdine · ${channelTitle(channel)}`;
+    const current = choiceOf(state.mutes.get(muteKey("channel", channel.id)));
+    const box = $("#mute-choices");
+    box.replaceChildren();
+    for (const option of MUTE_CHOICES) {
+      const item = el("li");
+      const button = el("button", "pick-button", "");
+      button.type = "button";
+      button.dataset.choice = option.key;
+      button.append(el("span", "pick-name", option.key === "off" ? "Notifications activées" : option.label), el("span", "", option.key === current ? "✓" : ""));
+      item.append(button);
+      box.append(item);
+    }
+    const inherited = isMuted(state.mutes, "channel", channel.id) ? "" : muteLabel(mutedRowFor(channel));
+    $("#mute-note").textContent = inherited ? `Ce fil suit déjà un silence plus large : ${inherited.toLowerCase()}.` : "Ne concerne que ce fil : les autres fils continuent de notifier.";
+    openDialog("#dialog-mute");
+  }
+
   function openNotifications() {
     setNotice("#notif-message", "");
     renderMuteLists();
@@ -4045,7 +4100,19 @@ export function createChat({ supabase, user }) {
     on($("#open-members"), "click", openMembers);
     on($("#open-invite"), "click", openInvite);
     on($("#open-notifications"), "click", openNotifications);
-    on($("#channel-bell"), "click", openNotifications);
+    on($("#channel-bell"), "click", openChannelMute);
+    on($("#mute-all-settings"), "click", () => {
+      closeDialog($("#dialog-mute"));
+      openNotifications();
+    });
+    on($("#mute-choices"), "click", async (event) => {
+      const button = event.target.closest("[data-choice]");
+      if (!button || !state.channel) return;
+      await setMute("channel", state.channel.id, button.dataset.choice);
+      closeDialog($("#dialog-mute"));
+      const row = state.mutes.get(muteKey("channel", state.channel.id));
+      toast(row && isMuted(state.mutes, "channel", state.channel.id) ? "Ce fil est en sourdine : " + muteLabel(row).toLowerCase() + "." : "Notifications de ce fil réactivées.", "ok");
+    });
     on($("#push-reminder-open"), "click", openNotifications);
     on($("#push-reminder-close"), "click", () => {
       try {
@@ -4205,6 +4272,7 @@ export function createChat({ supabase, user }) {
     });
     on($("#select-cancel"), "click", clearMulti);
     on($("#select-delete"), "click", deleteSelected);
+    on($("#select-copy"), "click", () => copyMessages([...state.multi]));
     on($("#select-forward"), "click", () => openForward([...state.multi]));
     on($("#forward-list"), "click", (event) => {
       const button = event.target.closest("[data-target]");
@@ -4232,6 +4300,8 @@ export function createChat({ supabase, user }) {
       if (strike) return toggleStrike(strike.dataset.id);
       const move = event.target.closest("[data-action='move']");
       if (move) return openMove(move.dataset.id);
+      const copy = event.target.closest("[data-action='copy']");
+      if (copy) return copyMessages([copy.dataset.id]);
       const forward = event.target.closest("[data-action='forward']");
       if (forward) return openForward([forward.dataset.id]);
       const pill = event.target.closest(".hash-pill");

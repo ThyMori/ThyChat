@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.27.0 — 2026-11-15
+- Option Copier pour un ou plusieurs messages
+- sourdine rapide d'un seul fil depuis le menu ⋮
+
 ## 3.26.0 — 2026-11-15
 - Fils de discussion : sélection de plusieurs messages par appui long (suppression par lot), balayage vers la gauche pour les options d'un message, nouvelle option Transférer
 
