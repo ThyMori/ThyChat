@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.12.1 — 2026-11-14
+- PDF : de vrais liens (plus de page blanche sur téléphone)
+
 ## 3.12.0 — 2026-11-14
 - Fiche technique PDF par spectacle, avec la date de chaque version, lisible par les personnes concernées
 

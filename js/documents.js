@@ -32,11 +32,14 @@ export async function removeTagDocuments(supabase, paths) {
   }
 }
 
-// Lien temporaire (1 h) pour ouvrir le PDF.
-export async function signDocument(supabase, path) {
-  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrl(path, 3600);
-  if (error || !data || !data.signedUrl) throw error || new Error("Lien indisponible");
-  return data.signedUrl;
+// Liens temporaires (1 h) pour ouvrir les PDF : chemin -> lien.
+export async function signDocuments(supabase, paths) {
+  const out = new Map();
+  if (!paths.length) return out;
+  const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 3600);
+  if (error) throw error;
+  for (const row of data || []) if (row.signedUrl && row.path) out.set(row.path, row.signedUrl);
+  return out;
 }
 
 // Fiche technique d'un spectacle : rangée dans <salon>/fiche/<identifiant>.pdf (même stockage privé).

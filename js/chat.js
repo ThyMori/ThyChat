@@ -5,7 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
-import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocument } from "./documents.js";
+import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
@@ -1518,9 +1518,7 @@ export function createChat({ supabase, user }) {
       if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
       const sheet = sheetsOfRoom(tag.room_id)[0];
       if (sheet) {
-        const open = el("button", "doc-open latest");
-        open.type = "button";
-        open.dataset.openDoc = sheet.id;
+        const open = docLink(sheet, "doc-open latest");
         const text = el("span", "doc-name two");
         text.append(el("strong", "", "Fiche technique"), el("small", "muted", `Version du ${shortDate(sheet.version_date)}`));
         open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
@@ -1529,9 +1527,7 @@ export function createChat({ supabase, user }) {
       const docs = docsOfTag(tag.id);
       if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document pour cette date."));
       for (const doc of docs) {
-        const open = el("button", "doc-open");
-        open.type = "button";
-        open.dataset.openDoc = doc.id;
+        const open = docLink(doc, "doc-open");
         open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
         section.append(open);
       }
@@ -1571,9 +1567,7 @@ export function createChat({ supabase, user }) {
 
   function sheetRow(sheet, latest) {
     const row = el("div", "doc-row");
-    const open = el("button", "doc-open" + (latest ? " latest" : ""));
-    open.type = "button";
-    open.dataset.openSheet = sheet.id;
+    const open = docLink(sheet, "doc-open" + (latest ? " latest" : ""));
     const text = el("span", "doc-name two");
     text.append(el("strong", "", `Version du ${shortDate(sheet.version_date)}`), el("small", "muted", sheet.name));
     open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
@@ -1683,9 +1677,7 @@ export function createChat({ supabase, user }) {
       if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document."));
       for (const doc of docs) {
         const row = el("div", "doc-row");
-        const open = el("button", "doc-open");
-        open.type = "button";
-        open.dataset.openDoc = doc.id;
+        const open = docLink(doc, "doc-open");
         open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
         row.append(open);
         if (admin) {
@@ -1734,20 +1726,53 @@ export function createChat({ supabase, user }) {
     renderTagBar();
   }
 
-  async function openDocument(id, noticeSelector = "#docs-message") {
-    const doc = state.tagDocs.find((d) => d.id === id) || state.sheets.find((s) => s.id === id);
-    if (!doc) return;
-    // La fenêtre est ouverte tout de suite (clic de la personne) pour ne pas être bloquée, puis dirigée vers le PDF.
-    const tab = window.open("", "_blank");
+  // Les PDF sont de vrais liens (touchés directement par la personne) : aucun blocage de fenêtre, même sur téléphone.
+  const docUrls = new Map(); // chemin -> { url, at }
+  let signQueue = new Map(); // chemin -> liens à renseigner
+  let signTimer = null;
+
+  function docLink(doc, className) {
+    const link = el("a", className);
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    const cached = docUrls.get(doc.path);
+    if (cached && Date.now() - cached.at < 50 * 60 * 1000) {
+      link.href = cached.url;
+    } else {
+      link.setAttribute("aria-busy", "true");
+      if (!signQueue.has(doc.path)) signQueue.set(doc.path, []);
+      signQueue.get(doc.path).push(link);
+      clearTimeout(signTimer);
+      signTimer = setTimeout(flushSigns, 0);
+    }
+    link.addEventListener("click", (event) => {
+      if (!link.getAttribute("href")) {
+        event.preventDefault();
+        toast("Le lien se prépare, touche à nouveau dans un instant.");
+      }
+    });
+    return link;
+  }
+
+  async function flushSigns() {
+    const queue = signQueue;
+    signQueue = new Map();
+    if (!queue.size) return;
+    let urls;
     try {
-      const url = await signDocument(supabase, doc.path);
-      if (tab) tab.location.href = url;
-      else window.location.href = url;
+      urls = await signDocuments(supabase, [...queue.keys()]);
     } catch (error) {
-      if (tab) tab.close();
-      const text = "Ouverture impossible : " + (error && error.message ? error.message : "lien indisponible");
-      if (noticeSelector) setNotice(noticeSelector, text);
-      else toast(text);
+      toast("Documents indisponibles : " + (error && error.message ? error.message : "lien impossible"));
+      return;
+    }
+    for (const [path, links] of queue) {
+      const url = urls.get(path);
+      if (!url) continue;
+      docUrls.set(path, { url, at: Date.now() });
+      for (const link of links) {
+        link.href = url;
+        link.removeAttribute("aria-busy");
+      }
     }
   }
 
@@ -1935,9 +1960,7 @@ export function createChat({ supabase, user }) {
       row.append(el("span", "cal-swatch"), el("span", "", `${roomById(tag.room_id)?.name || ""} · ${tag.label}${star}`));
       box.append(row);
       for (const doc of docsOfTag(tag.id)) {
-        const open = el("button", "doc-open");
-        open.type = "button";
-        open.dataset.openDoc = doc.id;
+        const open = docLink(doc, "doc-open");
         open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
         box.append(open);
       }
@@ -3484,10 +3507,8 @@ export function createChat({ supabase, user }) {
     on($("#tags-docs"), "click", openDocs);
     on($("#room-sheet"), "click", openSheet);
     on($("#sheet-list"), "click", (event) => {
-      const open = event.target.closest("[data-open-sheet]");
       const del = event.target.closest("[data-del-sheet]");
-      if (open) openDocument(open.dataset.openSheet, "#sheet-message");
-      else if (del) deleteSheet(del.dataset.delSheet);
+      if (del) deleteSheet(del.dataset.delSheet);
     });
     on($("#sheet-pick"), "click", () => {
       if (!$("#sheet-date").value) return setNotice("#sheet-message", "Indique d'abord la date de la version.");
@@ -3501,10 +3522,8 @@ export function createChat({ supabase, user }) {
     on($("#open-current"), "click", openCurrent);
     on($("#channel-current"), "click", openCurrent);
     on($("#current-list"), "click", async (event) => {
-      const open = event.target.closest("[data-open-doc]");
       const go = event.target.closest("[data-go-tag]");
-      if (open) openDocument(open.dataset.openDoc, "#current-message");
-      else if (go) {
+      if (go) {
         closeDialog($("#dialog-current"));
         closeSidebar();
         await openTagFromCalendar(go.dataset.goTag);
@@ -3512,13 +3531,11 @@ export function createChat({ supabase, user }) {
     });
     on($("#docs-list"), "click", (event) => {
       const add = event.target.closest("[data-add-doc]");
-      const open = event.target.closest("[data-open-doc]");
       const del = event.target.closest("[data-del-doc]");
       if (add) {
         docsTarget = add.dataset.addDoc;
         $("#docs-file").click();
-      } else if (open) openDocument(open.dataset.openDoc);
-      else if (del) deleteDocument(del.dataset.delDoc);
+      } else if (del) deleteDocument(del.dataset.delDoc);
     });
     on($("#docs-file"), "change", (event) => {
       const files = [...event.target.files];
@@ -3573,8 +3590,6 @@ export function createChat({ supabase, user }) {
       }
     });
     on($("#cal-detail"), "click", (event) => {
-      const doc = event.target.closest("[data-open-doc]");
-      if (doc) return openDocument(doc.dataset.openDoc, "");
       const row = event.target.closest("[data-open-tag]");
       if (row) openTagFromCalendar(row.dataset.openTag);
     });

@@ -1050,3 +1050,5 @@ dialog.docs { width: min(560px, 94vw); }
 .doc-open.latest { border-color: var(--accent); }
 .doc-name.two { display: flex; flex-direction: column; gap: 1px; white-space: normal; }
 .doc-name.two small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-open { text-decoration: none; cursor: pointer; }
+a.doc-open[aria-busy="true"] { opacity: 0.6; }
