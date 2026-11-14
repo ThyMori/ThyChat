@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.12.3 — 2026-11-14
+- Téléphone : le bas de la liste (version, déconnexion) reste visible
+
 ## 3.12.2 — 2026-11-14
 - Bouton Retour du téléphone depuis le calendrier : on revient au sous-salon au lieu d'un écran noir
 

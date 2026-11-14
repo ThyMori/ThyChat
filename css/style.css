@@ -685,7 +685,7 @@ button.danger:hover { opacity: 1; border-color: var(--muted); }
 /* Resserrage : plus de place pour la liste des salons */
 .sidebar-foot { gap: 6px; padding-top: 10px; }
 .sidebar-foot > button.ghost { padding: 8px 12px; font-size: 0.9rem; }
-#channel-list { flex: 1 1 auto; min-height: 200px; }
+#channel-list { flex: 1 1 auto; min-height: 96px; }
 .dm-list { max-height: 18vh; }
 .pick-row, .choice { margin: 0; padding: 4px 0; }
 .pick-list .pick-row { min-height: 36px; }
@@ -1052,3 +1052,10 @@ dialog.docs { width: min(560px, 94vw); }
 .doc-name.two small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .doc-open { text-decoration: none; cursor: pointer; }
 a.doc-open[aria-busy="true"] { opacity: 0.6; }
+
+/* Mobile : le pied de la liste (version, déconnexion) doit toujours rester visible. */
+.sidebar-foot { flex-shrink: 0; }
+@media (max-width: 760px) {
+  .sidebar { height: 100vh; height: 100dvh; overflow-y: auto; }
+  .sidebar-foot { margin-top: auto; }
+}
