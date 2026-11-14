@@ -333,6 +333,8 @@ export function createChat({ supabase, user }) {
     }, opts);
   }
 
+  let exitArmedAt = 0;
+
   function closeSidebar() {
     $("#screen-app").classList.remove("sidebar-open");
   }
@@ -3697,8 +3699,13 @@ export function createChat({ supabase, user }) {
       if (!screen.classList.contains("sidebar-open")) {
         screen.classList.add("sidebar-open"); // « Retour » depuis un salon : retour à la liste
         guardHistory();
+      } else if (Date.now() - exitArmedAt < 2500) {
+        history.back(); // deuxième « Retour » rapproché : on quitte vraiment
       } else {
-        history.back(); // la liste est déjà affichée : on quitte vraiment
+        // La liste est déjà affichée : on demande confirmation au lieu de quitter (ou de tomber sur une page vide).
+        exitArmedAt = Date.now();
+        guardHistory();
+        toast("Appuie encore sur Retour pour quitter.", "ok");
       }
     });
     on($("#close-sidebar"), "click", closeSidebar);

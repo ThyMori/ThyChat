@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.14.1 — 2026-11-14
+- Téléphone : « Retour » sur la liste demande confirmation avant de quitter l'appli (plus d'écran noir)
+
 ## 3.14.0 — 2026-11-14
 - Téléphone : titre lisible, les boutons de l'en-tête sont rangés dans un menu ⋮
 
