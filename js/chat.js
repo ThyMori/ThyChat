@@ -6,7 +6,15 @@
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
-import { safeAvatarUrl, uploadAvatar, removeAvatar, saveName, changeEmail } from "./profile.js";
+import {
+  safeAvatarUrl,
+  uploadAvatar,
+  removeAvatar,
+  uploadWorkspaceAvatar,
+  removeWorkspaceAvatar,
+  saveName,
+  changeEmail,
+} from "./profile.js";
 
 const LAST_KEY = "thychat:last";
 const OPEN_KEY = "thychat:open";
@@ -184,6 +192,7 @@ export function createChat({ supabase, user }) {
     realtime: null,
     loadToken: 0,
     themeColumn: true, // false tant que la migration SQL des couleurs n'est pas passée
+    avatarColumn: true, // false tant que la migration 007 (photos d'espace) n'est pas passée
     pendingDeepLink: null, // { w, c } venant d'une notification
     pushStatus: "unsupported",
   };
@@ -256,6 +265,22 @@ export function createChat({ supabase, user }) {
       node.textContent = initials(authorName(userId), 1);
     }
     return node;
+  }
+
+  // Pastille d'un espace : sa photo si elle en a une, sinon ses initiales.
+  function fillWsAvatar(node, ws) {
+    node.replaceChildren();
+    node.classList.remove("has-photo");
+    const url = ws ? safeAvatarUrl(ws.avatar) : "";
+    if (url) {
+      const img = el("img");
+      img.src = url;
+      img.alt = "";
+      node.classList.add("has-photo");
+      node.append(img);
+    } else {
+      node.textContent = ws ? initials(ws.name, 2) : "?";
+    }
   }
 
   async function ensureProfiles(ids) {
@@ -463,7 +488,7 @@ export function createChat({ supabase, user }) {
 
   function renderWorkspaceHeader() {
     const ws = state.ws;
-    $("#ws-avatar").textContent = ws ? initials(ws.name, 2) : "?";
+    fillWsAvatar($("#ws-avatar"), ws);
     $("#ws-name").textContent = ws ? ws.name : "Espaces";
     $("#ws-sub").textContent = ws ? (ws.role === "admin" ? "Administrateur" : "Utilisateur") : "";
     $("#open-members").hidden = !ws;
@@ -491,7 +516,9 @@ export function createChat({ supabase, user }) {
       if (state.ws && state.ws.id === ws.id) row.setAttribute("aria-current", "true");
       const info = wsUnread(ws.id);
       if (info.muted) row.classList.add("is-muted");
-      row.append(el("span", "avatar", initials(ws.name, 2)));
+      const wsAvatar = el("span", "avatar");
+      fillWsAvatar(wsAvatar, ws);
+      row.append(wsAvatar);
       const text = el("span", "ws-text");
       text.append(el("strong", "", ws.name), el("small", "", roleLabel(ws.role)));
       row.append(text);
@@ -690,6 +717,7 @@ export function createChat({ supabase, user }) {
       const classes = ["msg", mine ? "mine" : "theirs"];
       if (grouped) classes.push("grouped");
       if (message.id === state.selectedId) classes.push("selected");
+      if (message.struck_at) classes.push("struck");
       const item = el("article", classes.join(" "));
       item.dataset.id = message.id;
       if (deletable) item.dataset.deletable = "true";
@@ -728,7 +756,9 @@ export function createChat({ supabase, user }) {
 
       if (message.id === state.selectedId) {
         const actions = el("div", "msg-actions");
-        for (const [action, label] of [["reply", "Répondre"], ["quote", "Citer"]]) {
+        const actionList = [["reply", "Répondre"], ["quote", "Citer"]];
+        if (mine) actionList.push(["strike", message.struck_at ? "Rétablir" : "Rayer"]);
+        for (const [action, label] of actionList) {
           const button = el("button", "", label);
           button.type = "button";
           button.dataset.action = action;
@@ -767,17 +797,19 @@ export function createChat({ supabase, user }) {
   }
 
   async function fetchMemberships() {
-    let result = await supabase
-      .from("workspace_members")
-      .select("role, workspaces(id, name, theme)")
-      .eq("user_id", user.id);
-    if (result.error && /theme/i.test(result.error.message)) {
-      // Migration des couleurs pas encore exécutée : on continue sans (couleur déduite de l'id).
-      state.themeColumn = false;
-      result = await supabase.from("workspace_members").select("role, workspaces(id, name)").eq("user_id", user.id);
+    let result;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      result = await supabase.from("workspace_members").select(`role, workspaces(${wsColumns()})`).eq("user_id", user.id);
+      if (!result.error) break;
+      // Migrations des couleurs (002) ou des photos d'espace (007) pas encore exécutées : on continue sans.
+      if (/theme/i.test(result.error.message) && state.themeColumn) state.themeColumn = false;
+      else if (/avatar_url/i.test(result.error.message) && state.avatarColumn) state.avatarColumn = false;
+      else break;
     }
     return result;
   }
+
+  const wsColumns = () => "id, name" + (state.themeColumn ? ", theme" : "") + (state.avatarColumn ? ", avatar_url" : "");
 
   async function loadWorkspaces(preferredId) {
     const { data, error } = await fetchMemberships();
@@ -791,14 +823,15 @@ export function createChat({ supabase, user }) {
         id: row.workspaces.id,
         name: row.workspaces.name,
         theme: row.workspaces.theme ?? null,
+        avatar: row.workspaces.avatar_url || "",
         role: row.role,
       });
     }
     if (state.isSuper) {
       // L'administrateur général voit et administre tous les espaces.
-      const all = await supabase.from("workspaces").select(state.themeColumn ? "id, name, theme" : "id, name");
+      const all = await supabase.from("workspaces").select(wsColumns());
       for (const ws of all.data || []) {
-        if (!byId.has(ws.id)) byId.set(ws.id, { id: ws.id, name: ws.name, theme: ws.theme ?? null, role: "admin" });
+        if (!byId.has(ws.id)) byId.set(ws.id, { id: ws.id, name: ws.name, theme: ws.theme ?? null, avatar: ws.avatar_url || "", role: "admin" });
       }
     }
     state.workspaces = [...byId.values()].sort(byName);
@@ -883,14 +916,14 @@ export function createChat({ supabase, user }) {
   async function loadMessages(channelId, token) {
     let query = supabase
       .from("messages")
-      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, body, pinned, created_at, edited_at")
+      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, pinned, created_at, edited_at")
       .eq("channel_id", channelId)
       .is("parent_id", null);
     if (state.tagFilter.size) query = query.overlaps("tag_ids", [...state.tagFilter]);
     const { data, error } = await query.order("created_at", { ascending: false }).limit(PAGE_SIZE);
     if (stopped || token !== state.loadToken) return;
     if (error) {
-      toast("Messages illisibles : " + error.message);
+      toast("Messages illisibles : " + error.message + (/struck_at|reply_to|tag_ids/.test(error.message) ? " (exécute les migrations 006 et 007)" : ""));
       return;
     }
     state.messages = (data || []).slice().reverse();
@@ -1111,6 +1144,18 @@ export function createChat({ supabase, user }) {
     }
     box.hidden = !box.childNodes.length;
     $("#composer-extra").hidden = !reply && box.hidden;
+  }
+
+  // L'auteur raye son message (il reste lisible, barré) ou le rétablit.
+  async function toggleStrike(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message || message.user_id !== user.id) return;
+    const struck_at = message.struck_at ? null : new Date().toISOString();
+    const { error } = await supabase.from("messages").update({ struck_at }).eq("id", id);
+    if (error) return toast("Impossible de modifier le message : " + error.message);
+    message.struck_at = struck_at;
+    state.selectedId = null;
+    renderMessages();
   }
 
   function startReply(id) {
@@ -1365,7 +1410,49 @@ export function createChat({ supabase, user }) {
     await loadWorkspaces(data.id);
   }
 
+  function renderSpacePhoto() {
+    $("#space-photo-section").hidden = !isAdmin() || !state.avatarColumn;
+    if (!state.ws) return;
+    fillWsAvatar($("#space-photo"), state.ws);
+    $("#space-photo-remove").hidden = !safeAvatarUrl(state.ws.avatar);
+  }
+
+  async function pickSpacePhoto(file) {
+    if (!file || !state.ws || !isAdmin()) return;
+    if (!/^image\//.test(file.type)) return setNotice("#members-message", "Choisis une image.");
+    setNotice("#members-message", "Envoi de la photo…", "ok");
+    try {
+      const url = await uploadWorkspaceAvatar(supabase, state.ws.id, file);
+      setWsAvatar(url);
+      setNotice("#members-message", "Photo de l'espace enregistrée.", "ok");
+    } catch (error) {
+      const hint = /bucket|not found|policy|row-level|avatar_url/i.test(error.message || "") ? " (exécute la migration 007)" : "";
+      setNotice("#members-message", "Photo non enregistrée : " + (error.message || error) + hint);
+    }
+  }
+
+  async function removeSpacePhoto() {
+    if (!state.ws || !isAdmin()) return;
+    try {
+      await removeWorkspaceAvatar(supabase, state.ws.id);
+      setWsAvatar("");
+      setNotice("#members-message", "Photo retirée.", "ok");
+    } catch (error) {
+      setNotice("#members-message", "Impossible de retirer la photo : " + (error.message || error));
+    }
+  }
+
+  function setWsAvatar(url) {
+    state.ws.avatar = url;
+    const known = state.workspaces.find((w) => w.id === state.ws.id);
+    if (known) known.avatar = url;
+    renderSpacePhoto();
+    renderWorkspaceHeader();
+    renderSwitchList();
+  }
+
   function renderThemeSettings() {
+    renderSpacePhoto();
     $("#theme-section").hidden = !isAdmin();
     if (!isAdmin()) return;
     renderSwatches($("#theme-swatches"), themeFor(state.ws).key, changeTheme);
@@ -2251,6 +2338,12 @@ export function createChat({ supabase, user }) {
       event.target.value = "";
     });
     on($("#profile-remove"), "click", removePhoto);
+    on($("#space-photo-pick"), "click", () => $("#space-photo-file").click());
+    on($("#space-photo-file"), "change", (event) => {
+      pickSpacePhoto(event.target.files[0]);
+      event.target.value = "";
+    });
+    on($("#space-photo-remove"), "click", removeSpacePhoto);
     on($("#profile-form"), "submit", submitProfile);
 
     on($("#messages"), "click", (event) => {
@@ -2260,6 +2353,8 @@ export function createChat({ supabase, user }) {
       if (reply) return startReply(reply.dataset.id);
       const quote = event.target.closest("[data-action='quote']");
       if (quote) return startQuote(quote.dataset.id);
+      const strike = event.target.closest("[data-action='strike']");
+      if (strike) return toggleStrike(strike.dataset.id);
       const jump = event.target.closest(".msg-quote");
       if (jump) return jumpToMessage(jump.dataset.reply);
       if (event.target.closest("a")) return; // un lien s'ouvre, sans sélectionner le message
@@ -2419,6 +2514,7 @@ export function createChat({ supabase, user }) {
     state.unread = new Map();
     state.mutes = new Map();
     state.themeColumn = true;
+    state.avatarColumn = true;
     state.pendingDeepLink = readDeepLink();
 
     state.profiles.set(user.id, { name: fallbackName, avatar: "" });

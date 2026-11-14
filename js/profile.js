@@ -37,6 +37,29 @@ export async function uploadAvatar(supabase, userId, file) {
   return url;
 }
 
+// Photo d'un espace (production ou compagnie) : réservée à ses administrateurs.
+export async function uploadWorkspaceAvatar(supabase, workspaceId, file) {
+  const blob = await squareJpeg(file);
+  const path = `ws/${workspaceId}/logo.jpg`;
+  const { error } = await supabase.storage.from("avatars").upload(path, blob, {
+    upsert: true,
+    contentType: "image/jpeg",
+    cacheControl: "3600",
+  });
+  if (error) throw error;
+  const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+  const url = `${data.publicUrl}?v=${Date.now()}`;
+  const { error: updateError } = await supabase.from("workspaces").update({ avatar_url: url }).eq("id", workspaceId);
+  if (updateError) throw updateError;
+  return url;
+}
+
+export async function removeWorkspaceAvatar(supabase, workspaceId) {
+  await supabase.storage.from("avatars").remove([`ws/${workspaceId}/logo.jpg`]);
+  const { error } = await supabase.from("workspaces").update({ avatar_url: null }).eq("id", workspaceId);
+  if (error) throw error;
+}
+
 export async function removeAvatar(supabase, userId) {
   await supabase.storage.from("avatars").remove([`${userId}/avatar.jpg`]);
   const { error } = await supabase.from("profiles").update({ avatar_url: null }).eq("id", userId);

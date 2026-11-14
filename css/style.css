@@ -785,3 +785,10 @@ fieldset.access { margin-top: 10px; }
 .tags-form input[type="text"] { flex: 1 1 160px; }
 .tag-row { display: flex; align-items: center; gap: 8px; }
 .tag-row .pick-name { flex: 1; }
+
+/* --- Message rayé ; photo d'espace --- */
+.msg.struck .msg-body { text-decoration: line-through; opacity: 0.6; }
+.msg.struck .msg-body time { text-decoration: none; }
+.msg.struck .msg-quote, .msg.struck .msg-tags { opacity: 0.6; }
+#ws-avatar.has-photo, .ws-row .avatar.has-photo, #space-photo.has-photo { padding: 0; overflow: hidden; }
+#ws-avatar.has-photo img, .ws-row .avatar.has-photo img, #space-photo.has-photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
