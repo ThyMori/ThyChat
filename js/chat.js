@@ -1436,11 +1436,13 @@ export function createChat({ supabase, user }) {
 
   // --- Dates en cours : accès rapide depuis n'importe où -----------------------------------
 
-  // Dates dont la plage couvre aujourd'hui, dans tous les spectacles accessibles.
+  // Dates en cours : de la veille du début au lendemain de la fin (trajets aller et retour), dans tous les spectacles accessibles.
+  const dayBefore = (iso) => toISO(addDays(fromISO(iso), -1));
+  const dayAfter = (iso) => toISO(addDays(fromISO(iso), 1));
   function currentDates() {
     const today = toISO(new Date());
     return state.tags
-      .filter((t) => t.start_date && t.start_date <= today && today <= (t.end_date || t.start_date) && roomById(t.room_id))
+      .filter((t) => t.start_date && dayBefore(t.start_date) <= today && today <= dayAfter(t.end_date || t.start_date) && roomById(t.room_id))
       .sort((a, b) => a.start_date.localeCompare(b.start_date) || a.label.localeCompare(b.label, "fr"));
   }
 
@@ -1482,6 +1484,8 @@ export function createChat({ supabase, user }) {
       go.dataset.goTag = tag.id;
       head.append(go);
       section.append(head);
+      if (today < tag.start_date) section.append(el("p", "travel-note", "Veille : départ demain"));
+      else if (today > (tag.end_date || tag.start_date)) section.append(el("p", "travel-note", "Lendemain : retour"));
       if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
       const docs = docsOfTag(tag.id);
       if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document."));

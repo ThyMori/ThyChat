@@ -1018,3 +1018,4 @@ dialog.docs { width: min(560px, 94vw); }
 .current-btn { width: auto; min-width: 40px; padding: 0 12px; gap: 6px; font-size: 0.8rem; color: var(--text); border-color: hsl(var(--h) 55% 42%); }
 .show-today { margin: 0; font-size: 0.85rem; color: #ffd75e; }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } }
+.travel-note { margin: 0; font-size: 0.85rem; color: var(--muted); font-style: italic; }
