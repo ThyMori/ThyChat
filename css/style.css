@@ -1075,3 +1075,9 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
   .dm-list { max-height: 16dvh; }
   #channel-list { min-height: 64px; }
 }
+
+/* Mobile : les spectacles prennent la place ; messages privés et pied de liste en dessous (la colonne défile). */
+@media (max-width: 760px) {
+  #channel-list { flex: 1 0 auto; min-height: 42dvh; overflow: visible; }
+  .dm-list { flex: none; max-height: none; overflow: visible; }
+}
