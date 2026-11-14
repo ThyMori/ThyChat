@@ -2113,7 +2113,7 @@ export function createChat({ supabase, user }) {
     const only = docsOnlyTag ? tagById(docsOnlyTag) : null;
     $("#docs-title").textContent = only ? `Documents · ${only.label}` : room ? `Documents · ${room.name}` : "Documents du spectacle";
     $("#docs-note").textContent = isAdmin()
-      ? "Ajoute à chaque date des PDF, des images (15 Mo au plus) ou des liens : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir."
+      ? "Ajoute à chaque date des PDF, des images (15 Mo au plus) ou des liens : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir. Ils sont effacés automatiquement 10 jours après la fin de la date."
       : "Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.";
     setNotice("#docs-message", "");
     linkTarget = null;

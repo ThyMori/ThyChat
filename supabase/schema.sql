@@ -1764,3 +1764,37 @@ create policy room_sheets_insert on public.room_sheets for insert to authenticat
 update storage.buckets
   set allowed_mime_types = array['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif']
   where id = 'tag-documents';
+
+-- ---- 018 : nettoyage automatique des documents des dates passées ----
+create extension if not exists pg_net with schema extensions;
+create extension if not exists pg_cron with schema pg_catalog;
+
+create or replace function public.purge_old_documents()
+returns void
+language plpgsql security definer set search_path = public, extensions as $$
+declare
+  push_url text;
+  push_secret text;
+begin
+  select value into push_url from public.app_settings where key = 'push_url';
+  select value into push_secret from public.app_settings where key = 'push_secret';
+  if push_url is null or push_secret is null then
+    return;
+  end if;
+
+  perform net.http_post(
+    url := replace(push_url, '/send-push', '/purge-documents'),
+    body := jsonb_build_object('days', 10),
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-webhook-secret', push_secret)
+  );
+end;
+$$;
+
+revoke all on function public.purge_old_documents() from public, anon, authenticated;
+
+do $$
+begin
+  perform cron.unschedule(jobid) from cron.job where jobname = 'purge-old-documents';
+  perform cron.schedule('purge-old-documents', '30 3 * * *', 'select public.purge_old_documents()');
+end;
+$$;

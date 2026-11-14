@@ -26,7 +26,7 @@ manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
 supabase/schema.sql     tables, sécurité (RLS), temps réel
 supabase/migrations/    mises à jour de la base, à exécuter une fois dans l'ordre
-supabase/functions/     fonctions serveur : invite-member (invitations) et send-push (notifications)
+supabase/functions/     fonctions serveur : invite-member (invitations), send-push (notifications) et purge-documents (nettoyage nocturne)
 ```
 
 ## Mise en route
@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `018_purge_old_documents.sql` | nettoyage automatique (chaque nuit, pg_cron) des documents des dates passées depuis plus de 10 jours ; nécessite 004 et 012 ; **déployer la fonction `purge-documents`** (même secret que `send-push`) |
 | `017_document_links_images.sql` | documents et fiches techniques : images et liens web en plus des PDF (**indispensable à la version 3.25**) |
 | `016_move_message_photos.sql` | correctif du déplacement des photos : l'application les déplace dans le stockage ; autorisation de déplacement pour les administrateurs (**à exécuter après la 015**) |
 | `015_move_message.sql` | un administrateur déplace un message vers un autre sous-salon ou spectacle (les dates # sont retirées si le spectacle change) ; **indispensable à la version 3.22, avec la 016** |
