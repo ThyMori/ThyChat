@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.20.4 — 2026-11-14
+- Téléphone : le bouton Retour ne quitte plus l'application par erreur (entrée d'historique reposée à chaque geste
+- Retour agit même sur une entrée protégée)
+
 ## 3.20.3 — 2026-11-14
 - Suppression d'une date : la confirmation précise que ses PDF sont aussi supprimés
 

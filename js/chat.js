@@ -191,9 +191,15 @@ function assignLanes(tags) {
 // ferme la boîte de dialogue ou revienne à la liste des salons, au lieu de quitter l'application.
 const isMobile = () => Boolean(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
 
+// Chrome ignore (au bouton « Retour ») les entrées d'historique ajoutées sans geste de l'utilisateur : la protection
+// posée au démarrage pouvait être sautée et « Retour » quittait l'application (écran noir). On note donc si l'entrée
+// a été posée pendant un geste, et on en repose une dès qu'un geste le permet.
 function guardHistory() {
   try {
-    if (isMobile() && !(history.state && history.state.tcGuard)) history.pushState({ tcGuard: true }, "");
+    if (!isMobile()) return;
+    const active = !navigator.userActivation || navigator.userActivation.isActive;
+    const current = history.state;
+    if (!(current && current.tcGuard) || (!current.act && active)) history.pushState({ tcGuard: true, act: active }, "");
   } catch {
     /* historique indisponible : sans conséquence */
   }
@@ -3736,6 +3742,8 @@ export function createChat({ supabase, user }) {
       toolsMenu(!$("#head-tools").classList.contains("open"));
     });
     on(document, "click", () => toolsMenu(false));
+    // Premier geste sur l'écran : pose une entrée d'historique « validée » (voir guardHistory).
+    on(document, "pointerdown", () => guardHistory());
     on($("#cal-prev"), "click", () => shiftMonth(-1));
     on($("#cal-next"), "click", () => shiftMonth(1));
     on($("#cal-today"), "click", () => {
@@ -3818,7 +3826,6 @@ export function createChat({ supabase, user }) {
         guardHistory();
         return;
       }
-      if (history.state && history.state.tcGuard) return;
       const screen = $("#screen-app");
       if (state.calendarOpen) {
         // « Retour » depuis le calendrier : on revient au dernier sous-salon (jamais d'écran vide)
