@@ -563,3 +563,131 @@ button.small { padding: 6px 12px; font-size: 0.85rem; width: auto; }
 /* --- Numéro de version ----------------------------------------------------- */
 .version { margin: 8px 0 0; font-size: 0.7rem; opacity: 0.55; text-align: center; letter-spacing: 0.03em; }
 .install-actions button { padding: 8px 14px; font-size: 0.85rem; width: auto; line-height: 1.2; }
+
+/* --- Salons, messages privés, non lus, silences ---------------------------- */
+.dm-list { flex: none; max-height: 30vh; padding-bottom: 6px; }
+.dm-list[hidden] { display: none; }
+.channel-side, .ws-flags { flex: none; display: inline-flex; align-items: center; gap: 6px; }
+.ws-flags:empty { display: none; }
+.channel-item .avatar, .ws-row .avatar { flex: none; }
+
+/* Pastille de messages non lus */
+.unread {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 999px;
+}
+.unread[hidden] { display: none; }
+.unread.muted { color: var(--muted); background: var(--border); }
+#ws-unread { margin-right: 4px; }
+
+/* Silence : tout est atténué, avec une icône bien visible */
+.mute-ic, .lock-ic { font-size: 0.85rem; line-height: 1; }
+.mute-ic[hidden] { display: none; }
+.channel-item.is-muted .channel-name,
+.channel-item.is-muted .avatar { opacity: 0.55; }
+.channel-item.is-muted .channel-name { font-style: italic; }
+.ws-row.is-muted strong { opacity: 0.6; font-style: italic; }
+
+/* Cloche de la conversation */
+.chat-head .chat-titles { flex: 1; }
+.icon-btn.bell.is-muted { border-color: var(--accent); background: hsl(var(--h) 30% 19%); }
+
+/* Bouton « Notifications » de la barre latérale : mis en avant tant qu'elles ne sont pas activées */
+#open-notifications.is-warn { border-color: var(--accent); color: var(--accent); }
+
+.me-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 2px 6px 2px 2px;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 999px;
+  text-align: left;
+}
+.me-button:hover { background: var(--bg-input); }
+.me-button .avatar { width: 34px; height: 34px; font-size: 0.9rem; }
+
+/* Photos de profil */
+.avatar.has-photo { background: var(--bg-input); overflow: hidden; }
+.avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.avatar.big { width: 76px; height: 76px; font-size: 1.8rem; }
+
+/* Listes à cocher et sélecteurs dans les dialogues */
+fieldset.access { border: 1px solid var(--border); border-radius: var(--radius); margin: 14px 0 0; padding: 10px 12px; }
+fieldset.access legend { padding: 0 6px; color: var(--muted); font-size: 0.82rem; }
+.choice, .pick-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-weight: 400; cursor: pointer; }
+.choice input, .pick-row input { width: auto; flex: none; accent-color: var(--accent); }
+.hint { font-size: 0.8rem; margin: 8px 0 0; }
+.pick-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 26vh; overflow-y: auto; }
+.pick-list[hidden] { display: none; }
+.pick-list .avatar.small { width: 30px; height: 30px; font-size: 0.8rem; }
+.pick-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pick-button {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  padding: 8px 10px; color: var(--text); background: none; border: none; border-radius: 12px;
+}
+.pick-button:hover { background: var(--bg-input); }
+.invite-space { display: flex; align-items: center; gap: 8px; }
+.invite-space .pick-row { flex: 1; min-width: 0; }
+.invite-space select, .role-select { width: auto; flex: none; max-width: 48%; padding: 6px 8px; font-size: 0.85rem; }
+.invite-group { margin-top: 6px; }
+.invite-group strong { font-size: 0.85rem; }
+
+button.danger {
+  margin-right: auto;
+  color: inherit;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+button.danger:hover { opacity: 1; border-color: var(--muted); }
+
+.member-who { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+.member-who .avatar.small { width: 32px; height: 32px; font-size: 0.85rem; }
+.member-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.member .role-select { max-width: 42%; }
+.members { max-height: 34vh; }
+#open-invite { margin: 10px 0 0; }
+
+/* Dialogue des notifications */
+.push-box { border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 12px; margin: 8px 0 12px; }
+.push-box[data-status="off"] { border-color: var(--accent); }
+.push-box p { margin: 0 0 8px; font-size: 0.9rem; }
+.push-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+#push-toggle { margin-top: 0; }
+.mute-list { list-style: none; margin: 6px 0 12px; padding: 0; max-height: 24vh; overflow-y: auto; }
+.mute-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.mute-row.is-muted { border-left: 3px solid var(--accent); padding-left: 8px; }
+.mute-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.mute-text strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.92rem; }
+.mute-text small { color: var(--accent); font-size: 0.78rem; }
+.mute-select { width: auto; max-width: 52%; padding: 6px 8px; font-size: 0.85rem; }
+
+/* Profil */
+.profile-photo { display: flex; align-items: center; gap: 14px; margin: 10px 0 4px; }
+.profile-photo-actions { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+
+/* Resserrage : plus de place pour la liste des salons */
+.sidebar-foot { gap: 6px; padding-top: 10px; }
+.sidebar-foot > button.ghost { padding: 8px 12px; font-size: 0.9rem; }
+#channel-list { flex: 1 1 auto; min-height: 110px; }
+.dm-list { max-height: 22vh; }
+.pick-row, .choice { margin: 0; padding: 4px 0; }
+.pick-list .pick-row { min-height: 36px; }
+fieldset.access { margin-top: 10px; }

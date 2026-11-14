@@ -133,20 +133,34 @@
           <strong id="ws-name">Espaces</strong>
           <small id="ws-sub"></small>
         </span>
+        <span class="ws-flags">
+          <span class="mute-ic" id="ws-muted" title="Espace en silence" hidden>🔕</span>
+          <span class="unread" id="ws-unread" hidden></span>
+        </span>
         <span class="chev" aria-hidden="true">▾</span>
       </button>
 
       <div class="section-title">
-        <span>Discussions</span>
-        <button type="button" class="icon-btn" id="new-channel" title="Nouvelle discussion" aria-label="Nouvelle discussion" hidden>+</button>
+        <span>Salons</span>
+        <button type="button" class="icon-btn" id="new-channel" title="Nouveau salon" aria-label="Nouveau salon" hidden>+</button>
       </div>
-      <nav id="channel-list" class="channel-list" aria-label="Discussions"></nav>
+      <nav id="channel-list" class="channel-list" aria-label="Salons"></nav>
+
+      <div class="section-title" id="dm-title" hidden>
+        <span>Messages privés</span>
+        <button type="button" class="icon-btn" id="new-dm" title="Nouveau message privé" aria-label="Nouveau message privé">+</button>
+      </div>
+      <nav id="dm-list" class="channel-list dm-list" aria-label="Messages privés" hidden></nav>
 
       <div class="sidebar-foot">
         <button type="button" class="ghost" id="open-members" hidden>Espace et membres</button>
+        <button type="button" class="ghost" id="open-notifications"><span id="notif-ic" aria-hidden="true">🔔</span> <span id="notif-label">Notifications</span></button>
         <button type="button" class="ghost" id="open-install" hidden>Installer l'application</button>
         <div class="me">
-          <span id="me-name"></span>
+          <button type="button" class="me-button" id="open-profile" aria-label="Mon profil">
+            <span class="avatar small soft" id="me-avatar" aria-hidden="true"></span>
+            <span id="me-name"></span>
+          </button>
           <button type="button" class="ghost" id="logout">Déconnexion</button>
         </div>
         <p class="version app-version"></p>
@@ -163,6 +177,8 @@
           <h2 id="channel-title">ThyChat</h2>
           <p id="channel-desc" class="muted"></p>
         </div>
+        <button type="button" class="icon-btn" id="channel-edit" title="Accès au salon" aria-label="Accès au salon" hidden>⚙</button>
+        <button type="button" class="icon-btn bell" id="channel-bell" title="Notifications" aria-label="Notifications" hidden>🔔</button>
       </header>
       <div id="install-banner" class="install-banner" role="region" aria-label="Installer l'application" hidden>
         <img class="install-icon" src="icons/icon-192.png" alt="" width="40" height="40">
@@ -248,7 +264,7 @@
       <ul id="ws-list" class="ws-list"></ul>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
-        <button type="button" class="primary" id="switch-new">Nouvel espace</button>
+        <button type="button" class="primary" id="switch-new" hidden>Nouvel espace</button>
       </div>
     </dialog>
 
@@ -270,15 +286,101 @@
 
     <dialog id="dialog-channel">
       <form id="channel-form" novalidate>
-        <h3>Nouvelle discussion</h3>
-        <label for="channel-name">Nom de la discussion</label>
+        <h3 id="channel-dialog-title">Nouveau salon</h3>
+        <label for="channel-name">Nom du salon</label>
         <input id="channel-name" type="text" maxlength="60" autocomplete="off" required>
         <label for="channel-description">Description (facultatif)</label>
         <input id="channel-description" type="text" maxlength="200" autocomplete="off">
+        <fieldset class="access">
+          <legend>Qui y a accès ?</legend>
+          <label class="choice"><input type="radio" name="channel-access" value="everyone" checked> Tous les utilisateurs de l'espace</label>
+          <label class="choice"><input type="radio" name="channel-access" value="some"> Seulement certaines personnes</label>
+          <ul id="channel-pick" class="pick-list" hidden></ul>
+          <p class="muted hint">Les administrateurs de l'espace voient tous les salons.</p>
+        </fieldset>
         <p id="channel-message" class="notice" role="alert" hidden></p>
         <div class="dialog-actions">
+          <button type="button" class="danger" id="channel-delete" hidden>Supprimer le salon</button>
           <button type="button" class="ghost" data-close>Annuler</button>
           <button type="submit" class="primary" id="channel-submit">Créer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dialog-dm">
+      <h3>Message privé</h3>
+      <p class="muted">Choisis une personne de cet espace.</p>
+      <ul id="dm-pick" class="pick-list"></ul>
+      <p id="dm-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-notifications">
+      <h3 id="notif-title" tabindex="-1">Notifications</h3>
+      <section class="push-box" id="push-box">
+        <p id="push-status"></p>
+        <div class="push-actions">
+          <button type="button" class="primary small" id="push-toggle" hidden></button>
+          <button type="button" class="ghost small" id="push-install" hidden>Voir comment installer</button>
+        </div>
+      </section>
+      <h4>Espaces</h4>
+      <ul id="mute-spaces" class="mute-list"></ul>
+      <h4 id="mute-salons-title">Salons</h4>
+      <ul id="mute-channels" class="mute-list"></ul>
+      <p id="notif-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-profile">
+      <form id="profile-form" novalidate>
+        <h3 id="profile-title" tabindex="-1">Mon profil</h3>
+        <div class="profile-photo">
+          <span class="avatar big soft" id="profile-avatar" aria-hidden="true"></span>
+          <div class="profile-photo-actions">
+            <input type="file" id="profile-file" accept="image/*" hidden>
+            <button type="button" class="ghost small" id="profile-pick">Changer la photo</button>
+            <button type="button" class="ghost small" id="profile-remove" hidden>Retirer la photo</button>
+          </div>
+        </div>
+        <label for="profile-name">Nom affiché</label>
+        <input id="profile-name" type="text" maxlength="80" autocomplete="name">
+        <label for="profile-email">Adresse e-mail</label>
+        <input id="profile-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="email">
+        <p class="muted hint">Si tu changes l'adresse, un e-mail de confirmation est envoyé pour la valider.</p>
+        <p id="profile-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close>Fermer</button>
+          <button type="submit" class="primary" id="profile-submit">Enregistrer</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dialog-invite">
+      <form id="invite-form" novalidate>
+        <h3>Inviter quelqu'un</h3>
+        <label for="invite-email">Adresse e-mail</label>
+        <input id="invite-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off">
+        <label for="invite-name">Nom (facultatif)</label>
+        <input id="invite-name" type="text" maxlength="80" autocomplete="off">
+        <fieldset class="access">
+          <legend>Espaces</legend>
+          <ul id="invite-spaces" class="pick-list"></ul>
+        </fieldset>
+        <fieldset class="access" id="invite-salons-box" hidden>
+          <legend>Salons à accès restreint</legend>
+          <div id="invite-salons"></div>
+          <p class="muted hint">Les salons ouverts à tous sont accessibles automatiquement.</p>
+        </fieldset>
+        <p class="muted hint">La personne reçoit un e-mail pour créer son mot de passe. Si elle a déjà un compte, elle est simplement ajoutée.</p>
+        <p id="invite-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close>Annuler</button>
+          <button type="submit" class="primary" id="invite-submit">Inviter</button>
         </div>
       </form>
     </dialog>
@@ -294,16 +396,7 @@
 
       <h4>Membres</h4>
       <ul id="members-list" class="members"></ul>
-      <form id="add-member-form" novalidate>
-        <label for="member-email">Ajouter un membre (compte déjà invité)</label>
-        <input id="member-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off">
-        <label for="member-role">Rôle</label>
-        <select id="member-role">
-          <option value="member">Membre</option>
-          <option value="admin">Administrateur</option>
-        </select>
-        <button type="submit" class="primary" id="member-submit">Ajouter</button>
-      </form>
+      <button type="button" class="primary small" id="open-invite" hidden>Inviter quelqu'un…</button>
       <p id="members-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>

@@ -1,6 +1,6 @@
 # ThyChat
 
-Messagerie professionnelle pour les équipes de spectacle vivant : espaces par équipe, canaux par production, fils de discussion, fichiers. Accès sur invitation uniquement.
+Messagerie professionnelle pour les équipes de spectacle vivant : espaces par équipe (une production, une compagnie), salons par métier, messages privés, notifications push. Accès sur invitation uniquement.
 
 **Stack** : PWA statique (HTML / CSS / JavaScript, sans étape de build) hébergée sur GitHub Pages, avec [Supabase](https://supabase.com) pour l'authentification, la base Postgres et le temps réel.
 
@@ -12,7 +12,10 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
-js/chat.js              interface de messagerie (espaces, discussions, messages en temps réel, membres)
+js/chat.js              interface de messagerie (espaces, salons, messages privés, non lus, membres, invitations)
+js/notify.js            silences (8 h, 1 semaine, toujours) et pastille de l'icône
+js/push.js              abonnement aux notifications push de l'appareil
+js/profile.js           photo, nom et e-mail du profil
 js/themes.js            palette de couleurs : une couleur par espace
 js/install.js           rappel et guide d'installation de l'application
 js/version.js           numéro de version affiché en bas de l'application
@@ -23,6 +26,7 @@ manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
 supabase/schema.sql     tables, sécurité (RLS), temps réel
 supabase/migrations/    mises à jour de la base, à exécuter une fois dans l'ordre
+supabase/functions/     fonctions serveur : invite-member (invitations) et send-push (notifications)
 ```
 
 ## Mise en route
@@ -46,11 +50,53 @@ L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `C
 
 ### 3. Inviter les équipes
 
-1. **Supabase > Authentication > Users > Invite user** : la personne reçoit un e-mail, clique, choisit son nom et son mot de passe.
-2. Dans ThyChat, **crée un espace** avec le bouton **+** à côté du sélecteur d'espace : tu en deviens administrateur et un canal « général » est créé.
-3. Ouvre **Membres de l'espace** et ajoute la personne invitée par son e-mail (son compte doit exister : étape 1).
+Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fonctions Supabase » plus bas) : **Espace et membres > Inviter quelqu'un…**. La personne reçoit un e-mail, clique, choisit son mot de passe, et arrive directement dans les espaces et salons qui lui sont assignés.
 
-Les administrateurs d'un espace créent les canaux et gèrent les membres ; les membres lisent, écrivent et suppriment leurs propres messages.
+## Rôles et accès
+
+| Rôle | Peut |
+| --- | --- |
+| **Administrateur général** (toi) | Créer des espaces, inviter n'importe qui dans n'importe quel espace (en administrateur ou en utilisateur), administrer tous les espaces. Ne lit jamais les messages privés des autres. |
+| **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des salons et choisir qui y a accès, changer la couleur. Voit tous les salons de l'espace. |
+| **Utilisateur** | Lire et écrire dans les salons où il est assigné (ou ouverts à tous), écrire en privé aux autres personnes de ses espaces, régler ses notifications et son profil. |
+
+Un **salon** est soit ouvert à tous les utilisateurs de l'espace (comme « Tous »), soit réservé aux personnes assignées (« Technique », « Musiciens », « Comédiens », « Production »…, repérés par un cadenas). Les **messages privés** ne relient que deux personnes d'un même espace.
+
+**Devenir administrateur général** (une seule fois, dans le SQL Editor de Supabase, avec ton adresse) :
+
+```sql
+update public.profiles set is_super_admin = true
+where id = (select id from auth.users where email = 'TON@EMAIL');
+```
+
+Le numéro de téléphone n'est pas encore géré pour les invitations : cela demande un fournisseur de SMS payant (Twilio…) branché dans Supabase. L'invitation se fait par e-mail.
+
+## Fonctions Supabase (invitations et notifications)
+
+Deux petites fonctions serveur sont nécessaires : `invite-member` (inviter par e-mail depuis l'application) et `send-push` (envoyer les notifications). Elles se déploient depuis le tableau de bord, sans rien installer.
+
+**1. Les fonctions.** Supabase > **Edge Functions** > **Deploy a new function** > **Via Editor**. Pour chacune : donne le nom exact (`invite-member`, puis `send-push`), colle le contenu du fichier `supabase/functions/<nom>/index.ts`, **Deploy**. Dans les réglages de la fonction, désactive **Enforce JWT Verification** (les fonctions vérifient elles-mêmes qui les appelle).
+
+**2. Les clés des notifications.** Une paire de clés VAPID identifie ton serveur auprès des téléphones. La clé **publique** est déjà dans `js/config.js` ; la clé **privée** va dans **Edge Functions > Secrets** (jamais dans le dépôt), avec :
+
+| Secret | Valeur |
+| --- | --- |
+| `VAPID_PUBLIC_KEY` | la clé publique (identique à celle de `js/config.js`) |
+| `VAPID_PRIVATE_KEY` | la clé privée |
+| `VAPID_SUBJECT` | `mailto:` suivi de ton e-mail |
+| `PUSH_WEBHOOK_SECRET` | un mot de passe long de ton choix |
+
+Pour recommencer avec de nouvelles clés : `npx web-push generate-vapid-keys` (puis mets la clé publique dans `js/config.js` ; chacun devra réactiver les notifications).
+
+**3. Le déclencheur.** Supabase > **Database > Webhooks** > **Create a new hook** : table `public.messages`, évènement **Insert**, type **Supabase Edge Functions**, fonction `send-push`, méthode POST, et ajoute l'en-tête HTTP `x-webhook-secret` avec la valeur de `PUSH_WEBHOOK_SECRET`.
+
+**4. Essayer.** Sur un téléphone, ouvre ThyChat, **Notifications > Activer sur cet appareil**, ferme l'application, puis écris depuis un autre compte : la notification arrive. Sur iPhone / iPad (iOS 16.4 ou plus), l'application doit d'abord être installée sur l'écran d'accueil.
+
+Sans ces fonctions, ThyChat marche quand même : les pastilles de non lus fonctionnent, l'ajout d'un compte déjà existant aussi ; seuls l'invitation de nouvelles personnes et les notifications app fermée en dépendent.
+
+## Notifications
+
+Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du salon : activer ou non sur l'appareil, puis par **espace** et par **salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace ou un salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
 
 ## Mettre à jour la base
 
@@ -59,6 +105,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | Fichier | Apporte |
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
+| `003_roles_salons_push.sql` | administrateur général, salons par assignation, messages privés, non lus, silences, notifications push, photos de profil (**indispensable à la version 2**) |
 
 ## Couleurs des espaces
 
@@ -81,10 +128,9 @@ Un bandeau propose l'installation (reportable une semaine, trois fois maximum) e
 - [x] Couleur par espace, look « bulles » façon messagerie grand public
 - [ ] Fils de discussion, messages épinglés, recherche
 - [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
-- [ ] Messages privés
-- [ ] Notifications push
-- [ ] Indicateurs de messages non lus
-- [ ] Gestion des membres (retirer, changer de rôle) et des canaux (renommer, supprimer)
+- [x] Messages privés, salons par assignation, rôles, invitations, profil avec photo
+- [x] Notifications push, silences par espace / salon, pastilles de non lus
+- [ ] Invitation par numéro de téléphone (fournisseur de SMS)
 
 ## Dépannage
 

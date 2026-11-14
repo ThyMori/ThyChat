@@ -10,3 +10,7 @@
 
 export const SUPABASE_URL = "https://ajhtjciomlnvynccjfbd.supabase.co";
 export const SUPABASE_ANON_KEY = "sb_publishable_mSy4A6hatx-OLI96Y0bttQ_7S2zlONJ";
+
+// Clé PUBLIQUE des notifications push (VAPID). La clé privée correspondante se dépose dans
+// Supabase (Edge Functions > Secrets), jamais ici. Voir README, « Notifications push ».
+export const VAPID_PUBLIC_KEY = "BN-FNRqHqNYPNQKSrajs8AzzuNQBH9XIRtxb8TczPX8EVD7OC8rDM8h7STz5T77DAgEikiD-_F-L0RaFWJhYO6M";

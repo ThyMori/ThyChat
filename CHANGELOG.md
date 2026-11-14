@@ -8,6 +8,14 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 2.0.0 — 2026-11-14
+- Rôles (administrateur général, administrateur d'espace, utilisateur) et invitations depuis l'application
+- Salons à accès restreint et messages privés
+- Notifications push avec silence 8 h / 1 semaine / toujours par espace et par salon
+- Pastilles de messages non lus (liste, espaces, icône)
+- Profil avec photo, nom et e-mail
+- Action requise : exécuter la migration SQL 003 et déployer les fonctions Supabase
+
 ## 1.1.0 — 2026-11-14
 - Rappel et guide pour installer l'application sur téléphone et ordinateur
 - Numéro de version affiché en bas de l'application

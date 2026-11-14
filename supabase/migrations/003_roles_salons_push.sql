@@ -1,0 +1,437 @@
+-- ThyChat — migration 003 : administrateur général, salons par assignation, messages privés,
+-- profils (photo), messages non lus, notifications push et mises en silence.
+--
+-- À coller dans Supabase > SQL Editor > New query, puis « Run ». Rejouable sans risque.
+-- À exécuter AVANT de publier la version 2.0.0 de l'application.
+--
+-- Ensuite, une seule fois, fais de ton compte l'administrateur général (remplace l'e-mail) :
+--   update public.profiles set is_super_admin = true
+--   where id = (select id from auth.users where email = 'TON@EMAIL');
+
+-- ============================================================
+-- 1. Administrateur général
+-- ============================================================
+
+alter table public.profiles add column if not exists is_super_admin boolean not null default false;
+
+-- Chacun ne peut modifier que son nom et sa photo (jamais is_super_admin).
+revoke update on public.profiles from authenticated;
+grant update (display_name, avatar_url) on public.profiles to authenticated;
+
+-- Fonctions de droits « pour un utilisateur donné » (sert aussi à la fonction d'envoi des notifications).
+create or replace function public.is_super_as(uid uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select coalesce((select p.is_super_admin from public.profiles p where p.id = uid), false);
+$$;
+
+create or replace function public.ws_member_as(uid uuid, ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_super_as(uid) or exists (
+    select 1 from public.workspace_members m where m.workspace_id = ws and m.user_id = uid
+  );
+$$;
+
+create or replace function public.ws_admin_as(uid uuid, ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_super_as(uid) or exists (
+    select 1 from public.workspace_members m
+    where m.workspace_id = ws and m.user_id = uid and m.role = 'admin'
+  );
+$$;
+
+create or replace function public.is_super_admin()
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_super_as(auth.uid());
+$$;
+
+-- L'administrateur général est administrateur de tous les espaces.
+create or replace function public.is_workspace_member(ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.ws_member_as(auth.uid(), ws);
+$$;
+
+create or replace function public.is_workspace_admin(ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.ws_admin_as(auth.uid(), ws);
+$$;
+
+create or replace function public.shares_workspace_with(other uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.is_super_admin() or exists (
+    select 1
+    from public.workspace_members a
+    join public.workspace_members b on a.workspace_id = b.workspace_id
+    where a.user_id = auth.uid() and b.user_id = other
+  );
+$$;
+
+-- Seul l'administrateur général crée des espaces.
+drop policy if exists workspaces_insert on public.workspaces;
+create policy workspaces_insert on public.workspaces for insert to authenticated
+  with check (created_by = auth.uid() and public.is_super_admin());
+
+-- ============================================================
+-- 2. Salons : tous les membres, ou seulement certains ; messages privés
+-- ============================================================
+
+alter table public.channels add column if not exists kind text not null default 'channel';
+alter table public.channels add column if not exists everyone boolean not null default true;
+
+do $$
+begin
+  alter table public.channels add constraint channels_kind_check check (kind in ('channel', 'dm'));
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+-- Les messages privés ont un nom technique plus long (dm:<id>:<id>).
+alter table public.channels drop constraint if exists channels_name_check;
+alter table public.channels add constraint channels_name_check check (char_length(name) between 1 and 90);
+
+create table if not exists public.channel_members (
+  channel_id uuid not null references public.channels(id) on delete cascade,
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (channel_id, user_id)
+);
+create index if not exists channel_members_user_idx on public.channel_members (user_id);
+
+create or replace function public.can_access_channel_as(uid uuid, ch uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.channels c
+    where c.id = ch and (
+      (c.kind = 'channel' and (
+        public.ws_admin_as(uid, c.workspace_id)
+        or (c.everyone and public.ws_member_as(uid, c.workspace_id))
+        or (public.ws_member_as(uid, c.workspace_id) and exists (
+          select 1 from public.channel_members m where m.channel_id = c.id and m.user_id = uid))
+      ))
+      or (c.kind = 'dm' and exists (
+        select 1 from public.channel_members m where m.channel_id = c.id and m.user_id = uid))
+    )
+  );
+$$;
+
+create or replace function public.can_access_channel(ch uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select public.can_access_channel_as(auth.uid(), ch);
+$$;
+
+-- Modérer (supprimer les messages d'autrui, gérer les accès) : admins, jamais dans un message privé.
+create or replace function public.can_moderate_channel(ch uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.channels c
+    where c.id = ch and c.kind = 'channel' and public.is_workspace_admin(c.workspace_id)
+  );
+$$;
+
+create or replace function public.user_in_channel_workspace(ch uuid, uid uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.channels c
+    join public.workspace_members m on m.workspace_id = c.workspace_id
+    where c.id = ch and m.user_id = uid
+  );
+$$;
+
+-- Quitter un espace retire aussi des salons.
+create or replace function public.handle_member_removed()
+returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from public.channel_members cm
+  using public.channels c
+  where cm.channel_id = c.id and c.workspace_id = old.workspace_id and cm.user_id = old.user_id;
+  return old;
+end;
+$$;
+
+drop trigger if exists on_workspace_member_removed on public.workspace_members;
+create trigger on_workspace_member_removed
+  after delete on public.workspace_members
+  for each row execute function public.handle_member_removed();
+
+alter table public.channel_members enable row level security;
+
+drop policy if exists channels_select on public.channels;
+create policy channels_select on public.channels for select to authenticated
+  using (public.can_access_channel(id));
+
+drop policy if exists channels_insert on public.channels;
+create policy channels_insert on public.channels for insert to authenticated
+  with check (kind = 'channel' and public.is_workspace_admin(workspace_id));
+
+drop policy if exists channels_update on public.channels;
+create policy channels_update on public.channels for update to authenticated
+  using (kind = 'channel' and public.is_workspace_admin(workspace_id))
+  with check (kind = 'channel' and public.is_workspace_admin(workspace_id));
+
+drop policy if exists channels_delete on public.channels;
+create policy channels_delete on public.channels for delete to authenticated
+  using (kind = 'channel' and public.is_workspace_admin(workspace_id));
+
+drop policy if exists channel_members_select on public.channel_members;
+create policy channel_members_select on public.channel_members for select to authenticated
+  using (user_id = auth.uid() or public.can_access_channel(channel_id));
+
+drop policy if exists channel_members_insert on public.channel_members;
+create policy channel_members_insert on public.channel_members for insert to authenticated
+  with check (public.can_moderate_channel(channel_id) and public.user_in_channel_workspace(channel_id, user_id));
+
+drop policy if exists channel_members_delete on public.channel_members;
+create policy channel_members_delete on public.channel_members for delete to authenticated
+  using (public.can_moderate_channel(channel_id));
+
+-- Messages : mêmes droits que l'accès au salon.
+drop policy if exists messages_select on public.messages;
+create policy messages_select on public.messages for select to authenticated
+  using (public.can_access_channel(channel_id));
+
+drop policy if exists messages_insert on public.messages;
+create policy messages_insert on public.messages for insert to authenticated
+  with check (user_id = auth.uid() and public.can_access_channel(channel_id));
+
+drop policy if exists messages_update on public.messages;
+create policy messages_update on public.messages for update to authenticated
+  using ((user_id = auth.uid() and public.can_access_channel(channel_id)) or public.can_moderate_channel(channel_id))
+  with check ((user_id = auth.uid() and public.can_access_channel(channel_id)) or public.can_moderate_channel(channel_id));
+
+drop policy if exists messages_delete on public.messages;
+create policy messages_delete on public.messages for delete to authenticated
+  using ((user_id = auth.uid() and public.can_access_channel(channel_id)) or public.can_moderate_channel(channel_id));
+
+-- Ouvre (ou retrouve) la discussion privée entre moi et une autre personne d'un même espace.
+create or replace function public.open_dm(ws uuid, other uuid)
+returns uuid
+language plpgsql security definer set search_path = public as $$
+declare
+  me uuid := auth.uid();
+  a uuid;
+  b uuid;
+  dm_name text;
+  ch uuid;
+begin
+  if me is null then raise exception 'Non connecté'; end if;
+  if other is null or other = me then raise exception 'Choisis une autre personne'; end if;
+  if not exists (select 1 from public.workspace_members where workspace_id = ws and user_id = me)
+     or not exists (select 1 from public.workspace_members where workspace_id = ws and user_id = other) then
+    raise exception 'Vous devez appartenir tous les deux à cet espace';
+  end if;
+
+  if me < other then a := me; b := other; else a := other; b := me; end if;
+  dm_name := 'dm:' || a || ':' || b;
+
+  select c.id into ch from public.channels c where c.workspace_id = ws and c.name = dm_name;
+  if ch is null then
+    insert into public.channels (workspace_id, name, kind, everyone)
+    values (ws, dm_name, 'dm', false)
+    returning id into ch;
+    insert into public.channel_members (channel_id, user_id) values (ch, a), (ch, b);
+  end if;
+  return ch;
+end;
+$$;
+
+revoke all on function public.open_dm(uuid, uuid) from public, anon;
+grant execute on function public.open_dm(uuid, uuid) to authenticated;
+
+-- ============================================================
+-- 3. Messages non lus
+-- ============================================================
+
+create table if not exists public.channel_reads (
+  user_id      uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  channel_id   uuid not null references public.channels(id) on delete cascade,
+  last_read_at timestamptz not null default now(),
+  primary key (user_id, channel_id)
+);
+
+alter table public.channel_reads enable row level security;
+
+drop policy if exists channel_reads_own on public.channel_reads;
+create policy channel_reads_own on public.channel_reads for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create or replace function public.mark_channel_read(ch uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null or not public.can_access_channel(ch) then return; end if;
+  insert into public.channel_reads (user_id, channel_id, last_read_at)
+  values (auth.uid(), ch, now())
+  on conflict (user_id, channel_id) do update set last_read_at = now();
+end;
+$$;
+
+revoke all on function public.mark_channel_read(uuid) from public, anon;
+grant execute on function public.mark_channel_read(uuid) to authenticated;
+
+-- Nombre de messages non lus par salon pour un utilisateur donné (uniquement les salons avec du non lu).
+create or replace function public.unread_counts_for(uid uuid)
+returns table (channel_id uuid, workspace_id uuid, unread bigint)
+language sql stable security definer set search_path = public as $$
+  select c.id, c.workspace_id, count(m.id)
+  from public.channels c
+  left join public.channel_reads r on r.channel_id = c.id and r.user_id = uid
+  left join public.channel_members cm on cm.channel_id = c.id and cm.user_id = uid
+  left join public.workspace_members wm on wm.workspace_id = c.workspace_id and wm.user_id = uid
+  join public.messages m
+    on m.channel_id = c.id and m.user_id <> uid and m.parent_id is null
+   and m.created_at > coalesce(
+        r.last_read_at,
+        case when c.kind = 'dm' or not c.everyone then cm.created_at else greatest(c.created_at, wm.created_at) end,
+        c.created_at)
+  where public.can_access_channel_as(uid, c.id)
+  group by c.id, c.workspace_id;
+$$;
+
+revoke all on function public.unread_counts_for(uuid) from public, anon, authenticated;
+grant execute on function public.unread_counts_for(uuid) to service_role;
+
+create or replace function public.my_unread_counts()
+returns table (channel_id uuid, workspace_id uuid, unread bigint)
+language sql stable security definer set search_path = public as $$
+  select * from public.unread_counts_for(auth.uid());
+$$;
+
+revoke all on function public.my_unread_counts() from public, anon;
+grant execute on function public.my_unread_counts() to authenticated;
+
+-- Les messages déjà présents sont considérés comme lus (pas de flot de pastilles au lancement).
+insert into public.channel_reads (user_id, channel_id, last_read_at)
+select m.user_id, c.id, now()
+from public.workspace_members m
+join public.channels c on c.workspace_id = m.workspace_id
+on conflict do nothing;
+
+-- ============================================================
+-- 4. Silence par espace ou par salon
+-- ============================================================
+
+create table if not exists public.notification_mutes (
+  user_id     uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  scope       text not null check (scope in ('workspace', 'channel')),
+  target_id   uuid not null,
+  muted_until timestamptz,
+  forever     boolean not null default false,
+  created_at  timestamptz not null default now(),
+  primary key (user_id, scope, target_id)
+);
+
+alter table public.notification_mutes enable row level security;
+
+drop policy if exists notification_mutes_own on public.notification_mutes;
+create policy notification_mutes_own on public.notification_mutes for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- ============================================================
+-- 5. Notifications push
+-- ============================================================
+
+create table if not exists public.push_subscriptions (
+  id         uuid primary key default gen_random_uuid(),
+  user_id    uuid not null references auth.users(id) on delete cascade,
+  endpoint   text not null unique,
+  p256dh     text not null,
+  auth       text not null,
+  user_agent text,
+  created_at timestamptz not null default now()
+);
+create index if not exists push_subscriptions_user_idx on public.push_subscriptions (user_id);
+
+alter table public.push_subscriptions enable row level security;
+
+drop policy if exists push_subscriptions_select on public.push_subscriptions;
+create policy push_subscriptions_select on public.push_subscriptions for select to authenticated
+  using (user_id = auth.uid());
+
+-- Un navigateur partagé entre deux comptes : l'abonnement passe au compte connecté.
+create or replace function public.save_push_subscription(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text default null)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if auth.uid() is null then raise exception 'Non connecté'; end if;
+  insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth, p_user_agent)
+  on conflict (endpoint) do update
+    set user_id = excluded.user_id, p256dh = excluded.p256dh, auth = excluded.auth, user_agent = excluded.user_agent;
+end;
+$$;
+
+create or replace function public.remove_push_subscription(p_endpoint text)
+returns void
+language sql security definer set search_path = public as $$
+  delete from public.push_subscriptions where endpoint = p_endpoint and user_id = auth.uid();
+$$;
+
+revoke all on function public.save_push_subscription(text, text, text, text) from public, anon;
+revoke all on function public.remove_push_subscription(text) from public, anon;
+grant execute on function public.save_push_subscription(text, text, text, text) to authenticated;
+grant execute on function public.remove_push_subscription(text) to authenticated;
+
+-- ============================================================
+-- 6. Profils : photo (stockage public « avatars », un dossier par personne)
+-- ============================================================
+
+insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists avatars_read on storage.objects;
+create policy avatars_read on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists avatars_insert on storage.objects;
+create policy avatars_insert on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists avatars_update on storage.objects;
+create policy avatars_update on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists avatars_delete on storage.objects;
+create policy avatars_delete on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ============================================================
+-- 7. Invitations (utilisé par la fonction « invite-member »)
+-- ============================================================
+
+create or replace function public.user_id_by_email(p_email text)
+returns uuid
+language sql stable security definer set search_path = public, auth as $$
+  select u.id from auth.users u where lower(u.email) = lower(p_email);
+$$;
+
+revoke all on function public.user_id_by_email(text) from public, anon, authenticated;
+grant execute on function public.user_id_by_email(text) to service_role;
+
+-- Les changements de salons et d'accès sont aussi diffusés en temps réel.
+do $$
+begin
+  alter publication supabase_realtime add table public.channels;
+exception
+  when duplicate_object then null;
+end;
+$$;
+
+do $$
+begin
+  alter publication supabase_realtime add table public.channel_members;
+exception
+  when duplicate_object then null;
+end;
+$$;
