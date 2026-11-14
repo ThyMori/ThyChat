@@ -2302,9 +2302,10 @@ export function createChat({ supabase, user }) {
       return setNotice("#workspace-message", "Création impossible : " + error.message);
     }
     // Le créateur est devenu administrateur (trigger SQL) : on crée un premier salon et son sous-salon « Tous ».
-    const room = await supabase.from("rooms").insert({ workspace_id: data.id, name: "Général", everyone: true }).select().single();
-    if (room.data) {
-      await supabase.from("channels").insert({ workspace_id: data.id, room_id: room.data.id, name: "Tous", everyone: true });
+    const roomId = newId();
+    const room = await supabase.from("rooms").insert({ id: roomId, workspace_id: data.id, name: "Général", everyone: true });
+    if (!room.error) {
+      await supabase.from("channels").insert({ id: newId(), workspace_id: data.id, room_id: roomId, name: "Tous", everyone: true });
     }
     button.disabled = false;
     closeDialog($("#dialog-workspace"));
@@ -2479,13 +2480,13 @@ export function createChat({ supabase, user }) {
       room = data;
       if (!everyone) await syncMembers("room_members", "room_id", room.id, picked);
     } else {
-      const { data, error } = await supabase
+      // Identifiant créé ici et pas de « .select() » : la règle de lecture ne voit pas encore la ligne en cours d'insertion.
+      const roomId = newId();
+      const { error } = await supabase
         .from("rooms")
-        .insert({ workspace_id: state.ws.id, name, description: description || null, everyone })
-        .select()
-        .single();
+        .insert({ id: roomId, workspace_id: state.ws.id, name, description: description || null, everyone });
       if (error) return fail(error);
-      room = data;
+      room = { id: roomId };
       if (!everyone && picked.length) {
         await supabase.from("room_members").insert(picked.map((id) => ({ room_id: room.id, user_id: id })));
       }

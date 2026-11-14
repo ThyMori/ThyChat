@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.18.1 — 2026-11-14
+- Création d'un spectacle : plus d'erreur de sécurité (même correctif que pour les sous-salons)
+
 ## 3.18.0 — 2026-11-14
 - Notification push à toutes les personnes concernées quand un PDF est ajouté (document d'une date ou fiche technique)
 
