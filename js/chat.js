@@ -120,6 +120,50 @@ const excerpt = (text, max = 90) => {
 };
 const shortDate = (iso) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "");
 
+const pad2 = (n) => String(n).padStart(2, "0");
+const toISO = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const fromISO = (iso) => {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d);
+};
+const addDays = (d, n) => {
+  const next = new Date(d);
+  next.setDate(next.getDate() + n);
+  return next;
+};
+const mondayOf = (d) => addDays(d, -((d.getDay() + 6) % 7));
+const weekdayShort = (d) => d.toLocaleDateString("fr-FR", { weekday: "short" });
+const monthLabel = (d) => {
+  const text = d.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
+
+// « 12 mars 2027 », « 12–14 mars 2027 » ou « 28 févr. → 2 mars 2027 »
+function rangeText(tag) {
+  if (!tag.start_date) return "";
+  const a = fromISO(tag.start_date);
+  const b = fromISO(tag.end_date || tag.start_date);
+  if (toISO(a) === toISO(b)) return shortDate(tag.start_date);
+  if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) {
+    return `${a.getDate()}–${b.getDate()} ${b.toLocaleDateString("fr-FR", { month: "short", year: "numeric" })}`;
+  }
+  return `${shortDate(tag.start_date)} → ${shortDate(tag.end_date)}`;
+}
+
+// Attribue une ligne (frise) à chaque date de tournée : deux plages qui se chevauchent ne partagent pas de ligne.
+function assignLanes(tags) {
+  const lanes = new Map();
+  const ends = [];
+  const dated = tags.filter((t) => t.start_date).sort((a, b) => a.start_date.localeCompare(b.start_date) || b.end_date.localeCompare(a.end_date));
+  for (const tag of dated) {
+    let lane = ends.findIndex((end) => end < tag.start_date);
+    if (lane === -1) lane = ends.length;
+    ends[lane] = tag.end_date;
+    lanes.set(tag.id, lane);
+  }
+  return lanes;
+}
+
 // Bouton « Retour » du téléphone : sur mobile, on garde une entrée d'historique devant soi pour que « Retour »
 // ferme la boîte de dialogue ou revienne à la liste des salons, au lieu de quitter l'application.
 const isMobile = () => Boolean(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
@@ -179,7 +223,12 @@ export function createChat({ supabase, user }) {
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     channel: null,
     messages: [],
-    tags: [], // dates de tournée visibles : { id, room_id, label, on_date }
+    tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
+    calendarOpen: false,
+    calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    calScope: "ws", // « ws » (cet espace), « all » (tous mes espaces) ou l'id d'un spectacle
+    calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
+    pendingFilter: null, // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
     tagFilter: new Set(), // dates sélectionnées pour filtrer le sous-salon ouvert
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
     replyTo: null, // message auquel on répond
@@ -222,9 +271,11 @@ export function createChat({ supabase, user }) {
 
   function setView(mode, empty = {}) {
     const isChat = mode === "chat";
+    const isCalendar = mode === "calendar";
     $("#messages").hidden = !isChat;
     $("#composer").hidden = !isChat;
-    $("#empty-state").hidden = isChat;
+    $("#calendar").hidden = !isCalendar;
+    $("#empty-state").hidden = isChat || isCalendar;
     if (!isChat) {
       $("#empty-title").textContent = empty.title || "";
       $("#empty-text").textContent = empty.text || "";
@@ -380,7 +431,7 @@ export function createChat({ supabase, user }) {
     }
     state.allChannels = channelsResult.data || [];
 
-    const tagsResult = await supabase.from("tour_tags").select("id, room_id, label, on_date");
+    const tagsResult = await supabase.from("tour_tags").select("id, room_id, label, start_date, end_date, shows");
     if (stopped) return false;
     if (tagsResult.error) {
       showFatal(tagsResult.error);
@@ -586,7 +637,7 @@ export function createChat({ supabase, user }) {
     toggle.append(text);
     const side = el("span", "channel-side");
     if (!room.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
-    if (info.muted) side.append(flag("🔕", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Salon en silence"));
+    if (info.muted) side.append(flag("🔕", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Spectacle en silence"));
     const n = info.muted ? info.all : info.count;
     if (!open && n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
     toggle.append(side);
@@ -596,8 +647,8 @@ export function createChat({ supabase, user }) {
       const edit = el("button", "icon-btn tiny", "⚙");
       edit.type = "button";
       edit.dataset.roomEdit = room.id;
-      edit.title = "Réglages du salon";
-      edit.setAttribute("aria-label", "Réglages du salon " + room.name);
+      edit.title = "Réglages du spectacle";
+      edit.setAttribute("aria-label", "Réglages du spectacle " + room.name);
       head.append(edit);
     }
     group.append(head);
@@ -631,6 +682,14 @@ export function createChat({ supabase, user }) {
   function renderHeader() {
     const channel = state.channel;
     const avatar = $("#channel-avatar");
+    if (state.calendarOpen) {
+      avatar.hidden = true;
+      $("#channel-title").textContent = "Calendrier";
+      $("#channel-desc").textContent = state.ws ? state.ws.name : "";
+      $("#channel-bell").hidden = true;
+      $("#channel-edit").hidden = true;
+      return;
+    }
     avatar.className = "avatar small soft";
     avatar.replaceChildren();
     if (channel && channel.kind === "dm" && dmPartner(channel)) {
@@ -686,6 +745,7 @@ export function createChat({ supabase, user }) {
     renderChannels();
     renderHeader();
     renderTagBar();
+    if (state.calendarOpen) renderCalendar();
   }
 
   function renderMessages(forceBottom = false) {
@@ -790,7 +850,7 @@ export function createChat({ supabase, user }) {
     setView("empty", {
       title: "La base n'est pas prête",
       text:
-        "Exécute les fichiers supabase/migrations/005_rooms.sql puis 006_tags_replies.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
+        "Exécute les fichiers supabase/migrations/005_rooms.sql, 006_tags_replies.sql, 007_strike_space_photo.sql puis 008_date_ranges.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
         error.message +
         ")",
     });
@@ -874,9 +934,14 @@ export function createChat({ supabase, user }) {
   async function selectChannel(id) {
     const token = ++state.loadToken;
     const previousRoom = state.channel ? state.channel.room_id : null;
+    state.calendarOpen = false;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
     state.selectedId = null;
     if (!state.channel || state.channel.room_id !== previousRoom) state.tagFilter = new Set();
+    if (state.pendingFilter) {
+      if (state.channel && tagById(state.pendingFilter)) state.tagFilter = new Set([state.pendingFilter]);
+      state.pendingFilter = null;
+    }
     state.composerTags = new Set();
     state.replyTo = null;
     renderChannels();
@@ -885,11 +950,11 @@ export function createChat({ supabase, user }) {
     if (!state.channel) {
       state.messages = [];
       setView("empty", {
-        title: "Aucun salon",
+        title: "Aucun spectacle",
         text: isAdmin()
-          ? "Crée le premier salon de cet espace : un spectacle, avec ses sous-salons (Tous, Technique, Musiciens…)."
-          : "Tu n'as accès à aucun salon dans cet espace pour l'instant. Un administrateur peut t'y ajouter.",
-        action: isAdmin() ? "Créer un salon" : "",
+          ? "Crée le premier spectacle de cet espace : un spectacle, avec ses sous-salons (Tous, Technique, Musiciens…)."
+          : "Tu n'as accès à aucun spectacle dans cet espace pour l'instant. Un administrateur peut t'y ajouter.",
+        action: isAdmin() ? "Créer un spectacle" : "",
         onAction: () => openRoomDialog(null),
       });
       renderTagBar();
@@ -990,7 +1055,7 @@ export function createChat({ supabase, user }) {
         return;
       }
 
-      const viewing = state.channel && state.channel.id === message.channel_id;
+      const viewing = state.channel && state.channel.id === message.channel_id && !state.calendarOpen;
       if (viewing) {
         await ensureProfiles([message.user_id]);
         await loadQuoted([message]);
@@ -1070,18 +1135,18 @@ export function createChat({ supabase, user }) {
 
   const currentRoomId = () => (state.channel && state.channel.kind === "channel" ? state.channel.room_id : null);
   const tagById = (id) => state.tags.find((t) => t.id === id);
-  const tagText = (tag) => (tag.on_date ? `${tag.label} · ${shortDate(tag.on_date)}` : tag.label);
+  const tagText = (tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
   const tagsOfRoom = (roomId) =>
     state.tags
       .filter((t) => t.room_id === roomId)
-      .sort((a, b) => (a.on_date || "9999").localeCompare(b.on_date || "9999") || a.label.localeCompare(b.label, "fr"));
+      .sort((a, b) => (a.start_date || "9999").localeCompare(b.start_date || "9999") || a.label.localeCompare(b.label, "fr"));
 
   function tagChip(tag, active, onClick) {
     const chip = el("button", "tag-chip", tag.label);
     chip.type = "button";
     chip.dataset.tag = tag.id;
     chip.setAttribute("aria-pressed", String(active));
-    if (tag.on_date) chip.append(el("small", "", shortDate(tag.on_date)));
+    if (tag.start_date) chip.append(el("small", "", rangeText(tag)));
     chip.addEventListener("click", onClick);
     return chip;
   }
@@ -1090,12 +1155,12 @@ export function createChat({ supabase, user }) {
     const roomId = currentRoomId();
     const tags = roomId ? tagsOfRoom(roomId) : [];
     const manage = Boolean(roomId) && isAdmin();
-    $("#tag-bar").hidden = !roomId || (!tags.length && !manage);
+    $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage);
     $("#tags-manage").hidden = !manage;
     const box = $("#tag-filter");
     box.replaceChildren();
     for (const id of [...state.tagFilter]) if (!tagById(id)) state.tagFilter.delete(id);
-    if (!tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce salon."));
+    if (!tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce spectacle."));
     for (const tag of tags) box.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
     if (state.tagFilter.size) {
       const clear = el("button", "tag-chip", "Toutes");
@@ -1107,6 +1172,7 @@ export function createChat({ supabase, user }) {
       });
       box.prepend(clear);
     }
+    renderWeekStrip();
   }
 
   function toggleTagFilter(id) {
@@ -1143,7 +1209,186 @@ export function createChat({ supabase, user }) {
       box.append(chip);
     }
     box.hidden = !box.childNodes.length;
-    $("#composer-extra").hidden = !reply && box.hidden;
+    $("#composer-extra").hidden = state.calendarOpen || (!reply && box.hidden);
+  }
+
+  // --- Calendrier et frise hebdomadaire ---------------------------------------------
+
+  const hueOfTag = (tag) => {
+    const room = roomById(tag.room_id);
+    const ws = room && state.workspaces.find((w) => w.id === room.workspace_id);
+    return themeFor(ws || state.ws).hue;
+  };
+
+  // Grille d'une semaine (ou d'une frise) : cases des jours, ★ des représentations et frises des dates.
+  function weekGrid(days, tags, lanes, opts = {}) {
+    const isos = days.map(toISO);
+    const placed = tags.filter((t) => t.start_date && isos.some((x) => x >= t.start_date && x <= t.end_date));
+    const laneCount = placed.length ? Math.max(...placed.map((t) => lanes.get(t.id) ?? 0)) + 1 : 0;
+    const barH = opts.compact ? 18 : 22;
+    const grid = el("div", "cal-week" + (opts.compact ? " compact" : ""));
+    grid.style.gridTemplateColumns = `repeat(${days.length}, minmax(0, 1fr))`;
+    const headH = opts.compact ? 40 : 30;
+    const tail = opts.compact ? 4 : Math.max(10, 76 - headH - laneCount * barH); // jour toujours assez haut pour être touché
+    grid.style.gridTemplateRows = `${headH}px repeat(${laneCount}, ${barH}px) ${tail}px`;
+    const today = toISO(new Date());
+
+    days.forEach((day, index) => {
+      const cell = el("div", "cal-day");
+      cell.dataset.day = isos[index];
+      cell.style.gridColumn = String(index + 1);
+      cell.style.gridRow = `1 / span ${laneCount + 2}`;
+      if (isos[index] === today) cell.classList.add("today");
+      if (isos[index] === state.calDay && !opts.compact) cell.classList.add("picked");
+      if (opts.month !== undefined && day.getMonth() !== opts.month) cell.classList.add("outside");
+      const head = el("div", "cal-day-head");
+      if (opts.compact) head.append(el("small", "", weekdayShort(day)));
+      head.append(el("span", "cal-num", String(day.getDate())));
+      const shows = tags.filter((t) => (t.shows || []).includes(isos[index]));
+      if (shows.length) {
+        const star = el("span", "cal-star", "★" + (shows.length > 1 ? shows.length : ""));
+        star.style.setProperty("--h", String(hueOfTag(shows[0])));
+        star.title = "Représentation : " + shows.map((t) => `${roomById(t.room_id)?.name || ""} · ${t.label}`).join(", ");
+        head.append(star);
+      }
+      cell.append(head);
+      grid.append(cell);
+    });
+
+    for (const tag of placed) {
+      const first = isos.findIndex((x) => x >= tag.start_date && x <= tag.end_date);
+      let last = first;
+      while (last + 1 < isos.length && isos[last + 1] <= tag.end_date) last += 1;
+      const label = opts.showRoom ? `${roomById(tag.room_id)?.name || ""} · ${tag.label}` : tag.label;
+      const bar = el("div", "cal-bar", label);
+      bar.dataset.tag = tag.id;
+      bar.style.gridColumn = `${first + 1} / ${last + 2}`;
+      bar.style.gridRow = String((lanes.get(tag.id) ?? 0) + 2);
+      bar.style.setProperty("--h", String(hueOfTag(tag)));
+      if (isos[first] !== tag.start_date) bar.classList.add("cont-left");
+      if (isos[last] !== tag.end_date) bar.classList.add("cont-right");
+      bar.title = `${label} · ${rangeText(tag)}`;
+      grid.append(bar);
+    }
+    return grid;
+  }
+
+  // Frise glissante dans l'en-tête du spectacle : la veille et les 6 jours suivants.
+  function renderWeekStrip() {
+    const strip = $("#week-strip");
+    const roomId = currentRoomId();
+    const tags = roomId ? tagsOfRoom(roomId).filter((t) => t.start_date || (t.shows || []).length) : [];
+    strip.hidden = state.calendarOpen || !roomId || !tags.length;
+    strip.replaceChildren();
+    if (strip.hidden) return;
+    const start = addDays(new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()), -1);
+    const days = Array.from({ length: 8 }, (_, i) => addDays(start, i));
+    strip.append(weekGrid(days, tags, assignLanes(tags), { compact: true }));
+  }
+
+  function visibleCalendarTags() {
+    let rooms;
+    if (state.calScope === "all") rooms = state.allRooms;
+    else if (state.calScope === "ws" || !roomById(state.calScope)) rooms = state.ws ? roomsOfWs(state.ws.id) : [];
+    else rooms = [roomById(state.calScope)];
+    const ids = new Set(rooms.map((r) => r.id));
+    return state.tags.filter((t) => ids.has(t.room_id) && (t.start_date || (t.shows || []).length));
+  }
+
+  function openCalendar(roomId) {
+    if (!state.ws) return;
+    state.calendarOpen = true;
+    state.selectedId = null;
+    if (roomId && roomById(roomId)) state.calScope = roomId;
+    else if (state.calScope !== "all" && !roomById(state.calScope)) state.calScope = "ws";
+    const now = new Date();
+    state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    state.calDay = toISO(now);
+    hideSuggest();
+    setView("calendar");
+    renderHeader();
+    renderTagBar();
+    renderComposerExtra();
+    renderCalendar();
+    closeSidebar();
+    guardHistory();
+  }
+
+  function shiftMonth(delta) {
+    state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() + delta, 1);
+    state.calDay = null;
+    renderCalendar();
+  }
+
+  function renderCalendar() {
+    if (!state.calendarOpen) return;
+    $("#cal-title").textContent = monthLabel(state.calMonth);
+
+    const select = $("#cal-scope");
+    select.replaceChildren();
+    const options = [["ws", "Tous les spectacles de cet espace"]];
+    if (state.workspaces.length > 1) options.push(["all", "Tous mes espaces"]);
+    for (const room of state.ws ? roomsOfWs(state.ws.id) : []) options.push([room.id, room.name]);
+    for (const [value, text] of options) {
+      const option = el("option", "", text);
+      option.value = value;
+      select.append(option);
+    }
+    if (!options.some(([value]) => value === state.calScope)) state.calScope = "ws";
+    select.value = state.calScope;
+
+    const labels = $("#cal-days");
+    labels.replaceChildren();
+    for (let i = 0; i < 7; i++) labels.append(el("span", "", weekdayShort(addDays(mondayOf(new Date(2024, 0, 1)), i))));
+
+    const tags = visibleCalendarTags();
+    const month = state.calMonth.getMonth();
+    const first = mondayOf(state.calMonth);
+    const lastDay = new Date(state.calMonth.getFullYear(), month + 1, 0);
+    const weeks = Math.ceil((mondayOf(lastDay) - first) / (7 * 86400000)) + 1;
+    const lanes = assignLanes(tags);
+    const grid = $("#cal-grid");
+    grid.replaceChildren();
+    const single = state.calScope !== "ws" && state.calScope !== "all";
+    for (let w = 0; w < weeks; w++) {
+      const days = Array.from({ length: 7 }, (_, i) => addDays(first, w * 7 + i));
+      grid.append(weekGrid(days, tags, lanes, { month, showRoom: !single }));
+    }
+    if (!tags.length) grid.append(el("p", "muted empty-note", "Aucune date de tournée pour l'instant."));
+    renderDayDetail(tags);
+  }
+
+  function renderDayDetail(tags) {
+    const box = $("#cal-detail");
+    box.replaceChildren();
+    box.hidden = !state.calDay;
+    if (!state.calDay) return;
+    box.append(el("strong", "", fromISO(state.calDay).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })));
+    const that = tags.filter(
+      (t) => (t.start_date && state.calDay >= t.start_date && state.calDay <= t.end_date) || (t.shows || []).includes(state.calDay)
+    );
+    if (!that.length) box.append(el("p", "muted", "Rien de prévu ce jour-là."));
+    for (const tag of that) {
+      const row = el("button", "cal-detail-row");
+      row.type = "button";
+      row.dataset.openTag = tag.id;
+      row.style.setProperty("--h", String(hueOfTag(tag)));
+      const star = (tag.shows || []).includes(state.calDay) ? " ★ représentation" : "";
+      row.append(el("span", "cal-swatch"), el("span", "", `${roomById(tag.room_id)?.name || ""} · ${tag.label}${star}`));
+      box.append(row);
+    }
+  }
+
+  // Touche une frise : ouvre le spectacle sur cette date (en changeant d'espace si besoin).
+  async function openTagFromCalendar(tagId) {
+    const tag = tagById(tagId);
+    const room = tag && roomById(tag.room_id);
+    if (!room) return;
+    const sub = subsOfRoom(room.id)[0];
+    if (!sub) return toast("Aucun sous-salon accessible dans ce spectacle.");
+    state.pendingFilter = tagId;
+    if (state.ws && room.workspace_id !== state.ws.id) await selectWorkspace(room.workspace_id, sub.id);
+    else await selectChannel(sub.id);
   }
 
   // L'auteur raye son message (il reste lisible, barré) ou le rétablit.
@@ -1265,10 +1510,30 @@ export function createChat({ supabase, user }) {
     openDialog("#dialog-tags");
   }
 
+  let editingShows = new Set();
+
   function resetTagForm() {
     $("#tag-label").value = editingTag ? editingTag.label : "";
-    $("#tag-date").value = editingTag?.on_date || "";
+    $("#tag-start").value = editingTag?.start_date || "";
+    $("#tag-end").value = editingTag?.end_date || "";
+    $("#tag-show").value = "";
+    editingShows = new Set(editingTag?.shows || []);
     $("#tag-add").textContent = editingTag ? "Enregistrer" : "Ajouter";
+    $("#tag-cancel").hidden = !editingTag;
+    renderShowChips();
+  }
+
+  function renderShowChips() {
+    const box = $("#tag-shows");
+    box.replaceChildren();
+    for (const iso of [...editingShows].sort()) {
+      const chip = el("button", "tag-chip on", "★ " + shortDate(iso));
+      chip.type = "button";
+      chip.dataset.show = iso;
+      chip.append(el("small", "", "×"));
+      chip.setAttribute("aria-label", "Retirer la représentation du " + shortDate(iso));
+      box.append(chip);
+    }
   }
 
   function renderTagList() {
@@ -1278,7 +1543,8 @@ export function createChat({ supabase, user }) {
     if (!tags.length) list.append(el("li", "muted", "Aucune date pour l'instant."));
     for (const tag of tags) {
       const row = el("li", "tag-row");
-      row.append(el("span", "pick-name", tagText(tag)));
+      const shows = (tag.shows || []).length;
+      row.append(el("span", "pick-name", tagText(tag) + (shows ? ` · ★ ${shows}` : "")));
       const edit = el("button", "ghost small", "Modifier");
       edit.type = "button";
       edit.dataset.edit = tag.id;
@@ -1294,14 +1560,19 @@ export function createChat({ supabase, user }) {
     event.preventDefault();
     const roomId = currentRoomId();
     const label = $("#tag-label").value.trim().replace(/^#+\s*/, "");
-    const on_date = $("#tag-date").value || null;
+    let start = $("#tag-start").value;
+    let end = $("#tag-end").value;
     if (!label) return setNotice("#tags-message", "Donne un nom à la date.");
+    if (start && !end) end = start;
+    if (end && !start) start = end;
+    if (start && end < start) return setNotice("#tags-message", "La fin doit être le même jour que le début, ou après.");
+    const fields = { label, start_date: start || null, end_date: end || null, shows: [...editingShows].sort() };
     const request = editingTag
-      ? supabase.from("tour_tags").update({ label, on_date }).eq("id", editingTag.id).select().single()
-      : supabase.from("tour_tags").insert({ room_id: roomId, label, on_date }).select().single();
+      ? supabase.from("tour_tags").update(fields).eq("id", editingTag.id).select().single()
+      : supabase.from("tour_tags").insert({ room_id: roomId, ...fields }).select().single();
     const { data, error } = await request;
     if (error) {
-      setNotice("#tags-message", error.code === "23505" ? "Une date porte déjà ce nom dans ce salon." : "Enregistrement impossible : " + error.message);
+      setNotice("#tags-message", error.code === "23505" ? "Une date porte déjà ce nom dans ce spectacle." : "Enregistrement impossible : " + error.message);
       return;
     }
     state.tags = state.tags.filter((t) => t.id !== data.id).concat(data);
@@ -1311,6 +1582,7 @@ export function createChat({ supabase, user }) {
     renderTagList();
     renderTagBar();
     renderMessages();
+    if (state.calendarOpen) renderCalendar();
   }
 
   async function deleteTag(id) {
@@ -1331,6 +1603,7 @@ export function createChat({ supabase, user }) {
     renderTagBar();
     renderComposerExtra();
     renderMessages();
+    if (state.calendarOpen) renderCalendar();
   }
 
   async function deleteMessage(id) {
@@ -1527,7 +1800,7 @@ export function createChat({ supabase, user }) {
   async function openRoomDialog(room) {
     if (!state.ws || !isAdmin()) return;
     editingRoom = room || null;
-    $("#room-dialog-title").textContent = room ? "Salon" : "Nouveau salon";
+    $("#room-dialog-title").textContent = room ? "Spectacle" : "Nouveau spectacle";
     $("#room-submit").textContent = room ? "Enregistrer" : "Créer";
     $("#room-delete").hidden = !room;
     $("#room-name").value = room ? room.name : "";
@@ -1552,7 +1825,7 @@ export function createChat({ supabase, user }) {
     event.preventDefault();
     const name = $("#room-name").value.trim();
     const description = $("#room-description").value.trim();
-    if (!name) return setNotice("#room-message", "Donne un nom au salon.");
+    if (!name) return setNotice("#room-message", "Donne un nom au spectacle.");
     const everyone = accessMode("room-access") === "everyone";
     const picked = [...document.querySelectorAll("#room-pick input:checked")].map((box) => box.value);
 
@@ -1561,7 +1834,7 @@ export function createChat({ supabase, user }) {
     setNotice("#room-message", "");
     const fail = (error) => {
       button.disabled = false;
-      setNotice("#room-message", error.code === "23505" ? "Un salon porte déjà ce nom." : "Enregistrement impossible : " + error.message);
+      setNotice("#room-message", error.code === "23505" ? "Un spectacle porte déjà ce nom." : "Enregistrement impossible : " + error.message);
     };
 
     let room;
@@ -1607,7 +1880,7 @@ export function createChat({ supabase, user }) {
 
   async function deleteRoom() {
     if (!editingRoom) return;
-    if (!window.confirm(`Supprimer le salon « ${editingRoom.name} », ses sous-salons et tous leurs messages ? Cette action est définitive.`)) return;
+    if (!window.confirm(`Supprimer le spectacle « ${editingRoom.name} », ses sous-salons et tous leurs messages ? Cette action est définitive.`)) return;
     const { error } = await supabase.from("rooms").delete().eq("id", editingRoom.id);
     if (error) return setNotice("#room-message", "Suppression impossible : " + error.message);
     closeDialog($("#dialog-room"));
@@ -1624,7 +1897,7 @@ export function createChat({ supabase, user }) {
     const room = roomById(channelRoomId);
     if (!room) return;
     $("#channel-dialog-title").textContent = channel ? "Sous-salon" : "Nouveau sous-salon";
-    $("#channel-room-note").textContent = `Dans le salon « ${room.name} ».`;
+    $("#channel-room-note").textContent = `Dans le spectacle « ${room.name} ».`;
     $("#channel-everyone-label").textContent = room.everyone
       ? "Tous les utilisateurs de l'espace"
       : `Tous ceux qui ont accès à « ${room.name} »`;
@@ -1696,7 +1969,7 @@ export function createChat({ supabase, user }) {
 
   function channelError(error, button) {
     button.disabled = false;
-    const text = error.code === "23505" ? "Un sous-salon porte déjà ce nom dans ce salon." : "Enregistrement impossible : " + error.message;
+    const text = error.code === "23505" ? "Un sous-salon porte déjà ce nom dans ce spectacle." : "Enregistrement impossible : " + error.message;
     setNotice("#channel-message", text);
   }
 
@@ -2156,12 +2429,12 @@ export function createChat({ supabase, user }) {
     const rooms = $("#mute-rooms");
     rooms.replaceChildren();
     const roomList = state.ws ? roomsOfWs(state.ws.id) : [];
-    $("#mute-rooms-title").textContent = state.ws ? `Salons de « ${state.ws.name} »` : "Salons";
+    $("#mute-rooms-title").textContent = state.ws ? `Spectacles de « ${state.ws.name} »` : "Spectacles";
     for (const room of roomList) {
       const extra = isMuted(state.mutes, "workspace", room.workspace_id) ? "Espace en silence" : "";
       rooms.append(muteRow("room", room.id, room.name, extra));
     }
-    if (!roomList.length) rooms.append(el("li", "muted", "Aucun salon."));
+    if (!roomList.length) rooms.append(el("li", "muted", "Aucun spectacle."));
 
     // Sous-salons du salon ouvert.
     const current = state.channel && state.channel.kind === "channel" ? roomById(state.channel.room_id) : null;
@@ -2172,7 +2445,7 @@ export function createChat({ supabase, user }) {
     for (const channel of subs) {
       let extra = "";
       if (isMuted(state.mutes, "workspace", channel.workspace_id)) extra = "Espace en silence";
-      else if (isMuted(state.mutes, "room", channel.room_id)) extra = "Salon en silence";
+      else if (isMuted(state.mutes, "room", channel.room_id)) extra = "Spectacle en silence";
       channels.append(muteRow("channel", channel.id, channel.name, extra));
     }
     $("#mute-salons-title").hidden = !current;
@@ -2386,6 +2659,56 @@ export function createChat({ supabase, user }) {
     });
     on($("#tags-manage"), "click", openTagsDialog);
     on($("#tags-form"), "submit", submitTag);
+    on($("#tag-show-add"), "click", () => {
+      const value = $("#tag-show").value;
+      if (!value) return;
+      editingShows.add(value);
+      $("#tag-show").value = "";
+      renderShowChips();
+    });
+    on($("#tag-shows"), "click", (event) => {
+      const chip = event.target.closest("[data-show]");
+      if (!chip) return;
+      editingShows.delete(chip.dataset.show);
+      renderShowChips();
+    });
+    on($("#tag-cancel"), "click", () => {
+      editingTag = null;
+      resetTagForm();
+    });
+    on($("#open-calendar"), "click", () => openCalendar(null));
+    on($("#week-strip"), "click", () => openCalendar(currentRoomId()));
+    on($("#week-strip"), "keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        openCalendar(currentRoomId());
+      }
+    });
+    on($("#cal-prev"), "click", () => shiftMonth(-1));
+    on($("#cal-next"), "click", () => shiftMonth(1));
+    on($("#cal-today"), "click", () => {
+      const now = new Date();
+      state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      state.calDay = toISO(now);
+      renderCalendar();
+    });
+    on($("#cal-scope"), "change", () => {
+      state.calScope = $("#cal-scope").value;
+      renderCalendar();
+    });
+    on($("#cal-grid"), "click", (event) => {
+      const bar = event.target.closest(".cal-bar");
+      if (bar) return openTagFromCalendar(bar.dataset.tag);
+      const day = event.target.closest(".cal-day");
+      if (day) {
+        state.calDay = state.calDay === day.dataset.day ? null : day.dataset.day;
+        renderCalendar();
+      }
+    });
+    on($("#cal-detail"), "click", (event) => {
+      const row = event.target.closest("[data-open-tag]");
+      if (row) openTagFromCalendar(row.dataset.openTag);
+    });
     on($("#tags-list"), "click", (event) => {
       const edit = event.target.closest("[data-edit]");
       if (edit) {

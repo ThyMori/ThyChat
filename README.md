@@ -1,6 +1,6 @@
 # ThyChat
 
-Messagerie professionnelle pour les équipes de spectacle vivant : espaces (une production, une compagnie), salons (un spectacle) et sous-salons (par métier), messages privés, notifications push. Accès sur invitation uniquement.
+Messagerie professionnelle pour les équipes de spectacle vivant : espaces (une production, une compagnie), spectacles et sous-salons (par métier), messages privés, notifications push. Accès sur invitation uniquement.
 
 **Stack** : PWA statique (HTML / CSS / JavaScript, sans étape de build) hébergée sur GitHub Pages, avec [Supabase](https://supabase.com) pour l'authentification, la base Postgres et le temps réel.
 
@@ -12,7 +12,7 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
-js/chat.js              interface de messagerie (espaces, salons, sous-salons, messages privés, non lus, membres, invitations)
+js/chat.js              interface de messagerie (espaces, spectacles, sous-salons, calendrier, messages privés, non lus, membres, invitations)
 js/notify.js            silences (8 h, 1 semaine, toujours) et pastille de l'icône
 js/push.js              abonnement aux notifications push de l'appareil
 js/profile.js           photo, nom et e-mail du profil
@@ -50,17 +50,17 @@ L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `C
 
 ### 3. Inviter les équipes
 
-Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fonctions Supabase » plus bas) : **Espace et membres > Inviter quelqu'un…**. Une liste déroulante propose les personnes déjà présentes dans tes espaces (à ajouter en un clic) ; « Nouvelle personne » invite par e-mail. La personne reçoit un e-mail, clique, choisit son mot de passe, et arrive directement dans les espaces et salons qui lui sont assignés.
+Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fonctions Supabase » plus bas) : **Espace et membres > Inviter quelqu'un…**. Une liste déroulante propose les personnes déjà présentes dans tes espaces (à ajouter en un clic) ; « Nouvelle personne » invite par e-mail. La personne reçoit un e-mail, clique, choisit son mot de passe, et arrive directement dans les espaces et spectacles qui lui sont assignés.
 
 ## Rôles et accès
 
 | Rôle | Peut |
 | --- | --- |
 | **Administrateur général** (toi) | Créer des espaces, inviter n'importe qui dans n'importe quel espace (en administrateur ou en utilisateur), administrer tous les espaces. Ne lit jamais les messages privés des autres. |
-| **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des salons et des sous-salons et choisir qui y a accès, changer la couleur. Voit tout dans l'espace. |
+| **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des spectacles et des sous-salons et choisir qui y a accès, changer la couleur. Voit tout dans l'espace. |
 | **Utilisateur** | Lire et écrire dans les sous-salons auxquels il a accès, écrire en privé aux autres personnes de ses espaces, régler ses notifications et son profil. |
 
-La hiérarchie : un **espace** (une production ou une compagnie) contient des **salons** (un spectacle en particulier), qui contiennent des **sous-salons** (« Tous », « Technique », « Musiciens »…). Deux niveaux d'accès : un salon est ouvert à tous les utilisateurs de l'espace ou réservé aux personnes assignées ; dans un salon, chaque sous-salon est ouvert à tous ceux qui ont accès au salon ou réservé à certains d'entre eux (cadenas). Chaque nouveau salon démarre avec un sous-salon « Tous ». Les **messages privés** ne relient que deux personnes d'un même espace.
+La hiérarchie : un **espace** (une production ou une compagnie) contient des **spectacles** (anciennement « salons »), qui contiennent des **sous-salons** (« Tous », « Technique », « Musiciens »…). Deux niveaux d'accès : un spectacle est ouvert à tous les utilisateurs de l'espace ou réservé aux personnes assignées ; dans un spectacle, chaque sous-salon est ouvert à tous ceux qui ont accès au spectacle ou réservé à certains d'entre eux (cadenas). Chaque nouveau spectacle démarre avec un sous-salon « Tous ». Les **messages privés** ne relient que deux personnes d'un même espace.
 
 **Devenir administrateur général** (une seule fois, dans le SQL Editor de Supabase, avec ton adresse) :
 
@@ -105,7 +105,7 @@ Sans ces fonctions, ThyChat marche quand même : les pastilles de non lus foncti
 
 ## Notifications
 
-Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du salon : activer ou non sur l'appareil, puis par **espace**, par **salon** et par **sous-salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace, un salon ou un sous-salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
+Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du sous-salon : activer ou non sur l'appareil, puis par **espace**, par **spectacle** et par **sous-salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace, un spectacle ou un sous-salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
 
 ## Mettre à jour la base
 
@@ -116,16 +116,23 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
 | `007_strike_space_photo.sql` | messages rayés par leur auteur, photo de chaque espace (**à exécuter avant d'utiliser la version 3.3**) |
-| `006_tags_replies.sql` | dates de tournée (étiquettes rattachées au salon), réponses à un message (**indispensable à la version 3.1** ; pas de fonction à redéployer) |
-| `005_rooms.sql` | salons (spectacles) et sous-salons : les salons existants deviennent des salons avec un sous-salon « Tous » (**indispensable à la version 3** ; redéployer aussi les fonctions `invite-member` et `send-push`) |
+| `008_date_ranges.sql` | plage de dates (début, fin) et dates de représentation ★ pour chaque date de tournée (**indispensable à la version 3.4**) |
+| `006_tags_replies.sql` | dates de tournée (étiquettes rattachées au spectacle), réponses à un message (**indispensable à la version 3.1** ; pas de fonction à redéployer) |
+| `005_rooms.sql` | salons (spectacles) et sous-salons : les salons existants deviennent des spectacles avec un sous-salon « Tous » (**indispensable à la version 3** ; redéployer aussi les fonctions `invite-member` et `send-push`) |
 | `003_roles_salons_push.sql` | administrateur général, salons par assignation, messages privés, non lus, silences, notifications push, photos de profil (**indispensable à la version 2**) |
 
 ## Dates de tournée, réponses et citations
 
-- **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom et, si besoin, un jour) dans **Gérer**, au-dessus de la conversation. Elles sont attachées au **salon** (le spectacle) et servent dans tous ses sous-salons.
-- Dans un message, taper **#** propose les dates du salon ; le choix ajoute une pastille au message (plusieurs possibles, facultatif).
+- **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom, un début et une fin, et les dates de représentation ★) dans **Gérer**, au-dessus de la conversation. Elles sont attachées au **spectacle** et servent dans tous ses sous-salons.
+- Dans un message, taper **#** propose les dates du spectacle ; le choix ajoute une pastille au message (plusieurs possibles, facultatif).
 - Le **filtre** « Dates » au-dessus de la conversation n'affiche que les messages portant les dates choisies ; « Toutes » l'efface.
 - **Répondre** et **Citer** : toucher un message affiche ces deux actions. Répondre affiche le message d'origine au-dessus de la réponse (toucher la citation y mène) ; Citer copie un extrait dans le message en cours.
+
+## Calendrier
+
+- **Calendrier** (barre latérale) : vue mensuelle avec une frise colorée pour chaque date de tournée des spectacles auxquels tu as accès, et une ★ sur chaque jour de représentation. Un menu choisit entre tous les spectacles de l'espace, tous tes espaces, ou un seul spectacle. Toucher un jour liste ce qu'il contient ; toucher une frise ouvre le spectacle filtré sur cette date.
+- **Frise hebdomadaire** : dans l'en-tête d'un spectacle qui a des dates, la veille et les 6 jours suivants. La toucher ouvre le calendrier.
+- Les couleurs des frises sont celles de l'espace.
 
 ## Messages rayés et photo d'espace
 
@@ -153,8 +160,8 @@ Un bandeau propose l'installation (reportable une semaine, trois fois maximum) e
 - [x] Couleur par espace, look « bulles » façon messagerie grand public
 - [ ] Fils de discussion, messages épinglés, recherche
 - [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
-- [x] Messages privés, salons par assignation, rôles, invitations, profil avec photo
-- [x] Notifications push, silences par espace / salon / sous-salon, pastilles de non lus
+- [x] Messages privés, spectacles par assignation, rôles, invitations, profil avec photo
+- [x] Notifications push, silences par espace / spectacle / sous-salon, pastilles de non lus
 - [ ] Invitation par numéro de téléphone (fournisseur de SMS)
 
 ## Dépannage

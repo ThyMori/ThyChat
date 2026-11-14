@@ -140,11 +140,13 @@
         <span class="chev" aria-hidden="true">▾</span>
       </button>
 
+      <button type="button" class="ghost calendar-open" id="open-calendar">📅 Calendrier</button>
+
       <div class="section-title">
-        <span>Salons</span>
-        <button type="button" class="icon-btn" id="new-channel" title="Nouveau salon (un spectacle)" aria-label="Nouveau salon" hidden>+</button>
+        <span>Spectacles</span>
+        <button type="button" class="icon-btn" id="new-channel" title="Nouveau spectacle" aria-label="Nouveau spectacle" hidden>+</button>
       </div>
-      <nav id="channel-list" class="channel-list" aria-label="Salons"></nav>
+      <nav id="channel-list" class="channel-list" aria-label="Spectacles"></nav>
 
       <div class="section-title" id="dm-title" hidden>
         <span>Messages privés</span>
@@ -197,6 +199,22 @@
         <p id="empty-text" class="muted"></p>
         <button type="button" class="primary" id="empty-action" hidden></button>
       </div>
+
+      <div id="week-strip" class="week-strip" role="button" tabindex="0" aria-label="Voir le calendrier" title="Voir le calendrier" hidden></div>
+
+      <section id="calendar" class="calendar" aria-label="Calendrier" hidden>
+        <div class="cal-toolbar">
+          <button type="button" class="icon-btn" id="cal-prev" aria-label="Mois précédent">‹</button>
+          <h3 id="cal-title"></h3>
+          <button type="button" class="icon-btn" id="cal-next" aria-label="Mois suivant">›</button>
+          <button type="button" class="ghost small" id="cal-today">Aujourd'hui</button>
+          <select id="cal-scope" aria-label="Spectacles affichés"></select>
+        </div>
+        <div class="cal-days" id="cal-days" aria-hidden="true"></div>
+        <div id="cal-grid" class="cal-grid"></div>
+        <div id="cal-detail" class="cal-detail" hidden></div>
+        <p class="muted hint">★ représentation · toucher une frise ouvre le spectacle filtré sur cette date.</p>
+      </section>
 
       <div id="tag-bar" class="tag-bar" hidden>
         <span class="tag-bar-title">Dates</span>
@@ -301,9 +319,9 @@
 
     <dialog id="dialog-room">
       <form id="room-form" novalidate>
-        <h3 id="room-dialog-title">Nouveau salon</h3>
-        <p class="muted">Un salon, c'est un spectacle en particulier. Il contient des sous-salons (Tous, Technique, Musiciens…).</p>
-        <label for="room-name">Nom du salon</label>
+        <h3 id="room-dialog-title">Nouveau spectacle</h3>
+        <p class="muted">Un spectacle contient des sous-salons (Tous, Technique, Musiciens…).</p>
+        <label for="room-name">Nom du spectacle</label>
         <input id="room-name" type="text" maxlength="80" autocomplete="off" required>
         <label for="room-description">Description (facultatif)</label>
         <input id="room-description" type="text" maxlength="200" autocomplete="off">
@@ -312,11 +330,11 @@
           <label class="choice"><input type="radio" name="room-access" value="everyone" checked> Tous les utilisateurs de l'espace</label>
           <label class="choice"><input type="radio" name="room-access" value="some"> Seulement certaines personnes</label>
           <ul id="room-pick" class="pick-list" hidden></ul>
-          <p class="muted hint">Les administrateurs de l'espace voient tous les salons.</p>
+          <p class="muted hint">Les administrateurs de l'espace voient tous les spectacles.</p>
         </fieldset>
         <p id="room-message" class="notice" role="alert" hidden></p>
         <div class="dialog-actions">
-          <button type="button" class="danger" id="room-delete" hidden>Supprimer le salon</button>
+          <button type="button" class="danger" id="room-delete" hidden>Supprimer le spectacle</button>
           <button type="button" class="ghost" data-close>Annuler</button>
           <button type="submit" class="primary" id="room-submit">Créer</button>
         </div>
@@ -333,7 +351,7 @@
         <input id="channel-description" type="text" maxlength="200" autocomplete="off">
         <fieldset class="access">
           <legend>Qui y a accès ?</legend>
-          <label class="choice"><input type="radio" name="channel-access" value="everyone" checked> <span id="channel-everyone-label">Tous ceux qui ont accès au salon</span></label>
+          <label class="choice"><input type="radio" name="channel-access" value="everyone" checked> <span id="channel-everyone-label">Tous ceux qui ont accès au spectacle</span></label>
           <label class="choice"><input type="radio" name="channel-access" value="some"> Seulement certaines personnes</label>
           <ul id="channel-pick" class="pick-list" hidden></ul>
           <p class="muted hint">Les administrateurs de l'espace voient tous les sous-salons.</p>
@@ -349,12 +367,25 @@
 
     <dialog id="dialog-tags">
       <h3 id="tags-title" tabindex="-1">Dates de tournée</h3>
-      <p class="muted" id="tags-note">Les dates sont rattachées au salon : tous ses sous-salons peuvent les utiliser. Dans un message, tape <strong>#</strong> pour en choisir une.</p>
+      <p class="muted" id="tags-note">Les dates sont rattachées au spectacle : tous ses sous-salons peuvent les utiliser. Dans un message, tape <strong>#</strong> pour en choisir une.</p>
       <ul id="tags-list" class="pick-list"></ul>
       <form id="tags-form" class="tags-form">
-        <input id="tag-label" type="text" maxlength="40" placeholder="Ex. Lausanne, Théâtre Vidy" aria-label="Nom de la date" required />
-        <input id="tag-date" type="date" aria-label="Date (facultatif)" />
-        <button type="submit" class="primary small" id="tag-add">Ajouter</button>
+        <label for="tag-label">Nom de la date</label>
+        <input id="tag-label" type="text" maxlength="40" placeholder="Ex. Lausanne, Théâtre Vidy" required />
+        <div class="tag-range">
+          <div><label for="tag-start">Début</label><input id="tag-start" type="date" /></div>
+          <div><label for="tag-end">Fin</label><input id="tag-end" type="date" /></div>
+        </div>
+        <label for="tag-show">Dates de représentation</label>
+        <div class="tag-show-add">
+          <input id="tag-show" type="date" />
+          <button type="button" class="ghost small" id="tag-show-add">Ajouter ★</button>
+        </div>
+        <div id="tag-shows" class="tag-chips"></div>
+        <div class="tag-form-actions">
+          <button type="button" class="ghost small" id="tag-cancel" hidden>Annuler la modification</button>
+          <button type="submit" class="primary small" id="tag-add">Ajouter</button>
+        </div>
       </form>
       <p id="tags-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
@@ -383,7 +414,7 @@
       </section>
       <h4>Espaces</h4>
       <ul id="mute-spaces" class="mute-list"></ul>
-      <h4 id="mute-rooms-title">Salons</h4>
+      <h4 id="mute-rooms-title">Spectacles</h4>
       <ul id="mute-rooms" class="mute-list"></ul>
       <h4 id="mute-salons-title">Sous-salons</h4>
       <ul id="mute-channels" class="mute-list"></ul>
@@ -439,7 +470,7 @@
         <fieldset class="access" id="invite-salons-box" hidden>
           <legend>Accès restreint</legend>
           <div id="invite-salons"></div>
-          <p class="muted hint">Les salons et sous-salons ouverts à tous sont accessibles automatiquement.</p>
+          <p class="muted hint">Les spectacles et sous-salons ouverts à tous sont accessibles automatiquement.</p>
         </fieldset>
         <p class="muted hint">La personne reçoit un e-mail pour créer son mot de passe. Si elle a déjà un compte, elle est simplement ajoutée.</p>
         <p id="invite-message" class="notice" role="alert" hidden></p>

@@ -8,6 +8,13 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.4.0 — 2026-11-14
+- Dates de tournée avec plage (début, fin) et dates de représentation ★
+- calendrier mensuel avec frises par date
+- frise hebdomadaire dans l'en-tête du spectacle
+- « Salons » devient « Spectacles »
+- migration 008 à exécuter
+
 ## 3.3.1 — 2026-11-14
 - La section « Photo de l'espace » reste visible pour les administrateurs même avant la migration 007, avec une explication
 
