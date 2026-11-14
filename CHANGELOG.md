@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.24.0 — 2026-11-14
+- Dates de tournée : choix des jours en touchant début puis fin (ou en glissant) dans un mini-calendrier
+- représentations ajoutées d'un appui, avec plusieurs par jour possibles (ajouter ou retirer)
+
 ## 3.23.0 — 2026-11-14
 - Barre des dates : seule la fiche technique reste affichée
 - la flèche › devant « Dates » déplie la liste, chaque date a son badge documents

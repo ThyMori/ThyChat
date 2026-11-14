@@ -436,7 +436,7 @@
       <section>
         <h4>Dates de tournée</h4>
         <ul>
-          <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Les administrateurs les gèrent avec le bouton <strong>« Gérer les dates de tournée »</strong> du menu ⋮ en haut à droite. Dans la barre au-dessus du fil, la flèche <strong>›</strong> devant « Dates » déplie la liste des dates ; chacune porte un badge 📄 qui ouvre ses documents (PDF). Seule la fiche technique reste affichée en permanence. Les dates sont classées par ordre chronologique : les dates passées sont <s>rayées</s> et rangées à la fin (le lendemain du dernier jour compte encore, pour le trajet retour ; les dates ne comprennent pas les jours de transport), et la liste indique la <strong>première représentation</strong>.</li>
+          <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Pour choisir les jours, touche le premier jour puis le dernier dans le mini-calendrier (un troisième appui recommence au début) ou fais-le glisser d'un jour à l'autre ; le bouton <strong>★ Représentations</strong> ouvre un calendrier où chaque appui ajoute une représentation, et un appui sur un jour qui en a déjà te propose d'en ajouter une autre ou d'en retirer une. Les administrateurs les gèrent avec le bouton <strong>« Gérer les dates de tournée »</strong> du menu ⋮ en haut à droite. Dans la barre au-dessus du fil, la flèche <strong>›</strong> devant « Dates » déplie la liste des dates ; chacune porte un badge 📄 qui ouvre ses documents (PDF). Seule la fiche technique reste affichée en permanence. Les dates sont classées par ordre chronologique : les dates passées sont <s>rayées</s> et rangées à la fin (le lendemain du dernier jour compte encore, pour le trajet retour ; les dates ne comprennent pas les jours de transport), et la liste indique la <strong>première représentation</strong>.</li>
           <li>Dans un message, tape <strong>#</strong> puis le nom d'une date pour l'y rattacher (plusieurs possibles, facultatif).</li>
           <li>Les pastilles « Dates » au-dessus de la conversation <strong>filtrent</strong> les messages ; « Toutes » efface le filtre.</li>
         </ul>
@@ -554,15 +554,24 @@
         <label for="tag-label">Nom de la date</label>
         <input id="tag-label" type="text" maxlength="40" placeholder="Ex. Lausanne, Théâtre Vidy" required />
         <p class="muted hint">Indique seulement les jours sur place : les jours de transport (veille et lendemain) ne sont pas à compter, l'appli les prend en compte toute seule.</p>
-        <div class="tag-range">
-          <div><label for="tag-start">Début</label><input id="tag-start" type="date" /></div>
-          <div><label for="tag-end">Fin</label><input id="tag-end" type="date" /></div>
-        </div>
-        <label for="tag-show">Dates de représentation ★</label>
-        <p class="muted hint">Choisis un jour puis touche « Ajouter ★ » ; répète pour chaque représentation.</p>
-        <div class="tag-show-add">
-          <input id="tag-show" type="date" />
-          <button type="button" class="ghost small" id="tag-show-add">Ajouter ★</button>
+        <label>Jours sur place</label>
+        <p class="muted hint">Touche le premier jour puis le dernier (un troisième appui recommence). Tu peux aussi glisser le doigt d'un jour à l'autre.</p>
+        <p id="tag-range-summary" class="tag-range-summary" aria-live="polite"></p>
+        <input id="tag-start" type="hidden" />
+        <input id="tag-end" type="hidden" />
+        <div id="tag-range-picker" class="mini-cal"></div>
+        <button type="button" class="ghost small" id="tag-shows-toggle" aria-expanded="false" aria-controls="tag-shows-panel">★ Représentations <span id="tag-shows-count"></span></button>
+        <div id="tag-shows-panel" class="tag-shows-panel" hidden>
+          <p class="muted hint">Chaque appui sur un jour ajoute une représentation. Sur un jour qui en a déjà, on te demande d'en ajouter une autre (matinée, soirée…) ou d'en retirer une.</p>
+          <div id="tag-shows-picker" class="mini-cal"></div>
+          <div id="show-choice" class="show-choice" role="group" aria-label="Représentations de ce jour" hidden>
+            <p id="show-choice-text"></p>
+            <div class="show-choice-actions">
+              <button type="button" class="ghost small" data-choice="add">Ajouter une représentation</button>
+              <button type="button" class="ghost small" data-choice="remove">En retirer une</button>
+              <button type="button" class="ghost small" data-choice="cancel">Annuler</button>
+            </div>
+          </div>
         </div>
         <div id="tag-shows" class="tag-chips"></div>
         <div class="tag-form-actions">

@@ -2044,11 +2044,14 @@ export function createChat({ supabase, user }) {
 
     // ★ des représentations : au milieu de la journée, posée sur la frise de la date (ou sous les frises si elle n'en a pas ce jour-là).
     for (const tag of tags) {
-      for (const iso of tag.shows || []) {
+      const perDay = new Map();
+      for (const iso of tag.shows || []) perDay.set(iso, (perDay.get(iso) || 0) + 1);
+      for (const [iso, count] of perDay) {
         const index = isos.indexOf(iso);
         if (index < 0) continue;
         const onBar = Boolean(tag.start_date) && iso >= tag.start_date && iso <= tag.end_date;
-        const star = el("span", "cal-star" + (onBar ? " on-bar" : " alone"), "★");
+        const star = el("span", "cal-star" + (onBar ? " on-bar" : " alone"), count > 1 ? `★${count}` : "★");
+        if (count > 1) star.title = `${count} représentations`;
         star.style.gridColumn = String(index + 1);
         star.style.gridRow = String(onBar ? (lanes.get(tag.id) ?? 0) + 2 : laneCount + 2);
         star.style.setProperty("--h", String(hueOfTag(tag)));
@@ -2158,7 +2161,8 @@ export function createChat({ supabase, user }) {
       row.type = "button";
       row.dataset.openTag = tag.id;
       row.style.setProperty("--h", String(hueOfTag(tag)));
-      const star = (tag.shows || []).includes(state.calDay) ? " ★ représentation" : "";
+      const nShows = (tag.shows || []).filter((d) => d === state.calDay).length;
+      const star = nShows ? ` ★ ${nShows > 1 ? nShows + " représentations" : "représentation"}` : "";
       row.append(el("span", "cal-swatch"), el("span", "", `${roomById(tag.room_id)?.name || ""} · ${tag.label}${star}`));
       box.append(row);
       for (const doc of docsOfTag(tag.id)) {
@@ -2302,30 +2306,219 @@ export function createChat({ supabase, user }) {
     openDialog("#dialog-tags");
   }
 
-  let editingShows = new Set();
+  let editingShows = []; // une entrée par représentation (un même jour peut en avoir plusieurs : matinée, soirée…)
+  let rangePicker = null;
+  let showsPicker = null;
+  let pendingShowDay = null;
+
+  const showCounts = () => {
+    const counts = new Map();
+    for (const iso of editingShows) counts.set(iso, (counts.get(iso) || 0) + 1);
+    return counts;
+  };
+
+  // Mini-calendrier d'un mois : mark(iso, bouton) décore un jour ; onTap(iso) à l'appui ; onDrag(a, b) au glissé (facultatif).
+  function makeMonthPicker(host, { mark, onTap, onDrag }, on) {
+    let month = new Date();
+    month = new Date(month.getFullYear(), month.getMonth(), 1);
+    const head = el("div", "mini-cal-head");
+    const prev = el("button", "ghost small mini-nav", "‹");
+    const next = el("button", "ghost small mini-nav", "›");
+    prev.type = next.type = "button";
+    prev.setAttribute("aria-label", "Mois précédent");
+    next.setAttribute("aria-label", "Mois suivant");
+    const title = el("strong", "mini-title");
+    head.append(prev, title, next);
+    const week = el("div", "mini-cal-week");
+    for (const d of ["L", "M", "M", "J", "V", "S", "D"]) week.append(el("span", "", d));
+    const grid = el("div", "mini-cal-grid");
+    host.replaceChildren(head, week, grid);
+
+    function render() {
+      title.textContent = month.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+      grid.replaceChildren();
+      const lead = (month.getDay() + 6) % 7;
+      for (let i = 0; i < lead; i++) grid.append(el("span", "mini-blank"));
+      const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
+      for (let d = 1; d <= days; d++) {
+        const iso = toISO(new Date(month.getFullYear(), month.getMonth(), d));
+        const button = el("button", "mini-day", String(d));
+        button.type = "button";
+        button.dataset.iso = iso;
+        if (iso === toISO(new Date())) button.classList.add("is-today");
+        mark(iso, button);
+        grid.append(button);
+      }
+    }
+    const go = (delta) => {
+      month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
+      render();
+    };
+    on(prev, "click", () => go(-1));
+    on(next, "click", () => go(1));
+
+    let suppress = false;
+    let anchor = null;
+    let dragged = false;
+    const dayAt = (event) => {
+      const node = document.elementFromPoint ? document.elementFromPoint(event.clientX, event.clientY) : event.target;
+      return node && node.closest ? node.closest(".mini-day") : null;
+    };
+    if (onDrag) {
+      on(grid, "pointerdown", (event) => {
+        const day = event.target.closest && event.target.closest(".mini-day");
+        anchor = day ? day.dataset.iso : null;
+        dragged = false;
+      });
+      on(grid, "pointermove", (event) => {
+        if (!anchor) return;
+        const day = dayAt(event);
+        if (!day || (day.dataset.iso === anchor && !dragged)) return;
+        dragged = true;
+        const [a, b] = anchor <= day.dataset.iso ? [anchor, day.dataset.iso] : [day.dataset.iso, anchor];
+        onDrag(a, b);
+      });
+      const finish = () => {
+        if (dragged) {
+          suppress = true;
+          setTimeout(() => (suppress = false), 60);
+        }
+        anchor = null;
+        dragged = false;
+      };
+      on(grid, "pointerup", finish);
+      on(grid, "pointercancel", finish);
+    }
+    on(grid, "click", (event) => {
+      const day = event.target.closest(".mini-day");
+      if (!day || suppress) return;
+      onTap(day.dataset.iso);
+    });
+    return {
+      render,
+      goTo(iso) {
+        const d = iso ? fromISO(iso) : new Date();
+        month = new Date(d.getFullYear(), d.getMonth(), 1);
+        render();
+      },
+    };
+  }
+
+  function setRange(start, end) {
+    $("#tag-start").value = start || "";
+    $("#tag-end").value = end || "";
+    renderRangeSummary();
+    rangePicker.render();
+    showsPicker.render();
+  }
+
+  function renderRangeSummary() {
+    const start = $("#tag-start").value;
+    const end = $("#tag-end").value;
+    const f = (iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    $("#tag-range-summary").textContent = !start
+      ? "Aucun jour choisi."
+      : !end
+        ? `Début : ${f(start)} — touche le dernier jour (ou le même jour s'il n'y en a qu'un).`
+        : start === end
+          ? `Le ${f(start)}`
+          : `Du ${f(start)} au ${f(end)}`;
+  }
 
   function resetTagForm() {
     $("#tag-label").value = editingTag ? editingTag.label : "";
     $("#tag-start").value = editingTag?.start_date || "";
     $("#tag-end").value = editingTag?.end_date || "";
-    $("#tag-show").value = "";
-    editingShows = new Set(editingTag?.shows || []);
+    editingShows = [...(editingTag?.shows || [])].sort();
+    pendingShowDay = null;
+    $("#show-choice").hidden = true;
     $("#tag-add").textContent = editingTag ? "Enregistrer" : "Ajouter";
     $("#tag-cancel").hidden = !editingTag;
+    if (rangePicker) {
+      rangePicker.goTo($("#tag-start").value || null);
+      showsPicker.goTo(editingShows[0] || $("#tag-start").value || null);
+      renderRangeSummary();
+    }
     renderShowChips();
   }
 
   function renderShowChips() {
     const box = $("#tag-shows");
     box.replaceChildren();
-    for (const iso of [...editingShows].sort()) {
-      const chip = el("button", "tag-chip on", "★ " + shortDate(iso));
+    for (const [iso, n] of [...showCounts()].sort()) {
+      const chip = el("button", "tag-chip on", "★ " + shortDate(iso) + (n > 1 ? ` ×${n}` : ""));
       chip.type = "button";
       chip.dataset.show = iso;
       chip.append(el("small", "", "×"));
-      chip.setAttribute("aria-label", "Retirer la représentation du " + shortDate(iso));
+      chip.setAttribute("aria-label", "Retirer une représentation du " + shortDate(iso));
       box.append(chip);
     }
+    $("#tag-shows-count").textContent = editingShows.length ? `(${editingShows.length})` : "";
+    if (showsPicker) showsPicker.render();
+  }
+
+  function tapRange(iso) {
+    const start = $("#tag-start").value;
+    const end = $("#tag-end").value;
+    if (!start || end) return setRange(iso, ""); // nouveau début
+    if (iso < start) return setRange(iso, start);
+    setRange(start, iso);
+  }
+
+  function tapShow(iso) {
+    const n = showCounts().get(iso) || 0;
+    if (!n) {
+      editingShows.push(iso);
+      editingShows.sort();
+      return renderShowChips();
+    }
+    pendingShowDay = iso;
+    $("#show-choice-text").textContent = `Le ${shortDate(iso)} compte déjà ${n} représentation${n > 1 ? "s" : ""}.`;
+    $("#show-choice").hidden = false;
+  }
+
+  function answerShowChoice(choice) {
+    const iso = pendingShowDay;
+    pendingShowDay = null;
+    $("#show-choice").hidden = true;
+    if (!iso) return;
+    if (choice === "add") editingShows.push(iso);
+    if (choice === "remove") {
+      const at = editingShows.indexOf(iso);
+      if (at >= 0) editingShows.splice(at, 1);
+    }
+    editingShows.sort();
+    renderShowChips();
+  }
+
+  function setupTagPickers(on) {
+    rangePicker = makeMonthPicker($("#tag-range-picker"), {
+      mark(iso, button) {
+        const start = $("#tag-start").value;
+        const end = $("#tag-end").value || start;
+        if (start && iso >= start && iso <= end) button.classList.add("in-range");
+        if (iso === start) button.classList.add("range-start");
+        if (end && iso === end) button.classList.add("range-end");
+      },
+      onTap: tapRange,
+      onDrag: (a, b) => setRange(a, b),
+    }, on);
+    showsPicker = makeMonthPicker($("#tag-shows-picker"), {
+      mark(iso, button) {
+        const start = $("#tag-start").value;
+        const end = $("#tag-end").value || start;
+        if (start && iso >= start && iso <= end) button.classList.add("in-range");
+        const n = showCounts().get(iso) || 0;
+        if (n) {
+          button.classList.add("has-show");
+          button.append(el("small", "mini-star", n > 1 ? `★${n}` : "★"));
+        }
+      },
+      onTap: tapShow,
+    }, on);
+    rangePicker.render();
+    showsPicker.render();
+    renderRangeSummary();
   }
 
   function renderTagList() {
@@ -2366,8 +2559,6 @@ export function createChat({ supabase, user }) {
     if (start && !end) end = start;
     if (end && !start) start = end;
     if (start && end < start) return setNotice("#tags-message", "La fin doit être le même jour que le début, ou après.");
-    // Un jour de représentation choisi mais pas encore validé par « Ajouter ★ » est pris en compte.
-    if ($("#tag-show").value) editingShows.add($("#tag-show").value);
     const fields = { label, start_date: start || null, end_date: end || null, shows: [...editingShows].sort() };
     const request = editingTag
       ? supabase.from("tour_tags").update(fields).eq("id", editingTag.id).select().single()
@@ -3848,17 +4039,22 @@ export function createChat({ supabase, user }) {
       addDocuments(files);
     });
     on($("#tags-form"), "submit", submitTag);
-    on($("#tag-show-add"), "click", () => {
-      const value = $("#tag-show").value;
-      if (!value) return;
-      editingShows.add(value);
-      $("#tag-show").value = "";
-      renderShowChips();
+    setupTagPickers(on);
+    on($("#tag-shows-toggle"), "click", () => {
+      const open = $("#tag-shows-panel").hidden;
+      $("#tag-shows-panel").hidden = !open;
+      $("#tag-shows-toggle").setAttribute("aria-expanded", String(open));
+      if (open) showsPicker.goTo(editingShows[0] || $("#tag-start").value || null);
+    });
+    on($("#show-choice"), "click", (event) => {
+      const button = event.target.closest("[data-choice]");
+      if (button) answerShowChoice(button.dataset.choice);
     });
     on($("#tag-shows"), "click", (event) => {
       const chip = event.target.closest("[data-show]");
       if (!chip) return;
-      editingShows.delete(chip.dataset.show);
+      const at = editingShows.indexOf(chip.dataset.show);
+      if (at >= 0) editingShows.splice(at, 1);
       renderShowChips();
     });
     on($("#tag-cancel"), "click", () => {
