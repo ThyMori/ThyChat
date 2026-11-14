@@ -1081,3 +1081,24 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
   #channel-list { flex: 1 0 auto; min-height: 42dvh; overflow: visible; }
   .dm-list { flex: none; max-height: none; overflow: visible; }
 }
+
+/* En-tête : sur téléphone, les petits boutons sont rangés dans un menu ⋮. */
+.head-tools-wrap, .head-tools { display: contents; }
+.head-more { display: none; }
+@media (max-width: 760px) {
+  .head-tools-wrap { display: block; position: relative; flex: none; }
+  .head-tools-wrap:not(:has(.head-tools > :not([hidden]))) { display: none; }
+  .head-more { display: inline-flex; }
+  .head-tools { display: none; position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; flex-direction: column; gap: 2px; min-width: 220px; padding: 6px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45); }
+  .head-tools.open { display: flex; }
+  .head-tools > [hidden] { display: none; }
+  .head-tools > .icon-btn { width: auto; height: auto; min-height: 44px; border: 0; border-radius: 10px; justify-content: flex-start; gap: 12px; padding: 8px 12px; background: transparent; font-size: 1rem; }
+  .head-tools > .icon-btn::after { content: attr(aria-label); font-size: 0.95rem; color: var(--text, inherit); }
+  .chat-head .chat-titles { min-width: 0; }
+  .chat-head .icon-btn { width: 40px; height: 40px; }
+  .chat-head .current-btn { width: auto; padding: 0 10px; }
+}
+@media (max-width: 760px) {
+  .chat-head .head-tools > .icon-btn { width: 100%; height: auto; min-height: 44px; white-space: nowrap; flex-direction: row; }
+  .chat-head .head-tools > .icon-btn::after { white-space: nowrap; }
+}

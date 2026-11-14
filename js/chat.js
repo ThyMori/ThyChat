@@ -3593,6 +3593,16 @@ export function createChat({ supabase, user }) {
     onSwipe($("#calendar"), (dir) => {
       if (state.calendarOpen) shiftMonth(dir < 0 ? 1 : -1);
     }, opts);
+    // Menu ⋮ de l'en-tête (téléphone) : regroupe les petits boutons.
+    const toolsMenu = (open) => {
+      $("#head-tools").classList.toggle("open", open);
+      $("#head-more").setAttribute("aria-expanded", String(open));
+    };
+    on($("#head-more"), "click", (e) => {
+      e.stopPropagation();
+      toolsMenu(!$("#head-tools").classList.contains("open"));
+    });
+    on(document, "click", () => toolsMenu(false));
     on($("#cal-prev"), "click", () => shiftMonth(-1));
     on($("#cal-next"), "click", () => shiftMonth(1));
     on($("#cal-today"), "click", () => {
