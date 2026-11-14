@@ -781,6 +781,7 @@ export function createChat({ supabase, user }) {
       $("#channel-edit").hidden = true;
       $("#channel-delete-dm").hidden = true;
       $("#channel-search").hidden = true;
+      $("#channel-people").hidden = true;
       return;
     }
     avatar.className = "avatar small soft";
@@ -817,6 +818,7 @@ export function createChat({ supabase, user }) {
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
     $("#channel-search").hidden = !channel;
+    $("#channel-people").hidden = !channel || channel.kind !== "channel";
   }
 
   // Pastilles de non lus : listes, bouton d'espace, titre de l'onglet et icône de l'application.
@@ -2806,6 +2808,44 @@ export function createChat({ supabase, user }) {
     await refreshStructure();
   }
 
+  // Personnes qui ont accès au sous-salon ouvert ; un appui ouvre le message privé avec elles.
+  async function openPeople() {
+    const channel = state.channel;
+    if (!channel || channel.kind !== "channel" || !state.ws) return;
+    $("#people-title").textContent = `Personnes · ${channel.name}`;
+    setNotice("#people-message", "");
+    const list = $("#people-list");
+    list.replaceChildren(el("li", "muted", "Chargement…"));
+    openDialog("#dialog-people");
+
+    const users = await workspaceUsers(state.ws.id);
+    const room = roomById(channel.room_id);
+    let allowed = null; // null : tous les non-administrateurs de l'espace
+    if (!channel.everyone) {
+      const { data } = await supabase.from("channel_members").select("user_id").eq("channel_id", channel.id);
+      allowed = new Set((data || []).map((row) => row.user_id));
+    } else if (room && !room.everyone) {
+      const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
+      allowed = new Set((data || []).map((row) => row.user_id));
+    }
+    if (state.channel !== channel) return;
+    const rows = users.filter((row) => row.role === "admin" || !allowed || allowed.has(row.user_id));
+    list.replaceChildren();
+    for (const row of rows) {
+      const item = el("li");
+      const button = el("button", "pick-button");
+      button.type = "button";
+      const me = row.user_id === user.id;
+      button.disabled = me;
+      button.dataset.user = row.user_id;
+      button.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id) + (me ? " (toi)" : "")));
+      if (row.role === "admin") button.append(el("span", "badge", "Admin"));
+      item.append(button);
+      list.append(item);
+    }
+    if (!list.children.length) list.append(el("li", "muted", "Personne pour l'instant."));
+  }
+
   async function startDm(otherId) {
     const existing = dms().find((c) => dmPartner(c) === otherId);
     if (existing) {
@@ -3349,6 +3389,13 @@ export function createChat({ supabase, user }) {
     });
     on($("#new-channel"), "click", () => openRoomDialog(null));
     on($("#channel-delete-dm"), "click", deleteDm);
+    on($("#channel-people"), "click", openPeople);
+    on($("#people-list"), "click", (event) => {
+      const button = event.target.closest("button[data-user]");
+      if (!button || button.disabled) return;
+      closeDialog($("#dialog-people"));
+      startDm(button.dataset.user);
+    });
     on($("#channel-edit"), "click", () => state.channel && openChannelDialog(state.channel));
     on($("#room-delete"), "click", deleteRoom);
     on($("#room-form"), "submit", submitRoom);
