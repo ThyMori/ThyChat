@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.25.0 — 2026-11-14
+- Documents et fiches techniques : PDF, images ou liens web
+- une fiche technique réunit plusieurs fichiers (plan son, plan lumière…)
+
 ## 3.24.2 — 2026-11-14
 - Le salon racine d'un spectacle (Général) affiche une maison ⌂ au lieu du G
 

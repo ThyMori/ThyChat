@@ -1,9 +1,37 @@
-// Documents PDF des dates de tournée : envoi, liens temporaires, suppression (stockage privé).
+// Documents des dates de tournée et fiches techniques : PDF, images ou liens web (envoi, liens temporaires, suppression ; stockage privé).
 
 const BUCKET = "tag-documents";
 export const MAX_PDF_BYTES = 15 * 1024 * 1024;
 
 export const isPdf = (file) => file && (file.type === "application/pdf" || /\.pdf$/i.test(file.name || ""));
+
+const TYPES = [
+  { mime: "application/pdf", ext: "pdf", re: /\.pdf$/i },
+  { mime: "image/jpeg", ext: "jpg", re: /\.jpe?g$/i },
+  { mime: "image/png", ext: "png", re: /\.png$/i },
+  { mime: "image/webp", ext: "webp", re: /\.webp$/i },
+  { mime: "image/gif", ext: "gif", re: /\.gif$/i },
+];
+export const FILE_ACCEPT = "application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif";
+
+// Type accepté (PDF ou image) d'un fichier, ou null.
+export function fileType(file) {
+  if (!file) return null;
+  return TYPES.find((t) => t.mime === file.type) || TYPES.find((t) => t.re.test(file.name || "")) || null;
+}
+
+// Lien web valable (http ou https) : renvoie l'adresse nettoyée, ou "" si elle est refusée.
+export function cleanUrl(text) {
+  let value = String(text || "").trim();
+  if (value && !/^[a-z][a-z0-9+.-]*:/i.test(value)) value = "https://" + value;
+  try {
+    const url = new URL(value);
+    if (!/^https?:$/.test(url.protocol) || !url.hostname.includes(".") || /\s/.test(value) || value.length > 2000) return "";
+    return url.href;
+  } catch {
+    return "";
+  }
+}
 
 export function sizeLabel(bytes) {
   if (!bytes && bytes !== 0) return "";
@@ -13,17 +41,19 @@ export function sizeLabel(bytes) {
 
 // Range le fichier dans <salon>/<date>/<identifiant>.pdf.
 export async function uploadTagDocument(supabase, roomId, tagId, file) {
+  const type = fileType(file) || TYPES[0];
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
-  const path = `${roomId}/${tagId}/${id}.pdf`;
+  const path = `${roomId}/${tagId}/${id}.${type.ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: "application/pdf",
+    contentType: type.mime,
     cacheControl: "3600",
   });
   if (error) throw error;
   return { path, name: String(file.name || "Document.pdf").slice(0, 160), size_bytes: file.size };
 }
 
-export async function removeTagDocuments(supabase, paths) {
+export async function removeTagDocuments(supabase, allPaths) {
+  const paths = (allPaths || []).filter(Boolean); // les liens web n'ont pas de fichier
   if (!paths.length) return;
   try {
     await supabase.storage.from(BUCKET).remove(paths);
@@ -35,6 +65,7 @@ export async function removeTagDocuments(supabase, paths) {
 // Liens temporaires (1 h) pour ouvrir les PDF : chemin -> lien.
 export async function signDocuments(supabase, paths) {
   const out = new Map();
+  paths = (paths || []).filter(Boolean);
   if (!paths.length) return out;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, 3600);
   if (error) throw error;
@@ -44,10 +75,11 @@ export async function signDocuments(supabase, paths) {
 
 // Fiche technique d'un spectacle : rangée dans <salon>/fiche/<identifiant>.pdf (même stockage privé).
 export async function uploadRoomSheet(supabase, roomId, file) {
+  const type = fileType(file) || TYPES[0];
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
-  const path = `${roomId}/fiche/${id}.pdf`;
+  const path = `${roomId}/fiche/${id}.${type.ext}`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: "application/pdf",
+    contentType: type.mime,
     cacheControl: "3600",
   });
   if (error) throw error;

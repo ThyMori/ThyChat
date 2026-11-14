@@ -445,10 +445,10 @@
       <section>
         <h4>Documents des dates</h4>
         <ul>
-          <li><strong>Fiche technique</strong> : le bouton « Fiche technique » de la barre des dates ouvre la fiche technique du spectacle (PDF), avec la <strong>date de sa version</strong>. Les administrateurs ajoutent une nouvelle version quand elle change (en indiquant sa date) : la plus récente est mise en avant et les anciennes restent consultables. Toutes les personnes concernées par le spectacle peuvent la lire, y compris depuis « Dates en cours ».</li>
+          <li><strong>Fiche technique</strong> : le bouton « Fiche technique » de la barre des dates ouvre la fiche technique du spectacle, avec la <strong>date de sa version</strong>. Les administrateurs ajoutent une nouvelle version quand elle change (en indiquant sa date) : la plus récente est mise en avant et les anciennes restent consultables. Toutes les personnes concernées par le spectacle peuvent la lire, y compris depuis « Dates en cours ». Une fiche peut réunir <strong>plusieurs documents</strong> (plan son, plan lumière…) : des PDF, des images ou des liens web ; tous ceux de la version la plus récente sont affichés ensemble.</li>
           <li><strong>Dates en cours</strong> : quand une date de tournée est en cours (de la veille du début au lendemain de la fin, pour tenir compte des trajets), un bouton « Dates en cours » apparaît dans le menu et en haut de chaque écran. Il ouvre la liste de ces dates dans tous tes spectacles, avec leurs documents (un toucher pour ouvrir le PDF) et un accès direct au spectacle.</li>
-          <li>Le bouton <strong>Documents</strong> de la barre des dates (sous l'en-tête d'un spectacle) liste, date par date, les PDF utiles : feuilles de route, billets de train, livrets d'accueil… Touche un document pour l'ouvrir.</li>
-          <li>Les <strong>administrateurs</strong> ajoutent des PDF (15 Mo au plus chacun) avec « Ajouter un PDF », et les retirent avec la croix. Toutes les personnes qui ont accès au spectacle peuvent les ouvrir ; les fichiers ne sont pas publics.</li>
+          <li>Le bouton <strong>Documents</strong> de la barre des dates (sous l'en-tête d'un spectacle) liste, date par date, les documents utiles (PDF, images ou liens web) : feuilles de route, billets de train, livrets d'accueil… Touche un document pour l'ouvrir.</li>
+          <li>Les <strong>administrateurs</strong> ajoutent des fichiers PDF ou images (15 Mo au plus chacun) avec « + Fichier », ou un lien web avec « + Lien », et les retirent avec la croix. Toutes les personnes qui ont accès au spectacle peuvent les ouvrir ; les fichiers ne sont pas publics.</li>
         </ul>
       </section>
 
@@ -458,7 +458,7 @@
           <li>Le bouton <strong>📅 Calendrier</strong> montre un mois avec une frise colorée par date de tournée et une ★ sur chaque représentation. Le menu choisit tous les spectacles de l'espace, tous tes espaces ou un seul spectacle.</li>
           <li><strong>Déplacer un message</strong> (administrateurs) : touche un message puis « Déplacer », et choisis le sous-salon ou le spectacle d'arrivée (utile en cas d'erreur). Les photos suivent ; les dates # sont retirées si le spectacle change.</li>
           <li><strong>Roue crantée</strong> (en bas du menu, à côté de ton nom) : regroupe « Espace et membres », les notifications, l'installation de l'application et la déconnexion.</li>
-          <li><strong>PDF ajouté</strong> : quand un administrateur ajoute un document à une date ou une fiche technique, toutes les personnes qui ont accès au spectacle reçoivent une notification (sauf celles qui ont mis l'espace ou le spectacle en silence).</li>
+          <li><strong>Document ajouté</strong> : quand un administrateur ajoute un document à une date ou une fiche technique, toutes les personnes qui ont accès au spectacle reçoivent une notification (sauf celles qui ont mis l'espace ou le spectacle en silence).</li>
           <li><strong>Bandeau jaune</strong> : quand les notifications sont inactives sur cet appareil, un rappel s'affiche en haut ; un appui ouvre leur réglage, la croix le masque jusqu'à la prochaine ouverture de l'application.</li>
           <li><strong>Menu ⋮</strong> (téléphone) : en haut à droite, il regroupe la liste des personnes du sous-salon (un appui ouvre le message privé avec elle), la recherche, les réglages du sous-salon, les notifications et la suppression d'une discussion privée.</li>
           <li><strong>Glisser du doigt</strong> (téléphone) : vers la droite dans un fil de discussion pour ouvrir le menu ; vers la gauche sur le menu pour le fermer ; vers la gauche ou la droite sur le calendrier pour passer au mois suivant ou précédent.</li>
@@ -511,12 +511,19 @@
       <p class="muted" id="sheet-note"></p>
       <div id="sheet-list" class="docs-list"></div>
       <form id="sheet-form" class="sheet-form" hidden>
-        <h4>Ajouter une version</h4>
+        <h4>Ajouter à la fiche technique</h4>
         <label for="sheet-date">Date de la version</label>
         <input type="date" id="sheet-date" required>
-        <input type="file" id="sheet-file" accept="application/pdf,.pdf" hidden>
+        <label for="sheet-label">Intitulé (facultatif pour un fichier, ex. Plan lumière)</label>
+        <input type="text" id="sheet-label" maxlength="160" placeholder="Plan son, plan lumière…">
+        <input type="file" id="sheet-file" accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif" multiple hidden>
         <div class="dialog-actions">
-          <button type="button" class="ghost" id="sheet-pick">Choisir le PDF et envoyer</button>
+          <button type="button" class="ghost" id="sheet-pick">Choisir des fichiers (PDF, images)</button>
+        </div>
+        <label for="sheet-url">Ou un lien web</label>
+        <input type="text" id="sheet-url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://…">
+        <div class="dialog-actions">
+          <button type="button" class="ghost" id="sheet-add-link">Ajouter le lien</button>
         </div>
       </form>
       <p id="sheet-message" class="notice" role="alert" hidden></p>
@@ -540,7 +547,18 @@
       <p class="muted" id="docs-note">Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.</p>
       <div id="docs-list" class="docs-list"></div>
       <p id="docs-message" class="notice" role="alert" hidden></p>
-      <input type="file" id="docs-file" accept="application/pdf,.pdf" multiple hidden>
+      <form id="docs-link-form" class="sheet-form" hidden>
+        <h4 id="docs-link-title">Ajouter un lien</h4>
+        <label for="docs-link-name">Intitulé (facultatif)</label>
+        <input type="text" id="docs-link-name" maxlength="160" placeholder="Feuille de route, billets…">
+        <label for="docs-link-url">Adresse du lien</label>
+        <input type="text" id="docs-link-url" inputmode="url" autocapitalize="off" autocomplete="off" placeholder="https://…" required>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" id="docs-link-cancel">Annuler</button>
+          <button type="submit" class="primary">Ajouter</button>
+        </div>
+      </form>
+      <input type="file" id="docs-file" accept="application/pdf,image/jpeg,image/png,image/webp,image/gif,.pdf,.jpg,.jpeg,.png,.webp,.gif" multiple hidden>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
       </div>

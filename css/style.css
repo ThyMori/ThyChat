@@ -1186,3 +1186,4 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .show-choice-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .tags-form[hidden], #tag-new[hidden] { display: none; }
 #tag-new { margin-top: 10px; }
+.sheet-form[hidden] { display: none; }

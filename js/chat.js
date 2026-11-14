@@ -5,7 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
-import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
+import { MAX_PDF_BYTES, cleanUrl, fileType, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
@@ -504,10 +504,13 @@ export function createChat({ supabase, user }) {
     }
     state.tags = tagsResult.data || [];
     // Documents des dates (migration 012 : sans elle, simplement aucun document).
-    const docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at").order("created_at");
+    // Migration 017 : liens web et images ; sans elle, on relit les anciennes colonnes (PDF seulement).
+    let docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at, kind, url").order("created_at");
+    if (docsResult.error) docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at").order("created_at");
     state.tagDocs = docsResult.error ? [] : docsResult.data || [];
     // Fiches techniques (migration 013 : sans elle, simplement aucune fiche).
-    const sheetsResult = await supabase.from("room_sheets").select("id, room_id, name, path, version_date, size_bytes, created_at");
+    let sheetsResult = await supabase.from("room_sheets").select("id, room_id, name, path, version_date, size_bytes, created_at, kind, url");
+    if (sheetsResult.error) sheetsResult = await supabase.from("room_sheets").select("id, room_id, name, path, version_date, size_bytes, created_at");
     state.sheets = sheetsResult.error ? [] : sheetsResult.data || [];
 
     const dmIds = state.allChannels.filter((c) => c.kind === "dm").map((c) => c.id);
@@ -615,6 +618,7 @@ export function createChat({ supabase, user }) {
   // Petites icônes au trait (sobres, de la couleur du texte).
   const ICON_PATHS = {
     file: ["M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M9 13h6M9 17h6"],
+    link: ["M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7", "M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"],
     x: ["M18 6 6 18", "m6 6 12 12"],
     "bell-off": ["M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5", "M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7", "M10.3 21a1.94 1.94 0 0 0 3.4 0", "m2 2 20 20"],
   };
@@ -1715,19 +1719,18 @@ export function createChat({ supabase, user }) {
       if (today < tag.start_date) section.append(el("p", "travel-note", "Veille : départ demain"));
       else if (today > (tag.end_date || tag.start_date)) section.append(el("p", "travel-note", "Lendemain : retour"));
       if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
-      const sheet = sheetsOfRoom(tag.room_id)[0];
-      if (sheet) {
+      for (const sheet of latestSheets(tag.room_id)) {
         const open = docLink(sheet, "doc-open latest");
         const text = el("span", "doc-name two");
-        text.append(el("strong", "", "Fiche technique"), el("small", "muted", `Version du ${shortDate(sheet.version_date)}`));
-        open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
+        text.append(el("strong", "", sheet.name), el("small", "muted", `Fiche technique · version du ${shortDate(sheet.version_date)}`));
+        open.append(docIcon(sheet), text, el("small", "muted", docMeta(sheet)));
         section.append(open);
       }
       const docs = docsOfTag(tag.id);
       if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document pour cette date."));
       for (const doc of docs) {
         const open = docLink(doc, "doc-open");
-        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        open.append(docIcon(doc), el("span", "doc-name", doc.name), el("small", "muted", docMeta(doc)));
         section.append(open);
       }
       box.append(section);
@@ -1749,16 +1752,24 @@ export function createChat({ supabase, user }) {
       .filter((s) => s.room_id === roomId)
       .sort((a, b) => b.version_date.localeCompare(a.version_date) || String(b.created_at).localeCompare(String(a.created_at)));
 
+  // Fiche technique en vigueur : tous les fichiers et liens de la version la plus récente (plan son, plan lumière…).
+  const latestSheets = (roomId) => {
+    const all = sheetsOfRoom(roomId);
+    return all.filter((s) => all[0] && s.version_date === all[0].version_date);
+  };
+
   function openSheet() {
     const roomId = currentRoomId();
     if (!roomId) return;
     const room = roomById(roomId);
     $("#sheet-title").textContent = room ? `Fiche technique · ${room.name}` : "Fiche technique";
     $("#sheet-note").textContent = isAdmin()
-      ? "Ajoute chaque nouvelle version du PDF (15 Mo au plus) en précisant sa date : la plus récente est mise en avant, les précédentes restent consultables."
+      ? "Une fiche technique peut réunir plusieurs fichiers (plan son, plan lumière…) : PDF, images (15 Mo au plus) ou liens. Ajoute-les avec la date de la version : la plus récente est mise en avant, les précédentes restent consultables."
       : "La version la plus récente est mise en avant ; les précédentes restent consultables.";
     $("#sheet-form").hidden = !isAdmin();
     $("#sheet-date").value = toISO(new Date());
+    $("#sheet-label").value = "";
+    $("#sheet-url").value = "";
     setNotice("#sheet-message", "");
     renderSheet();
     openDialog("#dialog-sheet");
@@ -1767,16 +1778,14 @@ export function createChat({ supabase, user }) {
   function sheetRow(sheet, latest) {
     const row = el("div", "doc-row");
     const open = docLink(sheet, "doc-open" + (latest ? " latest" : ""));
-    const text = el("span", "doc-name two");
-    text.append(el("strong", "", `Version du ${shortDate(sheet.version_date)}`), el("small", "muted", sheet.name));
-    open.append(icon("file"), text, el("small", "muted", sizeLabel(sheet.size_bytes)));
+    open.append(docIcon(sheet), el("span", "doc-name", sheet.name), el("small", "muted", docMeta(sheet)));
     row.append(open);
     if (isAdmin()) {
       const del = el("button", "icon-btn tiny", "");
       del.type = "button";
       del.dataset.delSheet = sheet.id;
-      del.title = "Retirer cette version";
-      del.setAttribute("aria-label", "Retirer la version du " + shortDate(sheet.version_date));
+      del.title = "Retirer ce document";
+      del.setAttribute("aria-label", "Retirer « " + sheet.name + " »");
       del.append(icon("x"));
       row.append(del);
     }
@@ -1791,48 +1800,80 @@ export function createChat({ supabase, user }) {
       box.append(el("p", "muted", "Aucune fiche technique pour l'instant."));
       return;
     }
-    const latest = el("section", "docs-tag");
-    latest.append(el("strong", "", "Version la plus récente"), sheetRow(list[0], true));
-    box.append(latest);
-    if (list.length > 1) {
-      const older = el("section", "docs-tag");
-      older.append(el("strong", "", "Versions précédentes"));
-      for (const sheet of list.slice(1)) older.append(sheetRow(sheet, false));
-      box.append(older);
-    }
+    // Une section par date de version ; la plus récente en tête.
+    const dates = [...new Set(list.map((s) => s.version_date))];
+    dates.forEach((date, index) => {
+      const section = el("section", "docs-tag");
+      section.append(el("strong", "", index === 0 ? `Version la plus récente · ${shortDate(date)}` : `Version du ${shortDate(date)}`));
+      for (const sheet of list.filter((s) => s.version_date === date)) section.append(sheetRow(sheet, index === 0));
+      box.append(section);
+    });
   }
 
-  async function addSheet(file) {
+  // Ajoute à la fiche des fichiers (PDF, images) ; un intitulé n'est pris en compte que pour un fichier seul.
+  async function addSheetFiles(files) {
     const roomId = currentRoomId();
-    if (!roomId || !isAdmin() || !file) return;
+    if (!roomId || !isAdmin() || !files.length) return;
     const date = $("#sheet-date").value;
     if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
-    if (!isPdf(file)) return setNotice("#sheet-message", `« ${file.name} » n'est pas un PDF.`);
-    if (file.size > MAX_PDF_BYTES) return setNotice("#sheet-message", `« ${file.name} » dépasse 15 Mo.`);
+    const label = $("#sheet-label").value.trim().slice(0, 160);
+    const problems = [];
     setNotice("#sheet-message", "Envoi…", "info");
-    let stored = null;
-    try {
-      stored = await uploadRoomSheet(supabase, roomId, file);
-      const { data, error } = await supabase.from("room_sheets").insert({ room_id: roomId, version_date: date, ...stored }).select().single();
-      if (error) throw error;
-      state.sheets.push(data);
-      setNotice("#sheet-message", "");
-    } catch (error) {
-      if (stored) await removeTagDocuments(supabase, [stored.path]);
-      const text = error && error.message ? error.message : "envoi impossible";
-      setNotice("#sheet-message", `Envoi impossible : ${text}${/bucket|not found|room_sheets/i.test(text) ? " (exécute les migrations 012 et 013)" : ""}`);
+    for (const file of files) {
+      if (!fileType(file)) {
+        problems.push(`« ${file.name} » n'est ni un PDF ni une image.`);
+        continue;
+      }
+      if (file.size > MAX_PDF_BYTES) {
+        problems.push(`« ${file.name} » dépasse 15 Mo.`);
+        continue;
+      }
+      let stored = null;
+      try {
+        stored = await uploadRoomSheet(supabase, roomId, file);
+        if (label && files.length === 1) stored.name = label;
+        const { data, error } = await supabase.from("room_sheets").insert({ room_id: roomId, version_date: date, ...stored }).select().single();
+        if (error) throw error;
+        state.sheets.push(data);
+      } catch (error) {
+        if (stored) await removeTagDocuments(supabase, [stored.path]);
+        const text = error && error.message ? error.message : "envoi impossible";
+        problems.push(`« ${file.name} » : ${text}${/bucket|not found|room_sheets|mime/i.test(text) ? " (exécute les migrations 012, 013 et 017)" : ""}`);
+      }
     }
+    setNotice("#sheet-message", problems.join(" "));
+    if (!problems.length) $("#sheet-label").value = "";
+    renderSheet();
+    renderTagBar();
+  }
+
+  async function addSheetLink() {
+    const roomId = currentRoomId();
+    if (!roomId || !isAdmin()) return;
+    const date = $("#sheet-date").value;
+    if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
+    const url = cleanUrl($("#sheet-url").value);
+    if (!url) return setNotice("#sheet-message", "Cette adresse n'est pas un lien web valable (https://…).");
+    const name = $("#sheet-label").value.trim().slice(0, 160) || new URL(url).hostname.replace(/^www\./, "");
+    const { data, error } = await supabase.from("room_sheets").insert({ room_id: roomId, version_date: date, kind: "link", url, name }).select().single();
+    if (error) {
+      return setNotice("#sheet-message", `Ajout impossible : ${error.message}${/kind|url|constraint/i.test(error.message) ? " (exécute la migration 017)" : ""}`);
+    }
+    state.sheets.push(data);
+    $("#sheet-url").value = "";
+    $("#sheet-label").value = "";
+    setNotice("#sheet-message", "");
     renderSheet();
     renderTagBar();
   }
 
   async function deleteSheet(id) {
     const sheet = state.sheets.find((s) => s.id === id);
-    if (!sheet || !window.confirm(`Retirer la version du ${shortDate(sheet.version_date)} ?`)) return;
+    if (!sheet || !window.confirm(`Retirer « ${sheet.name} » (version du ${shortDate(sheet.version_date)}) ?`)) return;
     const { error } = await supabase.from("room_sheets").delete().eq("id", id);
     if (error) return setNotice("#sheet-message", "Suppression impossible : " + error.message);
     state.sheets = state.sheets.filter((s) => s.id !== id);
-    await removeTagDocuments(supabase, [sheet.path]);
+    await removeTagDocuments(supabase, [sheet.path]); // sans effet pour un lien
     renderSheet();
     renderTagBar();
   }
@@ -1846,9 +1887,11 @@ export function createChat({ supabase, user }) {
     const only = docsOnlyTag ? tagById(docsOnlyTag) : null;
     $("#docs-title").textContent = only ? `Documents · ${only.label}` : room ? `Documents · ${room.name}` : "Documents du spectacle";
     $("#docs-note").textContent = isAdmin()
-      ? "Ajoute des PDF (15 Mo au plus) à chaque date : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir."
+      ? "Ajoute à chaque date des PDF, des images (15 Mo au plus) ou des liens : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir."
       : "Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.";
     setNotice("#docs-message", "");
+    linkTarget = null;
+    $("#docs-link-form").hidden = true;
     renderDocs();
     openDialog("#dialog-docs");
   }
@@ -1870,10 +1913,13 @@ export function createChat({ supabase, user }) {
       head.append(el("strong", "", tag.label));
       if (tag.start_date) head.append(el("small", "muted", rangeText(tag)));
       if (admin) {
-        const add = el("button", "ghost small", "Ajouter un PDF");
+        const add = el("button", "ghost small", "+ Fichier");
         add.type = "button";
         add.dataset.addDoc = tag.id;
-        head.append(add);
+        const addLink = el("button", "ghost small", "+ Lien");
+        addLink.type = "button";
+        addLink.dataset.addLink = tag.id;
+        head.append(add, addLink);
       }
       section.append(head);
       const docs = docsOfTag(tag.id);
@@ -1881,7 +1927,7 @@ export function createChat({ supabase, user }) {
       for (const doc of docs) {
         const row = el("div", "doc-row");
         const open = docLink(doc, "doc-open");
-        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        open.append(docIcon(doc), el("span", "doc-name", doc.name), el("small", "muted", docMeta(doc)));
         row.append(open);
         if (admin) {
           const del = el("button", "icon-btn tiny", "");
@@ -1898,6 +1944,26 @@ export function createChat({ supabase, user }) {
     }
   }
 
+  let linkTarget = null; // date qui reçoit le lien en cours de saisie
+
+  async function addDocumentLink() {
+    const tag = linkTarget && tagById(linkTarget);
+    if (!tag || !isAdmin()) return;
+    const url = cleanUrl($("#docs-link-url").value);
+    if (!url) return setNotice("#docs-message", "Cette adresse n'est pas un lien web valable (https://…).");
+    const name = $("#docs-link-name").value.trim().slice(0, 160) || new URL(url).hostname.replace(/^www\./, "");
+    const { data, error } = await supabase.from("tag_documents").insert({ tag_id: tag.id, kind: "link", url, name }).select().single();
+    if (error) {
+      return setNotice("#docs-message", `Ajout impossible : ${error.message}${/kind|url|constraint/i.test(error.message) ? " (exécute la migration 017)" : ""}`);
+    }
+    state.tagDocs.push(data);
+    linkTarget = null;
+    $("#docs-link-form").hidden = true;
+    setNotice("#docs-message", "");
+    renderDocs();
+    renderTagBar();
+  }
+
   async function addDocuments(files) {
     const tag = docsTarget && tagById(docsTarget);
     docsTarget = null;
@@ -1905,8 +1971,8 @@ export function createChat({ supabase, user }) {
     const list = [...files];
     const problems = [];
     for (const file of list) {
-      if (!isPdf(file)) {
-        problems.push(`« ${file.name} » n'est pas un PDF.`);
+      if (!fileType(file)) {
+        problems.push(`« ${file.name} » n'est ni un PDF ni une image.`);
         continue;
       }
       if (file.size > MAX_PDF_BYTES) {
@@ -1921,7 +1987,7 @@ export function createChat({ supabase, user }) {
         state.tagDocs.push(data);
       } catch (error) {
         if (stored) await removeTagDocuments(supabase, [stored.path]);
-        problems.push(`« ${file.name} » : ${error && error.message ? error.message : "envoi impossible"}${/bucket|not found|tag_documents/i.test(String(error && error.message)) ? " (exécute la migration 012)" : ""}`);
+        problems.push(`« ${file.name} » : ${error && error.message ? error.message : "envoi impossible"}${/bucket|not found|tag_documents/i.test(String(error && error.message)) ? " (exécute les migrations 012 et 017)" : ""}`);
       }
     }
     setNotice("#docs-message", problems.join(" "));
@@ -1934,10 +2000,27 @@ export function createChat({ supabase, user }) {
   let signQueue = new Map(); // chemin -> liens à renseigner
   let signTimer = null;
 
+  const isLinkDoc = (doc) => doc.kind === "link";
+  const docIcon = (doc) => icon(isLinkDoc(doc) ? "link" : "file");
+  // Précision affichée à droite : taille du fichier, ou site du lien.
+  function docMeta(doc) {
+    if (!isLinkDoc(doc)) return sizeLabel(doc.size_bytes);
+    try {
+      return new URL(cleanUrl(doc.url)).hostname.replace(/^www\./, "");
+    } catch {
+      return "";
+    }
+  }
+
   function docLink(doc, className) {
     const link = el("a", className);
     link.target = "_blank";
     link.rel = "noopener noreferrer";
+    if (isLinkDoc(doc)) {
+      const safe = cleanUrl(doc.url); // jamais d'autre schéma que http(s)
+      if (safe) link.href = safe;
+      return link;
+    }
     const cached = docUrls.get(doc.path);
     if (cached && Date.now() - cached.at < 50 * 60 * 1000) {
       link.href = cached.url;
@@ -2168,7 +2251,7 @@ export function createChat({ supabase, user }) {
       box.append(row);
       for (const doc of docsOfTag(tag.id)) {
         const open = docLink(doc, "doc-open");
-        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        open.append(docIcon(doc), el("span", "doc-name", doc.name), el("small", "muted", docMeta(doc)));
         box.append(open);
       }
     }
@@ -4018,9 +4101,16 @@ export function createChat({ supabase, user }) {
       $("#sheet-file").click();
     });
     on($("#sheet-file"), "change", (event) => {
-      const file = event.target.files[0];
+      const files = [...event.target.files];
       event.target.value = "";
-      addSheet(file);
+      addSheetFiles(files);
+    });
+    on($("#sheet-add-link"), "click", addSheetLink);
+    on($("#sheet-url"), "keydown", (event) => {
+      if (event.key === "Enter") {
+        event.preventDefault();
+        addSheetLink();
+      }
     });
     on($("#open-current"), "click", openCurrent);
     on($("#channel-current"), "click", openCurrent);
@@ -4035,10 +4125,27 @@ export function createChat({ supabase, user }) {
     on($("#docs-list"), "click", (event) => {
       const add = event.target.closest("[data-add-doc]");
       const del = event.target.closest("[data-del-doc]");
-      if (add) {
+      const addLink = event.target.closest("[data-add-link]");
+      if (addLink) {
+        linkTarget = addLink.dataset.addLink;
+        const tag = tagById(linkTarget);
+        $("#docs-link-title").textContent = tag ? `Ajouter un lien à « ${tag.label} »` : "Ajouter un lien";
+        $("#docs-link-name").value = "";
+        $("#docs-link-url").value = "";
+        $("#docs-link-form").hidden = false;
+        $("#docs-link-url").focus();
+      } else if (add) {
         docsTarget = add.dataset.addDoc;
         $("#docs-file").click();
       } else if (del) deleteDocument(del.dataset.delDoc);
+    });
+    on($("#docs-link-form"), "submit", (event) => {
+      event.preventDefault();
+      addDocumentLink();
+    });
+    on($("#docs-link-cancel"), "click", () => {
+      linkTarget = null;
+      $("#docs-link-form").hidden = true;
     });
     on($("#docs-file"), "change", (event) => {
       const files = [...event.target.files];
