@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.21.0 — 2026-11-14
+- Chaque spectacle a un salon « Général » (racine, créé tout seul, caché de la liste) ouvert par le nom du spectacle
+- la flèche déplie / replie les autres sous-salons
+
 ## 3.20.4 — 2026-11-14
 - Téléphone : le bouton Retour ne quitte plus l'application par erreur (entrée d'historique reposée à chaque geste
 - Retour agit même sur une entrée protégée)

@@ -129,6 +129,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 
 ## Dates de tournée, réponses et citations
 
+- **Salon Général** : chaque spectacle a un salon « Général » créé tout seul, ouvert à toutes les personnes du spectacle ; il est la racine : le nom du spectacle l'ouvre, la flèche ▸ déplie les autres sous-salons.
 - **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom, un début et une fin, et les dates de représentation ★) dans le menu **⋮** en haut à droite (« Gérer les dates de tournée »). Elles sont attachées au **spectacle** et servent dans tous ses sous-salons.
 - Dans un message, taper **#** propose les dates du spectacle ; le choix ajoute une pastille au message (plusieurs possibles, facultatif).
 - Le **filtre** « Dates » au-dessus de la conversation n'affiche que les messages portant les dates choisies ; « Toutes » l'efface.

@@ -409,6 +409,14 @@ export function createChat({ supabase, user }) {
   const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b);
   const channelsOfWs = (wsId) => state.allChannels.filter((c) => c.workspace_id === wsId);
   const roomsOfWs = (wsId) => state.allRooms.filter((r) => r.workspace_id === wsId).sort(bySalon);
+  // Le salon « Général » d'un spectacle (créé avec lui) en est la racine : le plus ancien sous-salon ouvert à tous.
+  // Il n'apparaît pas dans la liste : c'est la ligne du spectacle qui l'ouvre.
+  function rootOf(roomId) {
+    const all = state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId);
+    const pick = (list) => list.slice().sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name, "fr"))[0] || null;
+    return pick(all.filter((c) => c.everyone)) || pick(all);
+  }
+  const isRoot = (channel) => Boolean(channel && channel.kind === "channel" && rootOf(channel.room_id)?.id === channel.id);
   const subsOfRoom = (roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
   const roomById = (id) => state.allRooms.find((r) => r.id === id) || null;
   // Tous les sous-salons de l'espace courant, salon par salon.
@@ -711,7 +719,7 @@ export function createChat({ supabase, user }) {
     return item;
   }
 
-  const roomOpen = (room) => state.openRooms.has(room.id) || Boolean(state.channel && state.channel.room_id === room.id);
+  const roomOpen = (room) => state.openRooms.has(room.id);
 
   // Un salon (spectacle) : une ligne qui se déplie sur ses sous-salons.
   function roomGroup(room) {
@@ -721,11 +729,26 @@ export function createChat({ supabase, user }) {
     if (info.muted) group.classList.add("is-muted");
 
     const head = el("div", "room-head");
-    const toggle = el("button", "room-toggle");
+    const root = rootOf(room.id);
+    const chev = el("button", "room-chev");
+    chev.type = "button";
+    chev.dataset.room = room.id;
+    chev.setAttribute("aria-expanded", String(open));
+    chev.setAttribute("aria-label", (open ? "Replier " : "Déplier ") + room.name);
+    chev.append(el("span", "chev", open ? "▾" : "▸"));
+    head.append(chev);
+
+    // Le corps de la ligne ouvre le salon « Général » (la racine) ; sans racine accessible, il déplie.
+    const toggle = el("button", root ? "channel-item room-root" : "room-toggle");
     toggle.type = "button";
-    toggle.dataset.room = room.id;
-    toggle.setAttribute("aria-expanded", String(open));
-    toggle.append(el("span", "chev", open ? "▾" : "▸"), el("span", "avatar small soft", initials(room.name, 1)));
+    if (root) {
+      if (info.muted || muted(root)) toggle.classList.add("is-muted");
+      toggle.dataset.id = root.id;
+      if (state.channel && state.channel.id === root.id) toggle.setAttribute("aria-current", "true");
+    } else {
+      toggle.dataset.room = room.id;
+    }
+    toggle.append(el("span", "avatar small soft", initials(room.name, 1)));
     const text = el("span", "channel-text");
     text.append(el("span", "channel-name", room.name));
     if (room.description) text.append(el("span", "channel-sub", room.description));
@@ -733,8 +756,10 @@ export function createChat({ supabase, user }) {
     const side = el("span", "channel-side");
     if (!room.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
     if (info.muted) side.append(flag("bell-off", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Spectacle en silence"));
-    const n = info.muted ? info.all : info.count;
-    if (!open && n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
+    // Replié : tous les non lus du spectacle ; déplié : seulement ceux du « Général » (les autres sont dans leurs lignes).
+    const own = root ? state.unread.get(root.id) || 0 : 0;
+    const n = open ? own : info.muted ? info.all : info.count;
+    if (n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
     toggle.append(side);
     head.append(toggle);
 
@@ -749,9 +774,9 @@ export function createChat({ supabase, user }) {
     group.append(head);
 
     if (open) {
-      const subs = subsOfRoom(room.id);
+      const subs = subsOfRoom(room.id).filter((c) => !root || c.id !== root.id);
       for (const channel of subs) group.append(channelItem(channel));
-      if (!subs.length) group.append(el("p", "muted empty-sub", "Aucun sous-salon pour toi ici."));
+      if (!subs.length && !isAdmin()) group.append(el("p", "muted empty-sub", "Pas d'autre sous-salon pour l'instant."));
       if (isAdmin()) {
         const add = el("button", "add-sub", "+ Nouveau sous-salon");
         add.type = "button";
@@ -800,14 +825,16 @@ export function createChat({ supabase, user }) {
       avatar.textContent = initials(channel.name, 1);
     }
     avatar.hidden = !channel;
-    $("#channel-title").textContent = channel ? channelTitle(channel) : state.ws ? state.ws.name : "ThyChat";
+    const rootRoom = channel && isRoot(channel) ? roomById(channel.room_id) : null;
+    $("#channel-title").textContent = rootRoom ? rootRoom.name : channel ? channelTitle(channel) : state.ws ? state.ws.name : "ThyChat";
 
     const parts = [];
     if (channel && state.ws && channel.kind !== "dm") parts.push(state.ws.name);
     if (channel && channel.kind === "dm") parts.push("Message privé");
     else if (channel) {
       const room = roomById(channel.room_id);
-      if (room) parts.push(room.name);
+      if (room && !rootRoom) parts.push(room.name);
+      if (rootRoom) parts.push("Général");
       if (channel.description) parts.push(channel.description);
     }
     const muteNote = channel ? muteLabel(mutedRowFor(channel)) : "";
@@ -1042,7 +1069,8 @@ export function createChat({ supabase, user }) {
     // Changement d'espace : dernier sous-salon ouvert dans CET espace, sinon le premier ; s'il n'y en a aucun, page vide.
     const mine = salons();
     const remembered = (readLast().chans || {})[id];
-    const target = mine.find((c) => c.id === remembered) || mine[0];
+    const firstRoot = roomsOfWs(id).map((r) => rootOf(r.id)).find(Boolean);
+    const target = mine.find((c) => c.id === remembered) || firstRoot || mine[0];
     await selectChannel(target ? target.id : null);
   }
 
@@ -1068,7 +1096,7 @@ export function createChat({ supabase, user }) {
       setView("empty", {
         title: "Aucun spectacle",
         text: isAdmin()
-          ? "Crée le premier spectacle de cet espace : un spectacle, avec ses sous-salons (Tous, Technique, Musiciens…)."
+          ? "Crée le premier spectacle de cet espace : un spectacle, avec son salon « Général » et ses sous-salons (Technique, Musiciens…)."
           : "Tu n'as accès à aucun spectacle dans cet espace pour l'instant. Un administrateur peut t'y ajouter.",
         action: isAdmin() ? "Créer un spectacle" : "",
         onAction: () => openRoomDialog(null),
@@ -1081,7 +1109,7 @@ export function createChat({ supabase, user }) {
 
     writeLast({ channel: state.channel.id });
     if (state.channel.kind !== "dm" && state.ws) writeLast({ chans: { ...(readLast().chans || {}), [state.ws.id]: state.channel.id } });
-    if (state.channel.room_id) state.openRooms.add(state.channel.room_id);
+    if (state.channel.room_id && !isRoot(state.channel)) state.openRooms.add(state.channel.room_id);
     renderChannels();
     guardHistory();
     setView("chat");
@@ -2349,7 +2377,7 @@ export function createChat({ supabase, user }) {
     const roomId = newId();
     const room = await supabase.from("rooms").insert({ id: roomId, workspace_id: data.id, name: "Général", everyone: true });
     if (!room.error) {
-      await supabase.from("channels").insert({ id: newId(), workspace_id: data.id, room_id: roomId, name: "Tous", everyone: true });
+      await supabase.from("channels").insert({ id: newId(), workspace_id: data.id, room_id: roomId, name: "Général", everyone: true });
     }
     button.disabled = false;
     closeDialog($("#dialog-workspace"));
@@ -2534,11 +2562,11 @@ export function createChat({ supabase, user }) {
       if (!everyone && picked.length) {
         await supabase.from("room_members").insert(picked.map((id) => ({ room_id: room.id, user_id: id })));
       }
-      // Chaque salon démarre avec un sous-salon « Tous ».
+      // Chaque spectacle démarre avec son salon « Général » (la racine, ouverte à tous ceux qui ont accès au spectacle).
       const firstId = newId();
       const first = await supabase
         .from("channels")
-        .insert({ id: firstId, workspace_id: state.ws.id, room_id: room.id, name: "Tous", everyone: true });
+        .insert({ id: firstId, workspace_id: state.ws.id, room_id: room.id, name: "Général", everyone: true });
       if (!first.error) firstChannel = { id: firstId };
     }
 
@@ -2577,7 +2605,7 @@ export function createChat({ supabase, user }) {
       ? "Tous les utilisateurs de l'espace"
       : `Tous ceux qui ont accès à « ${room.name} »`;
     $("#channel-submit").textContent = channel ? "Enregistrer" : "Créer";
-    $("#channel-delete").hidden = !channel;
+    $("#channel-delete").hidden = !channel || isRoot(channel);
     $("#channel-name").value = channel ? channel.name : "";
     $("#channel-description").value = channel?.description || "";
     const mode = channel && !channel.everyone ? "some" : "everyone";
@@ -3511,7 +3539,7 @@ export function createChat({ supabase, user }) {
       if (edit) return openRoomDialog(roomById(edit.dataset.roomEdit));
       const add = event.target.closest("[data-new-sub]");
       if (add) return openChannelDialog(null, add.dataset.newSub);
-      const toggle = event.target.closest(".room-toggle");
+      const toggle = event.target.closest(".room-toggle, .room-chev");
       if (toggle) {
         const id = toggle.dataset.room;
         // Un salon qui contient le sous-salon ouvert reste déplié.

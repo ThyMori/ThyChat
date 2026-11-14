@@ -363,7 +363,7 @@
     <dialog id="dialog-room">
       <form id="room-form" novalidate>
         <h3 id="room-dialog-title">Nouveau spectacle</h3>
-        <p class="muted">Un spectacle contient des sous-salons (Tous, Technique, Musiciens…).</p>
+        <p class="muted">Un spectacle a un salon « Général » (créé tout seul, pour tous ceux qui y ont accès) et des sous-salons (Technique, Musiciens…).</p>
         <label for="room-name">Nom du spectacle</label>
         <input id="room-name" type="text" maxlength="80" autocomplete="off" required>
         <label for="room-description">Description (facultatif)</label>
@@ -417,7 +417,7 @@
         <ul>
           <li><strong>Espace</strong> : une production ou une compagnie, avec sa couleur et sa photo. Tu en changes avec le bouton en haut de la barre latérale.</li>
           <li><strong>Spectacle</strong> : un spectacle en particulier, dans un espace. Il se plie et se déplie ; un cadenas indique qu'il est réservé à certaines personnes.</li>
-          <li><strong>Sous-salon</strong> : là où l'on discute, par métier ou par sujet (Tous, Technique, Musiciens…). Chaque spectacle a un sous-salon « Tous ».</li>
+          <li><strong>Sous-salon</strong> : là où l'on discute, par métier ou par sujet (Technique, Musiciens…). Chaque spectacle a un salon « Général », créé tout seul : il est ouvert à toutes les personnes du spectacle et n'apparaît pas dans la liste, c'est le <strong>nom du spectacle</strong> qui l'ouvre. La petite flèche ▸ à gauche déplie les autres sous-salons ; un second appui les replie.</li>
           <li><strong>Message privé</strong> : une discussion à deux avec quelqu'un d'un de tes espaces (bouton + à côté de « Messages privés »). Elle est la même dans tous les espaces que vous partagez : tu la retrouves quel que soit l'espace ouvert. L'icône de poubelle en haut supprime toute la discussion (messages et photos), pour vous deux. La liste est classée du fil le plus récent au plus ancien ; le bouton + permet de retrouver un fil en tapant un nom, ou d'en commencer un nouveau.</li>
           <li><strong>Recherche</strong> : la loupe (en haut du menu, ou dans l'en-tête d'un sous-salon) cherche un mot ou une phrase dans tous les messages auxquels tu as accès, ou seulement dans le sous-salon ouvert. Touche un résultat pour ouvrir la discussion au bon message, qui clignote un instant. La recherche ignore les majuscules et les accents.</li>
         </ul>
