@@ -1,11 +1,15 @@
-// Interface de messagerie : espaces, canaux, messages en temps réel, membres.
+// Interface de messagerie : espaces (une couleur chacun), discussions, messages en temps réel, membres.
 // Le client Supabase est injecté (aucun import réseau ici) pour pouvoir tester hors navigateur.
 // Tout le texte venant des utilisateurs est inséré via textContent : jamais d'innerHTML.
+
+import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 
 const LAST_KEY = "thychat:last";
 const PAGE_SIZE = 100;
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
+const THEME_SQL_HINT =
+  "Pour enregistrer les couleurs, exécute supabase/migrations/002_workspace_theme.sql dans l'éditeur SQL de Supabase.";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -35,6 +39,21 @@ function writeLast(patch) {
 const timeFmt = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const dayFmt = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 const dayKey = (d) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+const startOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+function dayLabel(date) {
+  const diff = Math.round((startOfDay(new Date()) - startOfDay(date)) / 86400000);
+  if (diff === 0) return "Aujourd'hui";
+  if (diff === 1) return "Hier";
+  return dayFmt.format(date);
+}
+
+// Initiales pour les pastilles rondes (1 lettre pour une discussion, jusqu'à 2 pour un espace).
+function initials(name, max = 1) {
+  const words = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!words.length) return "?";
+  return words.slice(0, max).map((word) => Array.from(word)[0]).join("");
+}
 
 // Insère du texte brut en transformant les adresses http(s) en liens sûrs.
 function renderBody(container, text) {
@@ -72,22 +91,41 @@ function setNotice(selector, text, kind = "error") {
   node.hidden = !text;
 }
 
+// Pastilles de couleur cliquables (création d'espace, réglages).
+function renderSwatches(container, selectedKey, onPick) {
+  container.replaceChildren();
+  for (const theme of PALETTE) {
+    const button = el("button", "swatch");
+    button.type = "button";
+    button.title = theme.label;
+    button.setAttribute("aria-label", theme.label);
+    button.setAttribute("aria-pressed", String(theme.key === selectedKey));
+    button.dataset.key = theme.key;
+    button.style.setProperty("--sw", String(theme.hue));
+    button.addEventListener("click", () => onPick(theme.key));
+    container.append(button);
+  }
+}
+
 export function createChat({ supabase, user }) {
   const fallbackName = user.user_metadata?.display_name || user.email || "Moi";
   const state = {
-    workspaces: [], // { id, name, role }
+    workspaces: [], // { id, name, role, theme }
     ws: null,
     channels: [],
     channel: null,
     messages: [],
+    selectedId: null, // message touché (affiche « Supprimer »)
     profiles: new Map(),
     realtime: null,
     loadToken: 0,
+    themeColumn: true, // false tant que la migration SQL des couleurs n'est pas passée
   };
   let controller = null; // détache tous les écouteurs à l'arrêt
   let stopped = false;
   let emptyAction = null;
   let toastTimer = null;
+  let pendingTheme = DEFAULT_THEME.key;
 
   // --- Petits utilitaires d'interface ------------------------------------
 
@@ -99,7 +137,7 @@ export function createChat({ supabase, user }) {
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => {
       node.hidden = true;
-    }, 5000);
+    }, 6000);
   }
 
   function setView(mode, empty = {}) {
@@ -140,35 +178,86 @@ export function createChat({ supabase, user }) {
     for (const profile of data || []) state.profiles.set(profile.id, profile.display_name || "Membre");
   }
 
+  // --- Thème de l'espace ---------------------------------------------------
+
+  // Teinte toute l'interface avec la couleur de l'espace courant.
+  function applyTheme() {
+    const theme = state.ws ? themeFor(state.ws) : DEFAULT_THEME;
+    $("#screen-app").style.setProperty("--h", String(theme.hue));
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", `hsl(${theme.hue} 14% 11.5%)`);
+    document.title = state.ws ? `${state.ws.name} · ThyChat` : "ThyChat";
+  }
+
+  function resetTheme() {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.setAttribute("content", "#0e0e11");
+    document.title = "ThyChat";
+  }
+
   // --- Rendu ---------------------------------------------------------------
 
-  function renderWorkspaceSelect() {
-    const select = $("#workspace-select");
-    select.replaceChildren();
+  function renderWorkspaceHeader() {
+    const ws = state.ws;
+    $("#ws-avatar").textContent = ws ? initials(ws.name, 2) : "?";
+    $("#ws-name").textContent = ws ? ws.name : "Espaces";
+    $("#ws-sub").textContent = ws ? (ws.role === "admin" ? "Administrateur" : "Membre") : "";
+    $("#open-members").hidden = !ws;
+    $("#new-channel").hidden = !ws || !isAdmin();
+    renderSwitchList();
+    applyTheme();
+  }
+
+  function renderSwitchList() {
+    const list = $("#ws-list");
+    list.replaceChildren();
     for (const ws of state.workspaces) {
-      const option = el("option", "", ws.name);
-      option.value = ws.id;
-      select.append(option);
+      const item = el("li");
+      const row = el("button", "ws-row");
+      row.type = "button";
+      row.dataset.id = ws.id;
+      row.style.setProperty("--h", String(themeFor(ws).hue)); // chaque ligne garde la couleur de son espace
+      if (state.ws && state.ws.id === ws.id) row.setAttribute("aria-current", "true");
+      row.append(el("span", "avatar", initials(ws.name, 2)));
+      const text = el("span", "ws-text");
+      text.append(el("strong", "", ws.name), el("small", "", ws.role === "admin" ? "Administrateur" : "Membre"));
+      row.append(text);
+      item.append(row);
+      list.append(item);
     }
-    if (state.ws) select.value = state.ws.id;
-    $("#open-members").hidden = !state.ws;
-    $("#new-channel").hidden = !state.ws || !isAdmin();
   }
 
   function renderChannels() {
     const list = $("#channel-list");
     list.replaceChildren();
     for (const channel of state.channels) {
-      const button = el("button", "channel-item", `# ${channel.name}`);
-      button.type = "button";
-      button.dataset.id = channel.id;
-      if (state.channel && state.channel.id === channel.id) button.setAttribute("aria-current", "true");
-      list.append(button);
+      const item = el("button", "channel-item");
+      item.type = "button";
+      item.dataset.id = channel.id;
+      if (state.channel && state.channel.id === channel.id) item.setAttribute("aria-current", "true");
+      item.append(el("span", "avatar soft", initials(channel.name, 1)));
+      const text = el("span", "channel-text");
+      text.append(el("span", "channel-name", channel.name));
+      if (channel.description) text.append(el("span", "channel-sub", channel.description));
+      item.append(text);
+      list.append(item);
     }
+  }
+
+  function renderHeader() {
+    const channel = state.channel;
+    $("#channel-avatar").textContent = channel ? initials(channel.name, 1) : "";
+    $("#channel-avatar").hidden = !channel;
+    $("#channel-title").textContent = channel ? channel.name : state.ws ? state.ws.name : "ThyChat";
+    const parts = [];
+    if (channel && state.ws) parts.push(state.ws.name);
+    if (channel && channel.description) parts.push(channel.description);
+    $("#channel-desc").textContent = parts.join(" · ");
   }
 
   function renderMessages(forceBottom = false) {
     const box = $("#messages");
+    const previousTop = box.scrollTop;
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     box.replaceChildren();
 
@@ -180,30 +269,38 @@ export function createChat({ supabase, user }) {
     for (const message of state.messages) {
       const date = new Date(message.created_at);
       const newDay = !previous || dayKey(new Date(previous.created_at)) !== dayKey(date);
-      if (newDay) box.append(el("div", "day-divider", dayFmt.format(date)));
+      if (newDay) box.append(el("div", "day-divider", dayLabel(date)));
 
       const grouped =
         !newDay &&
         previous.user_id === message.user_id &&
         date - new Date(previous.created_at) < GROUP_WINDOW_MS;
+      const mine = message.user_id === user.id;
+      const deletable = mine || isAdmin();
 
-      const item = el("article", grouped ? "msg grouped" : "msg");
+      const classes = ["msg", mine ? "mine" : "theirs"];
+      if (grouped) classes.push("grouped");
+      if (message.id === state.selectedId) classes.push("selected");
+      const item = el("article", classes.join(" "));
       item.dataset.id = message.id;
+      if (deletable) item.dataset.deletable = "true";
 
-      if (!grouped) {
-        const meta = el("div", "msg-meta");
-        meta.append(el("strong", "msg-author", authorName(message.user_id)));
-        const time = el("time", "", timeFmt.format(date));
-        time.dateTime = date.toISOString();
-        meta.append(time);
-        item.append(meta);
+      const bubble = el("div", "bubble");
+      if (!mine && !grouped) {
+        const author = el("div", "msg-author", authorName(message.user_id));
+        author.style.color = `hsl(${authorHue(message.user_id)} 70% 74%)`;
+        bubble.append(author);
       }
 
       const body = el("div", "msg-body");
       renderBody(body, message.body);
-      item.append(body);
+      const time = el("time", "msg-time", timeFmt.format(date));
+      time.dateTime = date.toISOString();
+      body.append(time);
+      bubble.append(body);
+      item.append(bubble);
 
-      if (message.user_id === user.id || isAdmin()) {
+      if (deletable) {
         const remove = el("button", "msg-del", "Supprimer");
         remove.type = "button";
         remove.dataset.action = "delete";
@@ -215,7 +312,7 @@ export function createChat({ supabase, user }) {
       previous = message;
     }
 
-    if (forceBottom || nearBottom) box.scrollTop = box.scrollHeight;
+    box.scrollTop = forceBottom || nearBottom ? box.scrollHeight : previousTop;
   }
 
   // --- Chargement des données ---------------------------------------------
@@ -228,27 +325,41 @@ export function createChat({ supabase, user }) {
     });
   }
 
-  async function loadWorkspaces(preferredId) {
-    const { data, error } = await supabase
+  async function fetchMemberships() {
+    let result = await supabase
       .from("workspace_members")
-      .select("role, workspaces(id, name)")
+      .select("role, workspaces(id, name, theme)")
       .eq("user_id", user.id);
+    if (result.error && /theme/i.test(result.error.message)) {
+      // Migration des couleurs pas encore exécutée : on continue sans (couleur déduite de l'id).
+      state.themeColumn = false;
+      result = await supabase.from("workspace_members").select("role, workspaces(id, name)").eq("user_id", user.id);
+    }
+    return result;
+  }
+
+  async function loadWorkspaces(preferredId) {
+    const { data, error } = await fetchMemberships();
     if (stopped) return;
     if (error) return showFatal(error);
 
     state.workspaces = (data || [])
       .filter((row) => row.workspaces)
-      .map((row) => ({ id: row.workspaces.id, name: row.workspaces.name, role: row.role }))
+      .map((row) => ({
+        id: row.workspaces.id,
+        name: row.workspaces.name,
+        theme: row.workspaces.theme ?? null,
+        role: row.role,
+      }))
       .sort((a, b) => a.name.localeCompare(b.name, "fr"));
 
     if (!state.workspaces.length) {
       state.ws = null;
       state.channels = [];
       state.channel = null;
-      renderWorkspaceSelect();
+      renderWorkspaceHeader();
       renderChannels();
-      $("#channel-title").textContent = "ThyChat";
-      $("#channel-desc").textContent = "";
+      renderHeader();
       setView("empty", {
         title: "Bienvenue",
         text: "Crée ton premier espace pour commencer, ou attends d'être ajouté à celui d'une équipe.",
@@ -267,7 +378,8 @@ export function createChat({ supabase, user }) {
     state.ws = state.workspaces.find((ws) => ws.id === id) || null;
     if (!state.ws) return;
     writeLast({ ws: id });
-    renderWorkspaceSelect();
+    state.selectedId = null;
+    renderWorkspaceHeader();
 
     const { data, error } = await supabase
       .from("channels")
@@ -287,18 +399,18 @@ export function createChat({ supabase, user }) {
     const token = ++state.loadToken;
     unsubscribe();
     state.channel = state.channels.find((c) => c.id === id) || null;
+    state.selectedId = null;
     renderChannels();
+    renderHeader();
 
     if (!state.channel) {
       state.messages = [];
-      $("#channel-title").textContent = state.ws ? state.ws.name : "ThyChat";
-      $("#channel-desc").textContent = "";
       setView("empty", {
-        title: "Aucun canal",
+        title: "Aucune discussion",
         text: isAdmin()
-          ? "Crée le premier canal de cet espace (par exemple « général » ou le nom d'une production)."
-          : "Un administrateur de l'espace doit d'abord créer un canal.",
-        action: isAdmin() ? "Créer un canal" : "",
+          ? "Crée la première discussion de cet espace (par exemple « général » ou le nom d'une production)."
+          : "Un administrateur de l'espace doit d'abord créer une discussion.",
+        action: isAdmin() ? "Créer une discussion" : "",
         onAction: () => openChannelDialog(),
       });
       closeSidebar();
@@ -306,8 +418,6 @@ export function createChat({ supabase, user }) {
     }
 
     writeLast({ channel: state.channel.id });
-    $("#channel-title").textContent = `# ${state.channel.name}`;
-    $("#channel-desc").textContent = state.channel.description || "";
     setView("chat");
     state.messages = [];
     renderMessages(true);
@@ -387,6 +497,7 @@ export function createChat({ supabase, user }) {
 
   function removeMessage(id) {
     if (!id || !state.messages.some((m) => m.id === id)) return;
+    if (state.selectedId === id) state.selectedId = null;
     state.messages = state.messages.filter((m) => m.id !== id);
     renderMessages();
   }
@@ -433,9 +544,30 @@ export function createChat({ supabase, user }) {
 
   // --- Boîtes de dialogue ---------------------------------------------------
 
+  function openSwitch() {
+    if (!state.workspaces.length) return openWorkspaceDialog();
+    renderSwitchList();
+    openDialog("#dialog-switch");
+  }
+
+  function refreshWorkspaceSwatches() {
+    const dialog = $("#dialog-workspace");
+    const theme = themeByKey(pendingTheme) || DEFAULT_THEME;
+    dialog.style.setProperty("--h", String(theme.hue)); // aperçu en direct de la couleur choisie
+    renderSwatches($("#workspace-colors"), pendingTheme, (key) => {
+      pendingTheme = key;
+      refreshWorkspaceSwatches();
+    });
+  }
+
   function openWorkspaceDialog() {
+    const switcher = $("#dialog-switch");
+    if (switcher.hasAttribute("open")) closeDialog(switcher);
     $("#workspace-name").value = "";
     setNotice("#workspace-message", "");
+    const used = state.workspaces.map((ws) => themeFor(ws).key);
+    pendingTheme = pickUnusedTheme(used, `${user.id}:${state.workspaces.length}`).key;
+    refreshWorkspaceSwatches();
     openDialog("#dialog-workspace");
     $("#workspace-name").focus();
   }
@@ -448,15 +580,22 @@ export function createChat({ supabase, user }) {
     const button = $("#workspace-submit");
     button.disabled = true;
     setNotice("#workspace-message", "");
-    const { data, error } = await supabase.from("workspaces").insert({ name }).select().single();
+
+    let result = await supabase.from("workspaces").insert({ name, theme: pendingTheme }).select().single();
+    if (result.error && /theme/i.test(result.error.message)) {
+      state.themeColumn = false;
+      result = await supabase.from("workspaces").insert({ name }).select().single();
+    }
+    const { data, error } = result;
     if (error) {
       button.disabled = false;
       return setNotice("#workspace-message", "Création impossible : " + error.message);
     }
-    // Le créateur est devenu administrateur (trigger SQL) : on crée un premier canal.
+    // Le créateur est devenu administrateur (trigger SQL) : on crée une première discussion.
     await supabase.from("channels").insert({ workspace_id: data.id, name: "général" });
     button.disabled = false;
     closeDialog($("#dialog-workspace"));
+    if (!state.themeColumn) toast(THEME_SQL_HINT, "info");
     await loadWorkspaces(data.id);
   }
 
@@ -473,7 +612,7 @@ export function createChat({ supabase, user }) {
     event.preventDefault();
     const name = $("#channel-name").value.trim().replace(/^#+\s*/, "");
     const description = $("#channel-description").value.trim();
-    if (!name) return setNotice("#channel-message", "Donne un nom au canal.");
+    if (!name) return setNotice("#channel-message", "Donne un nom à la discussion.");
 
     const button = $("#channel-submit");
     button.disabled = true;
@@ -486,7 +625,7 @@ export function createChat({ supabase, user }) {
     button.disabled = false;
 
     if (error) {
-      const text = error.code === "23505" ? "Un canal porte déjà ce nom." : "Création impossible : " + error.message;
+      const text = error.code === "23505" ? "Une discussion porte déjà ce nom." : "Création impossible : " + error.message;
       return setNotice("#channel-message", text);
     }
     closeDialog($("#dialog-channel"));
@@ -495,13 +634,34 @@ export function createChat({ supabase, user }) {
     await selectChannel(data.id);
   }
 
+  function renderThemeSettings() {
+    $("#theme-section").hidden = !isAdmin();
+    if (!isAdmin()) return;
+    renderSwatches($("#theme-swatches"), themeFor(state.ws).key, changeTheme);
+  }
+
+  async function changeTheme(key) {
+    if (!state.ws || !isAdmin()) return;
+    const { error } = await supabase.from("workspaces").update({ theme: key }).eq("id", state.ws.id);
+    if (error) {
+      toast(/theme/i.test(error.message) ? THEME_SQL_HINT : "Couleur non enregistrée : " + error.message);
+      return;
+    }
+    state.ws.theme = key;
+    applyTheme();
+    renderSwitchList();
+    renderThemeSettings();
+  }
+
   async function openMembers() {
     if (!state.ws) return;
-    $("#members-title").textContent = `Membres de ${state.ws.name}`;
+    $("#members-title").textContent = state.ws.name;
     $("#add-member-form").hidden = !isAdmin();
     $("#member-email").value = "";
     setNotice("#members-message", "");
+    renderThemeSettings();
     openDialog("#dialog-members");
+    $("#members-title").focus(); // évite que la première pastille de couleur prenne le focus
     await refreshMembers();
   }
 
@@ -546,7 +706,7 @@ export function createChat({ supabase, user }) {
     await refreshMembers();
   }
 
-  // --- Branchement des événements (une seule fois) ---------------------------
+  // --- Branchement des événements ---------------------------------------------
 
   function bind() {
     if (controller) return;
@@ -554,8 +714,14 @@ export function createChat({ supabase, user }) {
     const opts = { signal: controller.signal };
     const on = (target, type, handler) => target.addEventListener(type, handler, opts);
 
-    on($("#workspace-select"), "change", (event) => selectWorkspace(event.target.value));
-    on($("#new-workspace"), "click", openWorkspaceDialog);
+    on($("#workspace-button"), "click", openSwitch);
+    on($("#switch-new"), "click", openWorkspaceDialog);
+    on($("#ws-list"), "click", (event) => {
+      const row = event.target.closest(".ws-row");
+      if (!row) return;
+      closeDialog($("#dialog-switch"));
+      selectWorkspace(row.dataset.id);
+    });
     on($("#new-channel"), "click", openChannelDialog);
     on($("#open-members"), "click", openMembers);
     on($("#empty-action"), "click", () => emptyAction && emptyAction());
@@ -566,8 +732,15 @@ export function createChat({ supabase, user }) {
     });
 
     on($("#messages"), "click", (event) => {
-      const button = event.target.closest("[data-action='delete']");
-      if (button) deleteMessage(button.dataset.id);
+      const remove = event.target.closest("[data-action='delete']");
+      if (remove) return deleteMessage(remove.dataset.id);
+      if (event.target.closest("a")) return; // un lien s'ouvre, sans sélectionner le message
+      // Toucher un message le sélectionne (affiche « Supprimer ») ; toucher ailleurs désélectionne.
+      const row = event.target.closest(".msg[data-deletable]");
+      const next = row && state.selectedId !== row.dataset.id ? row.dataset.id : null;
+      if (next === state.selectedId) return;
+      state.selectedId = next;
+      renderMessages();
     });
 
     on($("#composer"), "submit", (event) => {
@@ -619,6 +792,8 @@ export function createChat({ supabase, user }) {
     state.channels = [];
     state.channel = null;
     state.messages = [];
+    state.selectedId = null;
+    state.themeColumn = true;
 
     let name = fallbackName;
     const { data } = await supabase.from("profiles").select("display_name").eq("id", user.id).maybeSingle();
@@ -633,6 +808,7 @@ export function createChat({ supabase, user }) {
     stopped = true;
     state.loadToken++;
     unsubscribe();
+    resetTheme();
     if (controller) {
       controller.abort();
       controller = null;

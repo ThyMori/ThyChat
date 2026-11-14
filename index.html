@@ -126,19 +126,23 @@
         <button type="button" class="icon-btn only-mobile" id="close-sidebar" aria-label="Fermer le menu">✕</button>
       </div>
 
-      <div class="ws-switch">
-        <select id="workspace-select" aria-label="Espace"></select>
-        <button type="button" class="icon-btn" id="new-workspace" title="Nouvel espace" aria-label="Nouvel espace">+</button>
-      </div>
+      <button type="button" class="ws-button" id="workspace-button" aria-label="Changer d'espace">
+        <span class="avatar" id="ws-avatar" aria-hidden="true"></span>
+        <span class="ws-text">
+          <strong id="ws-name">Espaces</strong>
+          <small id="ws-sub"></small>
+        </span>
+        <span class="chev" aria-hidden="true">▾</span>
+      </button>
 
       <div class="section-title">
-        <span>Canaux</span>
-        <button type="button" class="icon-btn" id="new-channel" title="Nouveau canal" aria-label="Nouveau canal" hidden>+</button>
+        <span>Discussions</span>
+        <button type="button" class="icon-btn" id="new-channel" title="Nouvelle discussion" aria-label="Nouvelle discussion" hidden>+</button>
       </div>
-      <nav id="channel-list" class="channel-list" aria-label="Canaux"></nav>
+      <nav id="channel-list" class="channel-list" aria-label="Discussions"></nav>
 
       <div class="sidebar-foot">
-        <button type="button" class="ghost" id="open-members" hidden>Membres de l'espace</button>
+        <button type="button" class="ghost" id="open-members" hidden>Espace et membres</button>
         <div class="me">
           <span id="me-name"></span>
           <button type="button" class="ghost" id="logout">Déconnexion</button>
@@ -151,6 +155,7 @@
     <section class="chat">
       <header class="chat-head">
         <button type="button" class="icon-btn only-mobile" id="open-sidebar" aria-label="Ouvrir le menu">☰</button>
+        <span class="avatar small soft" id="channel-avatar" aria-hidden="true" hidden></span>
         <div class="chat-titles">
           <h2 id="channel-title">ThyChat</h2>
           <p id="channel-desc" class="muted"></p>
@@ -166,19 +171,32 @@
       <div id="messages" class="messages" aria-live="polite" hidden></div>
 
       <form id="composer" class="composer" hidden>
-        <textarea id="composer-input" rows="1" maxlength="8000" placeholder="Écrire un message…" aria-label="Message"></textarea>
-        <button type="submit" class="primary" id="composer-send">Envoyer</button>
+        <textarea id="composer-input" rows="1" maxlength="8000" placeholder="Écrire un message" aria-label="Message"></textarea>
+        <button type="submit" class="send" id="composer-send" aria-label="Envoyer">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
       </form>
     </section>
 
     <div id="toast" class="toast" role="status" hidden></div>
 
+    <dialog id="dialog-switch">
+      <h3>Mes espaces</h3>
+      <ul id="ws-list" class="ws-list"></ul>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+        <button type="button" class="primary" id="switch-new">Nouvel espace</button>
+      </div>
+    </dialog>
+
     <dialog id="dialog-workspace">
       <form id="workspace-form" novalidate>
         <h3>Nouvel espace</h3>
-        <p class="muted">Un espace regroupe une équipe et ses canaux.</p>
+        <p class="muted">Un espace regroupe une équipe : une production, une compagnie…</p>
         <label for="workspace-name">Nom de l'espace</label>
         <input id="workspace-name" type="text" maxlength="80" autocomplete="off" required>
+        <label>Couleur</label>
+        <div id="workspace-colors" class="swatches"></div>
         <p id="workspace-message" class="notice" role="alert" hidden></p>
         <div class="dialog-actions">
           <button type="button" class="ghost" data-close>Annuler</button>
@@ -189,8 +207,8 @@
 
     <dialog id="dialog-channel">
       <form id="channel-form" novalidate>
-        <h3>Nouveau canal</h3>
-        <label for="channel-name">Nom du canal</label>
+        <h3>Nouvelle discussion</h3>
+        <label for="channel-name">Nom de la discussion</label>
         <input id="channel-name" type="text" maxlength="60" autocomplete="off" required>
         <label for="channel-description">Description (facultatif)</label>
         <input id="channel-description" type="text" maxlength="200" autocomplete="off">
@@ -203,7 +221,15 @@
     </dialog>
 
     <dialog id="dialog-members">
-      <h3 id="members-title">Membres</h3>
+      <h3 id="members-title" tabindex="-1">Espace</h3>
+
+      <section id="theme-section">
+        <h4>Couleur de l'espace</h4>
+        <p class="muted">Chaque espace a sa couleur, pour le reconnaître au premier coup d'œil.</p>
+        <div id="theme-swatches" class="swatches"></div>
+      </section>
+
+      <h4>Membres</h4>
       <ul id="members-list" class="members"></ul>
       <form id="add-member-form" novalidate>
         <label for="member-email">Ajouter un membre (compte déjà invité)</label>

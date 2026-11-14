@@ -12,11 +12,13 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
-js/chat.js              interface de messagerie (espaces, canaux, messages en temps réel, membres)
+js/chat.js              interface de messagerie (espaces, discussions, messages en temps réel, membres)
+js/themes.js            palette de couleurs : une couleur par espace
 sw.js                   service worker (coquille hors ligne)
 manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
 supabase/schema.sql     tables, sécurité (RLS), temps réel
+supabase/migrations/    mises à jour de la base, à exécuter une fois dans l'ordre
 ```
 
 ## Mise en route
@@ -46,12 +48,25 @@ L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `C
 
 Les administrateurs d'un espace créent les canaux et gèrent les membres ; les membres lisent, écrivent et suppriment leurs propres messages.
 
+## Mettre à jour la base
+
+Quand une version ajoute un fichier dans `supabase/migrations/`, colle son contenu dans **SQL Editor** puis **Run** (sans risque si exécuté deux fois). Une installation neuve n'a besoin que de `supabase/schema.sql`.
+
+| Fichier | Apporte |
+| --- | --- |
+| `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
+
+## Couleurs des espaces
+
+Chaque espace (une production, une compagnie…) a sa couleur, qui teinte toute l'interface : fond, barre latérale, bulles, boutons. À la création, ThyChat propose une couleur pas encore utilisée par tes autres espaces ; les administrateurs la changent dans **Espace et membres**. La palette est dans `js/themes.js`.
+
 ## Feuille de route
 
 - [x] Structure PWA, écran de connexion, gestion des invitations
 - [x] Schéma de base de données et règles de sécurité
 - [x] Espaces, canaux et membres
 - [x] Messages en temps réel (envoi, suppression, liens cliquables)
+- [x] Couleur par espace, look « bulles » façon messagerie grand public
 - [ ] Fils de discussion, messages épinglés, recherche
 - [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
 - [ ] Messages privés

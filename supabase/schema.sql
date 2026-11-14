@@ -31,6 +31,9 @@ create table if not exists public.workspaces (
   created_at timestamptz not null default now()
 );
 
+-- Couleur de l'espace (voir supabase/migrations/002_workspace_theme.sql)
+alter table public.workspaces add column if not exists theme text;
+
 create table if not exists public.workspace_members (
   workspace_id uuid not null references public.workspaces(id) on delete cascade,
   user_id      uuid not null references auth.users(id) on delete cascade,
