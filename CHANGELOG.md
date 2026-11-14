@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 2.0.2 — 2026-11-14
+- Le bouton « Installer l'application » lance l'installation directement et disparaît une fois l'application installée
+
 ## 2.0.1 — 2026-11-14
 - Déclencheur des notifications push en SQL (migration 004), plus simple que le Database Webhook
 

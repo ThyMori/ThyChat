@@ -1,7 +1,7 @@
 // Rappel et guide pour installer ThyChat comme une application (téléphone ou ordinateur).
 //
 // - Chrome, Edge, Android : le navigateur envoie « beforeinstallprompt » ; le bouton Installer
-//   déclenche la fenêtre d'installation native.
+//   déclenche la fenêtre d'installation native (bandeau, guide et bouton du menu).
 // - iPhone / iPad (Safari), Safari sur Mac : pas d'installation par programme, on affiche le guide.
 // - Déjà installée (ouverte en mode application) : on n'affiche rien.
 // - « Plus tard » reporte le rappel d'une semaine ; après 3 reports, il ne revient plus tout seul
@@ -129,8 +129,22 @@ export function initInstall() {
   $("#install-now").addEventListener("click", promptInstall);
   $("#install-prompt").addEventListener("click", promptInstall);
   $("#install-later").addEventListener("click", snooze);
-  $("#open-install").addEventListener("click", openGuide);
+  // Le bouton du menu installe directement quand le navigateur le permet, sinon il ouvre le guide.
+  $("#open-install").addEventListener("click", promptInstall);
   $("#dialog-install [data-close]").addEventListener("click", closeGuide);
+
+  // Chrome / Edge : détecte une installation faite plus tôt quand on ouvre le site dans un onglet.
+  if (navigator.getInstalledRelatedApps) {
+    navigator
+      .getInstalledRelatedApps()
+      .then((apps) => {
+        if (apps && apps.length && !deferred) {
+          save({ installed: true });
+          refresh();
+        }
+      })
+      .catch(() => {});
+  }
 
   refresh();
   return { platform, refresh, openGuide };
