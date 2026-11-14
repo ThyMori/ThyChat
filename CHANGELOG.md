@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.30.0 — 2026-11-15
+- Menu ⋮ : Médias du fil (toutes les photos du fil, la plus récente d'abord)
+- la date en cours du spectacle est proposée d'office en badge # dans chaque nouveau message
+
 ## 3.29.0 — 2026-11-15
 - Nettoyage automatique : les documents d'une date de tournée sont effacés 10 jours après qu'elle est passée (fonction purge-documents + tâche nocturne)
 

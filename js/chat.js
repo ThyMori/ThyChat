@@ -838,6 +838,7 @@ export function createChat({ supabase, user }) {
       $("#channel-edit").hidden = true;
       $("#channel-delete-dm").hidden = true;
       $("#channel-search").hidden = true;
+      $("#channel-media").hidden = true;
       $("#channel-people").hidden = true;
       return;
     }
@@ -879,6 +880,7 @@ export function createChat({ supabase, user }) {
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
     $("#channel-search").hidden = !channel;
+    $("#channel-media").hidden = !channel;
     $("#channel-people").hidden = !channel || channel.kind !== "channel";
   }
 
@@ -1305,7 +1307,7 @@ export function createChat({ supabase, user }) {
       if (state.channel && tagById(state.pendingFilter)) state.tagFilter = new Set([state.pendingFilter]);
       state.pendingFilter = null;
     }
-    state.composerTags = new Set();
+    state.composerTags = defaultComposerTags();
     clearPendingImages();
     state.replyTo = null;
     renderChannels();
@@ -1611,7 +1613,7 @@ export function createChat({ supabase, user }) {
       }
       if (replied) state.quoted.set(replied.id, { user_id: replied.user_id, body: replied.body, attachments: replied.attachments });
       state.replyTo = null;
-      state.composerTags = new Set();
+      state.composerTags = defaultComposerTags();
       clearPendingImages();
       renderComposerExtra();
       await resolveImages([data]);
@@ -1710,6 +1712,66 @@ export function createChat({ supabase, user }) {
       box.append(img);
     }
     return box;
+  }
+
+  // Médias du fil : toutes les photos envoyées dans ce fil, la plus récente d'abord.
+  let mediaToken = 0;
+
+  async function openMedia() {
+    const channel = state.channel;
+    if (!channel) return;
+    const token = ++mediaToken;
+    $("#media-title").textContent = `Médias · ${channelTitle(channel)}`;
+    const grid = $("#media-grid");
+    grid.replaceChildren(el("p", "muted", "Chargement…"));
+    openDialog("#dialog-media");
+    const { data, error } = await supabase
+      .from("messages")
+      .select("id, user_id, created_at, attachments")
+      .eq("channel_id", channel.id)
+      .is("parent_id", null)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+    if (token !== mediaToken || stopped) return;
+    if (error) return grid.replaceChildren(el("p", "notice", "Médias illisibles : " + error.message));
+    const items = [];
+    for (const message of data || []) {
+      for (const attachment of message.attachments || []) if (attachment.path) items.push({ ...attachment, at: message.created_at, user_id: message.user_id });
+    }
+    items.sort((a, b) => new Date(b.at) - new Date(a.at));
+    await ensureProfiles(items.map((i) => i.user_id));
+    await resolveImages([{ attachments: items }]);
+    if (token !== mediaToken || stopped) return;
+    $("#media-title").textContent = `Médias · ${channelTitle(channel)}${items.length ? ` (${items.length})` : ""}`;
+    grid.replaceChildren();
+    if (!items.length) return grid.append(el("p", "muted", "Aucune photo n'a encore été envoyée dans ce fil."));
+    let day = "";
+    let row = null;
+    for (const item of items) {
+      const date = new Date(item.at);
+      const key = dayKey(date);
+      if (key !== day) {
+        day = key;
+        grid.append(el("h4", "media-day", dayLabel(date)));
+        row = el("div", "media-row");
+        grid.append(row);
+      }
+      const thumb = el("button", "media-thumb");
+      thumb.type = "button";
+      thumb.title = `${authorName(item.user_id)} · ${timeFmt.format(date)}`;
+      const img = document.createElement("img");
+      img.alt = `Photo de ${authorName(item.user_id)}`;
+      img.loading = "lazy";
+      const url = state.imageUrls.get(item.path);
+      if (url) img.src = url;
+      thumb.append(img, el("small", "", `${authorName(item.user_id)} · ${timeFmt.format(date)}`));
+      thumb.addEventListener("click", () => {
+        if (!img.src) return;
+        $("#lightbox-img").src = img.src;
+        openDialog("#dialog-image");
+      });
+      row.append(thumb);
+    }
   }
 
   function toggleAttachMenu(force) {
@@ -1878,6 +1940,17 @@ export function createChat({ supabase, user }) {
   // Dates en cours : de la veille du début au lendemain de la fin (trajets aller et retour), dans tous les spectacles accessibles.
   const dayBefore = (iso) => toISO(addDays(fromISO(iso), -1));
   const dayAfter = (iso) => toISO(addDays(fromISO(iso), 1));
+  // Date en cours du spectacle ouvert, proposée d'office dans chaque nouveau message (un appui sur son badge la retire).
+  // Sur place (du premier au dernier jour) d'abord ; sinon les jours de trajet (veille, lendemain).
+  function defaultComposerTags() {
+    const roomId = currentRoomId();
+    if (!roomId) return new Set();
+    const today = toISO(new Date());
+    const list = currentDates().filter((t) => t.room_id === roomId);
+    const onSite = list.filter((t) => today >= t.start_date && today <= (t.end_date || t.start_date));
+    return new Set((onSite.length ? onSite : list).map((t) => t.id));
+  }
+
   function currentDates() {
     const today = toISO(new Date());
     return state.tags
@@ -4221,6 +4294,7 @@ export function createChat({ supabase, user }) {
     on($("#dm-search"), "input", renderDmPick);
     on($("#open-search"), "click", () => openSearch("all"));
     on($("#channel-search"), "click", () => openSearch("here"));
+    on($("#channel-media"), "click", openMedia);
     on($("#search-form"), "submit", (event) => {
       event.preventDefault();
       clearTimeout(searchTimer);
