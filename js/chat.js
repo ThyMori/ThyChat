@@ -1411,7 +1411,9 @@ export function createChat({ supabase, user }) {
   }
 
   function renderSpacePhoto() {
-    $("#space-photo-section").hidden = !isAdmin() || !state.avatarColumn;
+    $("#space-photo-section").hidden = !isAdmin();
+    $("#space-photo-hint").hidden = state.avatarColumn;
+    $("#space-photo-pick").disabled = !state.avatarColumn;
     if (!state.ws) return;
     fillWsAvatar($("#space-photo"), state.ws);
     $("#space-photo-remove").hidden = !safeAvatarUrl(state.ws.avatar);
@@ -1419,6 +1421,7 @@ export function createChat({ supabase, user }) {
 
   async function pickSpacePhoto(file) {
     if (!file || !state.ws || !isAdmin()) return;
+    if (!state.avatarColumn) return setNotice("#members-message", "Exécute d'abord la migration 007 dans Supabase (README).");
     if (!/^image\//.test(file.type)) return setNotice("#members-message", "Choisis une image.");
     setNotice("#members-message", "Envoi de la photo…", "ok");
     try {

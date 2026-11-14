@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.3.1 — 2026-11-14
+- La section « Photo de l'espace » reste visible pour les administrateurs même avant la migration 007, avec une explication
+
 ## 3.3.0 — 2026-11-14
 - Un utilisateur peut rayer son message (et le rétablir)
 - photo de chaque espace choisie par ses administrateurs
