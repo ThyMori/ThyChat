@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.5.1 — 2026-11-14
+- Les jours de représentation saisis sont enregistrés même sans toucher « Ajouter ★ » et l'étoile est plus visible
+- le #Date choisi reste dans le message sous forme de pastille
+
 ## 3.5.0 — 2026-11-14
 - Bouton « i » : page d'aide qui explique toutes les fonctions
 - textes et pastilles plus petits sur téléphone

@@ -886,3 +886,6 @@ dialog.help ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-si
   dialog { padding: 18px 16px 14px; }
   .sidebar-foot > button.ghost { padding: 7px 10px; }
 }
+
+.hash-pill { display: inline-block; margin: 0 1px; padding: 0 8px; border-radius: 999px; background: hsl(var(--h) 55% 40% / 0.45); border: 1px solid hsl(var(--h) 55% 55% / 0.6); font-size: 0.9em; cursor: pointer; }
+.cal-star { font-size: 1rem; text-shadow: 0 0 6px hsl(var(--h) 90% 60% / 0.6); }

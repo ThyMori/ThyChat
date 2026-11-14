@@ -102,7 +102,7 @@ function renderBody(container, text) {
 }
 
 // Citation : les lignes de tête commençant par « > » s'affichent comme une citation.
-function renderMessageBody(container, text) {
+function renderMessageBody(container, text, tags = []) {
   const lines = text.split("\n");
   let i = 0;
   while (i < lines.length && lines[i].startsWith("> ")) {
@@ -110,7 +110,23 @@ function renderMessageBody(container, text) {
     i += 1;
   }
   const rest = lines.slice(i).join("\n").replace(/^\n+/, "");
-  if (rest) renderBody(container, rest);
+  if (!rest) return;
+  if (!tags.length) return renderBody(container, rest);
+  // Les « #Date » choisies avec # s'affichent en pastille dans le texte.
+  const byLabel = new Map(tags.map((tag) => [tag.label, tag]));
+  const labels = [...byLabel.keys()].sort((a, b) => b.length - a.length).map((l) => l.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const parts = rest.split(new RegExp(`#(${labels.join("|")})`));
+  parts.forEach((part, index) => {
+    if (index % 2 === 0) {
+      if (part) renderBody(container, part);
+      return;
+    }
+    const tag = byLabel.get(part);
+    const pill = el("span", "hash-pill", "#" + part);
+    pill.dataset.tag = tag.id;
+    pill.style.setProperty("--h", String(tag.hue));
+    container.append(pill);
+  });
 }
 
 const plain = (text) => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -801,7 +817,8 @@ export function createChat({ supabase, user }) {
       }
 
       const body = el("div", "msg-body");
-      renderMessageBody(body, message.body);
+      const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
+      renderMessageBody(body, message.body, bodyTags);
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
       body.append(time);
@@ -1202,6 +1219,9 @@ export function createChat({ supabase, user }) {
       if (!tag) continue;
       const chip = tagChip(tag, true, () => {
         state.composerTags.delete(id);
+        const input = $("#composer-input");
+        input.value = input.value.split("#" + tag.label).join("").replace(/ {2,}/g, " ");
+        autosize();
         renderComposerExtra();
       });
       chip.classList.add("on");
@@ -1485,8 +1505,10 @@ export function createChat({ supabase, user }) {
     if (!found || !tagById(id)) return hideSuggest();
     const input = $("#composer-input");
     const end = found.start + 1 + found.query.length;
-    input.value = (input.value.slice(0, found.start) + input.value.slice(end)).replace(/ {2,}/g, " ");
-    input.setSelectionRange(found.start, found.start);
+    const token = "#" + tagById(id).label + " ";
+    input.value = input.value.slice(0, found.start) + token + input.value.slice(end);
+    const caret = found.start + token.length;
+    input.setSelectionRange(caret, caret);
     state.composerTags.add(id);
     hideSuggest();
     renderComposerExtra();
@@ -1566,6 +1588,8 @@ export function createChat({ supabase, user }) {
     if (start && !end) end = start;
     if (end && !start) start = end;
     if (start && end < start) return setNotice("#tags-message", "La fin doit être le même jour que le début, ou après.");
+    // Un jour de représentation choisi mais pas encore validé par « Ajouter ★ » est pris en compte.
+    if ($("#tag-show").value) editingShows.add($("#tag-show").value);
     const fields = { label, start_date: start || null, end_date: end || null, shows: [...editingShows].sort() };
     const request = editingTag
       ? supabase.from("tour_tags").update(fields).eq("id", editingTag.id).select().single()
@@ -2635,6 +2659,8 @@ export function createChat({ supabase, user }) {
       if (quote) return startQuote(quote.dataset.id);
       const strike = event.target.closest("[data-action='strike']");
       if (strike) return toggleStrike(strike.dataset.id);
+      const pill = event.target.closest(".hash-pill");
+      if (pill) return toggleTagFilter(pill.dataset.tag);
       const jump = event.target.closest(".msg-quote");
       if (jump) return jumpToMessage(jump.dataset.reply);
       if (event.target.closest("a")) return; // un lien s'ouvre, sans sélectionner le message
