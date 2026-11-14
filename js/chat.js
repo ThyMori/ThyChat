@@ -3237,6 +3237,7 @@ export function createChat({ supabase, user }) {
     $("#notif-ic").querySelector(".ic:last-child").style.display = off ? "inline" : "none";
     $("#notif-label").textContent = status === "off" ? "Activer les notifications" : "Notifications";
     $("#open-notifications").classList.toggle("is-warn", status === "off");
+    $("#me-menu-button").classList.toggle("is-warn", status === "off");
     const box = $("#push-box");
     if (!box) return;
     box.dataset.status = status;
@@ -3410,6 +3411,17 @@ export function createChat({ supabase, user }) {
     on($("#room-form"), "submit", submitRoom);
     on($("#channel-delete"), "click", deleteChannel);
     on($("#new-dm"), "click", openDmPicker);
+    // Roue crantée du profil : regroupe espace et membres, notifications, installation, déconnexion.
+    const meMenu = (open) => {
+      $("#me-menu").hidden = !open;
+      $("#me-menu-button").setAttribute("aria-expanded", String(open));
+    };
+    on($("#me-menu-button"), "click", (e) => {
+      e.stopPropagation();
+      meMenu($("#me-menu").hidden);
+    });
+    on($("#me-menu"), "click", () => meMenu(false));
+    on(document, "click", () => meMenu(false));
     on($("#open-members"), "click", openMembers);
     on($("#open-invite"), "click", openInvite);
     on($("#open-notifications"), "click", openNotifications);

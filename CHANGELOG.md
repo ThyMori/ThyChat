@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.17.0 — 2026-11-14
+- Menu : espace et membres, notifications, installation et déconnexion regroupés dans une roue crantée à côté du profil
+
 ## 3.16.1 — 2026-11-14
 - Menu : fond plus saturé (même teinte que l'espace) pour le distinguer du fil de discussion
 

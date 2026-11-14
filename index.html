@@ -164,15 +164,18 @@
       <nav id="dm-list" class="channel-list dm-list dm-zone" aria-label="Messages privés" hidden></nav>
 
       <div class="sidebar-foot">
-        <button type="button" class="ghost" id="open-members" hidden>Espace et membres</button>
-        <button type="button" class="ghost" id="open-notifications"><span id="notif-ic" class="ic-wrap" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg></span> <span id="notif-label">Notifications</span></button>
-        <button type="button" class="ghost" id="open-install" hidden>Installer l'application</button>
         <div class="me">
           <button type="button" class="me-button" id="open-profile" aria-label="Mon profil">
             <span class="avatar small soft" id="me-avatar" aria-hidden="true"></span>
             <span id="me-name"></span>
           </button>
-          <button type="button" class="ghost" id="logout">Déconnexion</button>
+          <button type="button" class="icon-btn" id="me-menu-button" aria-label="Réglages" aria-haspopup="true" aria-expanded="false" title="Réglages"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
+          <div class="me-menu" id="me-menu" hidden>
+            <button type="button" class="ghost" id="open-members" hidden>Espace et membres</button>
+            <button type="button" class="ghost" id="open-notifications"><span id="notif-ic" class="ic-wrap" aria-hidden="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg></span> <span id="notif-label">Notifications</span></button>
+            <button type="button" class="ghost" id="open-install" hidden>Installer l'application</button>
+            <button type="button" class="ghost" id="logout">Déconnexion</button>
+          </div>
         </div>
         <p class="version app-version"></p>
       </div>
@@ -454,6 +457,7 @@
         <h4>Calendrier</h4>
         <ul>
           <li>Le bouton <strong>📅 Calendrier</strong> montre un mois avec une frise colorée par date de tournée et une ★ sur chaque représentation. Le menu choisit tous les spectacles de l'espace, tous tes espaces ou un seul spectacle.</li>
+          <li><strong>Roue crantée</strong> (en bas du menu, à côté de ton nom) : regroupe « Espace et membres », les notifications, l'installation de l'application et la déconnexion.</li>
           <li><strong>Bandeau jaune</strong> : quand les notifications sont inactives sur cet appareil, un rappel s'affiche en haut ; un appui ouvre leur réglage, la croix le masque jusqu'à la prochaine ouverture de l'application.</li>
           <li><strong>Menu ⋮</strong> (téléphone) : en haut à droite, il regroupe la liste des personnes du sous-salon (un appui ouvre le message privé avec elle), la recherche, les réglages du sous-salon, les notifications et la suppression d'une discussion privée.</li>
           <li><strong>Glisser du doigt</strong> (téléphone) : vers la droite dans un fil de discussion pour ouvrir le menu ; vers la gauche sur le menu pour le fermer ; vers la gauche ou la droite sur le calendrier pour passer au mois suivant ou précédent.</li>
