@@ -953,6 +953,7 @@ export function createChat({ supabase, user }) {
         const actions = el("div", "msg-actions");
         const actionList = [["reply", "Répondre"], ["quote", "Citer"]];
         if (mine) actionList.push(["strike", message.struck_at ? "Rétablir" : "Rayer"]);
+        if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer"]);
         for (const [action, label] of actionList) {
           const button = el("button", "", label);
           button.type = "button";
@@ -1241,7 +1242,20 @@ export function createChat({ supabase, user }) {
     } else if (payload.eventType === "UPDATE") {
       const message = payload.new;
       const index = state.messages.findIndex((m) => m.id === message.id);
-      if (index === -1) return;
+      if (index !== -1 && message.channel_id && state.channel && message.channel_id !== state.channel.id) {
+        removeMessage(message.id); // déplacé ailleurs
+        return;
+      }
+      if (index === -1) {
+        // Déplacé vers le sous-salon qu'on regarde : on l'ajoute.
+        if (state.channel && !state.calendarOpen && message.channel_id === state.channel.id && !message.parent_id) {
+          await ensureProfiles([message.user_id]);
+          await loadQuoted([message]);
+          await resolveImages([message]);
+          if (!stopped && state.channel && state.channel.id === message.channel_id) addMessage(message);
+        }
+        return;
+      }
       state.messages[index] = { ...state.messages[index], ...message };
       renderMessages();
     } else if (payload.eventType === "DELETE") {
@@ -1263,6 +1277,55 @@ export function createChat({ supabase, user }) {
     state.messages.push(message);
     state.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
     renderMessages(forceBottom);
+  }
+
+  // Déplacer un message (administrateurs) vers un autre sous-salon ou spectacle du même espace.
+  let movingId = null;
+
+  function openMove(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message || !isAdmin() || !state.channel) return;
+    movingId = id;
+    setNotice("#move-message", "");
+    const list = $("#move-list");
+    list.replaceChildren();
+    for (const room of roomsOfWs(state.ws.id)) {
+      const root = rootOf(room.id);
+      const subs = subsOfRoom(room.id).filter((c) => c.id !== state.channel.id);
+      if (!subs.length) continue;
+      list.append(el("li", "move-room", room.name));
+      for (const channel of subs) {
+        const item = el("li");
+        const button = el("button", "pick-button");
+        button.type = "button";
+        button.dataset.target = channel.id;
+        button.append(el("span", "avatar small soft", initials(channel.name, 1)), el("span", "pick-name", root && channel.id === root.id ? `${channel.name} (salon du spectacle)` : channel.name));
+        item.append(button);
+        list.append(item);
+      }
+    }
+    if (!list.children.length) list.append(el("li", "muted", "Aucun autre sous-salon."));
+    openDialog("#dialog-move");
+  }
+
+  async function moveMessage(targetId) {
+    const message = state.messages.find((m) => m.id === movingId);
+    const target = state.allChannels.find((c) => c.id === targetId);
+    if (!message || !target) return;
+    const room = roomById(target.room_id);
+    const dest = `${room ? room.name + " › " : ""}${target.name}`;
+    const changesRoom = !state.channel || state.channel.room_id !== target.room_id;
+    const warn = changesRoom && (message.tag_ids || []).length ? " Ses dates (#) seront retirées, car elles appartiennent à un spectacle." : "";
+    if (!window.confirm(`Déplacer ce message vers « ${dest} » ?${warn}`)) return;
+    const { error } = await supabase.rpc("move_message", { msg: message.id, target: target.id });
+    if (error) {
+      const missing = /move_message|PGRST202/.test(error.message || "") || error.code === "PGRST202";
+      return setNotice("#move-message", missing ? "Fonction absente : exécute la migration 015 dans Supabase." : "Déplacement impossible : " + error.message);
+    }
+    closeDialog($("#dialog-move"));
+    movingId = null;
+    removeMessage(message.id);
+    toast(`Message déplacé vers « ${dest} ».`, "ok");
   }
 
   function removeMessage(id) {
@@ -3481,6 +3544,10 @@ export function createChat({ supabase, user }) {
     on($("#new-channel"), "click", () => openRoomDialog(null));
     on($("#channel-delete-dm"), "click", deleteDm);
     on($("#channel-people"), "click", openPeople);
+    on($("#move-list"), "click", (event) => {
+      const button = event.target.closest("button[data-target]");
+      if (button) moveMessage(button.dataset.target);
+    });
     on($("#people-list"), "click", (event) => {
       const button = event.target.closest("button[data-user]");
       if (!button || button.disabled) return;
@@ -3633,6 +3700,8 @@ export function createChat({ supabase, user }) {
       if (quote) return startQuote(quote.dataset.id);
       const strike = event.target.closest("[data-action='strike']");
       if (strike) return toggleStrike(strike.dataset.id);
+      const move = event.target.closest("[data-action='move']");
+      if (move) return openMove(move.dataset.id);
       const pill = event.target.closest(".hash-pill");
       if (pill) return toggleTagFilter(pill.dataset.tag);
       const jump = event.target.closest(".msg-quote");

@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.22.0 — 2026-11-14
+- Un administrateur peut déplacer un message vers un autre sous-salon ou spectacle (bouton Déplacer)
+
 ## 3.21.0 — 2026-11-14
 - Chaque spectacle a un salon « Général » (racine, créé tout seul, caché de la liste) ouvert par le nom du spectacle
 - la flèche déplie / replie les autres sous-salons

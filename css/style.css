@@ -1142,3 +1142,8 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .room-head .channel-item.room-root { flex: 1; min-width: 0; width: auto; padding: 6px 8px; gap: 8px; }
 .room-group.is-muted .room-root .channel-name { opacity: 0.6; font-style: italic; }
 .room-root .channel-name { font-weight: 600; }
+
+/* Déplacer un message */
+.move-list { max-height: 50vh; }
+.move-room { margin-top: 10px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.move-room:first-child { margin-top: 0; }
