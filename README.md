@@ -155,6 +155,7 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 
 ## Messages privés
 
+- Les messages privés ont des couleurs **neutres** (gris-bleu), indépendantes de la production ouverte : la liste du menu et la conversation ne changent pas de couleur avec l'espace.
 - Une discussion privée entre deux personnes est unique : elle apparaît dans **tous** les espaces que les deux personnes ont en commun, quel que soit l'espace ouvert. Le silence d'un espace ne la concerne pas.
 - La poubelle 🗑 de l'en-tête supprime toute la discussion (messages et photos) **pour les deux personnes**. Les administrateurs ne voient jamais les messages privés.
 

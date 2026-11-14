@@ -1024,3 +1024,22 @@ dialog.docs { width: min(560px, 94vw); }
 .docs-tag.colored .docs-tag-head strong { color: hsl(var(--h) 80% 78%); }
 .docs-tag.colored .doc-open:hover { border-color: hsl(var(--h) 65% 52%); }
 .current-open .unread { background: hsl(var(--btn-h, var(--h)) 72% 62%); }
+
+/* Messages privés : couleurs neutres, indépendantes de la production ouverte */
+#screen-app.app .dm-zone,
+#screen-app.app .chat.is-dm {
+  --h: 218;
+  --bg: hsl(220 6% 8%);
+  --bg-elev: hsl(220 6% 11.5%);
+  --bg-input: hsl(220 6% 15%);
+  --border: hsl(220 5% 22%);
+  --accent: hsl(215 14% 70%);
+  --accent-strong: hsl(215 16% 78%);
+  --accent-ink: hsl(220 10% 9%);
+  --bubble-mine: hsl(220 8% 27%);
+  --bubble-theirs: hsl(220 6% 17%);
+  --wallpaper: hsl(220 6% 9%);
+}
+.dm-zone .channel-item[aria-current="true"] { background: hsl(220 7% 20%); }
+.dm-zone .avatar.soft, .chat.is-dm .avatar.soft { background: hsl(220 7% 23%); color: hsl(220 12% 82%); }
+.chat.is-dm .msg-quote { border-left-color: hsl(215 14% 60%); }

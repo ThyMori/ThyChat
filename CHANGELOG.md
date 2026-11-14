@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.11.3 — 2026-11-14
+- Messages privés : couleurs neutres, indépendantes de la production ouverte
+
 ## 3.11.2 — 2026-11-14
 - Dates en cours : pastilles et cartes à la couleur de la production concernée
 

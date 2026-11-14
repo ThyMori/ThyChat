@@ -746,6 +746,8 @@ export function createChat({ supabase, user }) {
 
   function renderHeader() {
     const channel = state.channel;
+    // Les messages privés ne dépendent d'aucune production : couleurs neutres.
+    document.querySelector("#screen-app .chat").classList.toggle("is-dm", Boolean(channel && channel.kind === "dm" && !state.calendarOpen));
     const avatar = $("#channel-avatar");
     if (state.calendarOpen) {
       avatar.hidden = true;
