@@ -12,6 +12,7 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
+js/chat.js              interface de messagerie (espaces, canaux, messages en temps réel, membres)
 sw.js                   service worker (coquille hors ligne)
 manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
@@ -40,27 +41,20 @@ L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `C
 ### 3. Inviter les équipes
 
 1. **Supabase > Authentication > Users > Invite user** : la personne reçoit un e-mail, clique, choisit son nom et son mot de passe.
-2. Créer un espace (pour l'instant en SQL, l'interface arrive ensuite) :
+2. Dans ThyChat, **crée un espace** avec le bouton **+** à côté du sélecteur d'espace : tu en deviens administrateur et un canal « général » est créé.
+3. Ouvre **Membres de l'espace** et ajoute la personne invitée par son e-mail (son compte doit exister : étape 1).
 
-   ```sql
-   insert into public.workspaces (name, created_by)
-   values ('Mon équipe', '<ton user id>');   -- Authentication > Users > colonne « User UID »
-   ```
-   Le créateur devient automatiquement administrateur de l'espace.
-3. Ajouter un compte invité à l'espace :
-
-   ```sql
-   select public.add_member_by_email('<id de l''espace>', 'prenom@exemple.fr');
-   ```
+Les administrateurs d'un espace créent les canaux et gèrent les membres ; les membres lisent, écrivent et suppriment leurs propres messages.
 
 ## Feuille de route
 
 - [x] Structure PWA, écran de connexion, gestion des invitations
 - [x] Schéma de base de données et règles de sécurité
-- [ ] Liste des espaces et des canaux
-- [ ] Messages en temps réel
+- [x] Espaces, canaux et membres
+- [x] Messages en temps réel (envoi, suppression, liens cliquables)
 - [ ] Fils de discussion, messages épinglés, recherche
 - [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
 - [ ] Messages privés
 - [ ] Notifications push
-- [ ] Interface d'administration (inviter, gérer les membres)
+- [ ] Indicateurs de messages non lus
+- [ ] Gestion des membres (retirer, changer de rôle) et des canaux (renommer, supprimer)

@@ -1,4 +1,5 @@
 import { supabase, isConfigured } from "./supabase.js";
+import { createChat } from "./chat.js";
 
 const $ = (selector) => document.querySelector(selector);
 const SCREENS = ["loading", "login", "set-password", "app"];
@@ -63,6 +64,7 @@ function friendlyAuthError(error) {
 // --- Routage selon l'état de session --------------------------------------
 async function route(session) {
   if (!session) {
+    stopChat();
     show("login");
     return;
   }
@@ -76,30 +78,30 @@ async function route(session) {
     show("set-password");
     return;
   }
-  await renderApp(session);
+  // Évite de tout recharger à chaque rafraîchissement de jeton ou retour d'onglet.
+  if (chat && chat.userId === session.user.id && !$("#screen-app").hidden) return;
+
   show("app");
+  await startChat(session);
 }
 
-async function renderApp(session) {
+// --- Messagerie -----------------------------------------------------------
+let chat = null;
+
+function startChat(session) {
   const user = session.user;
-  let displayName = user.user_metadata?.display_name || user.email;
-  let status = user.email;
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("display_name")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) {
-    status = "Connexion OK, mais la base n'est pas encore prête (schéma SQL à installer).";
-    console.warn("Lecture du profil impossible :", error.message);
-  } else if (data?.display_name) {
-    displayName = data.display_name;
+  if (!chat || chat.userId !== user.id) {
+    stopChat();
+    chat = createChat({ supabase, user });
   }
+  return chat.start();
+}
 
-  $("#app-greeting").textContent = `Bonjour ${displayName}`;
-  $("#app-status").textContent = status;
+function stopChat() {
+  if (chat) {
+    chat.stop();
+    chat = null;
+  }
 }
 
 // --- Démarrage ------------------------------------------------------------
