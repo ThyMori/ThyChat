@@ -115,8 +115,16 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `006_tags_replies.sql` | dates de tournée (étiquettes rattachées au salon), réponses à un message (**indispensable à la version 3.1** ; pas de fonction à redéployer) |
 | `005_rooms.sql` | salons (spectacles) et sous-salons : les salons existants deviennent des salons avec un sous-salon « Tous » (**indispensable à la version 3** ; redéployer aussi les fonctions `invite-member` et `send-push`) |
 | `003_roles_salons_push.sql` | administrateur général, salons par assignation, messages privés, non lus, silences, notifications push, photos de profil (**indispensable à la version 2**) |
+
+## Dates de tournée, réponses et citations
+
+- **Dates de tournée** : les administrateurs de l'espace créent des dates (un nom et, si besoin, un jour) dans **Gérer**, au-dessus de la conversation. Elles sont attachées au **salon** (le spectacle) et servent dans tous ses sous-salons.
+- Dans un message, taper **#** propose les dates du salon ; le choix ajoute une pastille au message (plusieurs possibles, facultatif).
+- Le **filtre** « Dates » au-dessus de la conversation n'affiche que les messages portant les dates choisies ; « Toutes » l'efface.
+- **Répondre** et **Citer** : toucher un message affiche ces deux actions. Répondre affiche le message d'origine au-dessus de la réponse (toucher la citation y mène) ; Citer copie un extrait dans le message en cours.
 
 ## Couleurs des espaces
 

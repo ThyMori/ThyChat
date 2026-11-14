@@ -93,6 +93,25 @@ function renderBody(container, text) {
   });
 }
 
+// Citation : les lignes de tête commençant par « > » s'affichent comme une citation.
+function renderMessageBody(container, text) {
+  const lines = text.split("\n");
+  let i = 0;
+  while (i < lines.length && lines[i].startsWith("> ")) {
+    container.append(el("span", "quote-line", lines[i].slice(2)));
+    i += 1;
+  }
+  const rest = lines.slice(i).join("\n").replace(/^\n+/, "");
+  if (rest) renderBody(container, rest);
+}
+
+const plain = (text) => String(text || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+const excerpt = (text, max = 90) => {
+  const flat = String(text || "").replace(/^(> .*\n?)+/, "").replace(/\s+/g, " ").trim();
+  return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
+};
+const shortDate = (iso) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "");
+
 // Bouton « Retour » du téléphone : sur mobile, on garde une entrée d'historique devant soi pour que « Retour »
 // ferme la boîte de dialogue ou revienne à la liste des salons, au lieu de quitter l'application.
 const isMobile = () => Boolean(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
@@ -152,6 +171,11 @@ export function createChat({ supabase, user }) {
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     channel: null,
     messages: [],
+    tags: [], // dates de tournée visibles : { id, room_id, label, on_date }
+    tagFilter: new Set(), // dates sélectionnées pour filtrer le sous-salon ouvert
+    composerTags: new Set(), // dates ajoutées au message en cours d'écriture
+    replyTo: null, // message auquel on répond
+    quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
     selectedId: null, // message touché (affiche « Supprimer »)
     profiles: new Map(), // id -> { name, avatar }
     unread: new Map(), // id du salon -> nombre de messages non lus
@@ -330,6 +354,14 @@ export function createChat({ supabase, user }) {
       return false;
     }
     state.allChannels = channelsResult.data || [];
+
+    const tagsResult = await supabase.from("tour_tags").select("id, room_id, label, on_date");
+    if (stopped) return false;
+    if (tagsResult.error) {
+      showFatal(tagsResult.error);
+      return false;
+    }
+    state.tags = tagsResult.data || [];
 
     const dmIds = state.allChannels.filter((c) => c.kind === "dm").map((c) => c.id);
     state.dmMembers = new Map();
@@ -626,6 +658,7 @@ export function createChat({ supabase, user }) {
     renderWorkspaceHeader();
     renderChannels();
     renderHeader();
+    renderTagBar();
   }
 
   function renderMessages(forceBottom = false) {
@@ -635,7 +668,9 @@ export function createChat({ supabase, user }) {
     box.replaceChildren();
 
     if (!state.messages.length) {
-      box.append(el("p", "muted empty-note", "Aucun message pour l'instant. Écris le premier !"));
+      box.append(
+        el("p", "muted empty-note", state.tagFilter.size ? "Aucun message pour ces dates." : "Aucun message pour l'instant. Écris le premier !")
+      );
     }
 
     const canModerate = isAdmin() && state.channel && state.channel.kind === "channel";
@@ -666,13 +701,42 @@ export function createChat({ supabase, user }) {
         bubble.append(author);
       }
 
+      const quoted = replyInfo(message);
+      if (message.reply_to) {
+        const quote = el("div", "msg-quote");
+        quote.dataset.reply = message.reply_to;
+        quote.append(
+          el("strong", "", quoted ? authorName(quoted.user_id) : "Message"),
+          el("span", "", quoted ? excerpt(quoted.body) : "Message introuvable")
+        );
+        bubble.append(quote);
+      }
+
       const body = el("div", "msg-body");
-      renderBody(body, message.body);
+      renderMessageBody(body, message.body);
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
       body.append(time);
       bubble.append(body);
+      const messageTags = (message.tag_ids || []).map(tagById).filter(Boolean);
+      if (messageTags.length) {
+        const row = el("div", "msg-tags");
+        for (const tag of messageTags) row.append(el("span", "msg-tag", tagText(tag)));
+        bubble.append(row);
+      }
       item.append(bubble);
+
+      if (message.id === state.selectedId) {
+        const actions = el("div", "msg-actions");
+        for (const [action, label] of [["reply", "Répondre"], ["quote", "Citer"]]) {
+          const button = el("button", "", label);
+          button.type = "button";
+          button.dataset.action = action;
+          button.dataset.id = message.id;
+          actions.append(button);
+        }
+        item.append(actions);
+      }
 
       if (deletable) {
         const remove = el("button", "msg-del", "Supprimer");
@@ -696,7 +760,7 @@ export function createChat({ supabase, user }) {
     setView("empty", {
       title: "La base n'est pas prête",
       text:
-        "Exécute le fichier supabase/migrations/005_rooms.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
+        "Exécute les fichiers supabase/migrations/005_rooms.sql puis 006_tags_replies.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
         error.message +
         ")",
     });
@@ -776,8 +840,12 @@ export function createChat({ supabase, user }) {
 
   async function selectChannel(id) {
     const token = ++state.loadToken;
+    const previousRoom = state.channel ? state.channel.room_id : null;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
     state.selectedId = null;
+    if (!state.channel || state.channel.room_id !== previousRoom) state.tagFilter = new Set();
+    state.composerTags = new Set();
+    state.replyTo = null;
     renderChannels();
     renderHeader();
 
@@ -791,6 +859,8 @@ export function createChat({ supabase, user }) {
         action: isAdmin() ? "Créer un salon" : "",
         onAction: () => openRoomDialog(null),
       });
+      renderTagBar();
+      renderComposerExtra();
       closeSidebar();
       return;
     }
@@ -801,6 +871,8 @@ export function createChat({ supabase, user }) {
     guardHistory();
     setView("chat");
     state.messages = [];
+    renderTagBar();
+    renderComposerExtra();
     renderMessages(true);
     closeSidebar();
     markRead(state.channel.id);
@@ -809,13 +881,13 @@ export function createChat({ supabase, user }) {
   }
 
   async function loadMessages(channelId, token) {
-    const { data, error } = await supabase
+    let query = supabase
       .from("messages")
-      .select("id, channel_id, user_id, parent_id, body, pinned, created_at, edited_at")
+      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, body, pinned, created_at, edited_at")
       .eq("channel_id", channelId)
-      .is("parent_id", null)
-      .order("created_at", { ascending: false })
-      .limit(PAGE_SIZE);
+      .is("parent_id", null);
+    if (state.tagFilter.size) query = query.overlaps("tag_ids", [...state.tagFilter]);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(PAGE_SIZE);
     if (stopped || token !== state.loadToken) return;
     if (error) {
       toast("Messages illisibles : " + error.message);
@@ -823,9 +895,30 @@ export function createChat({ supabase, user }) {
     }
     state.messages = (data || []).slice().reverse();
     await ensureProfiles(state.messages.map((m) => m.user_id));
+    await loadQuoted(state.messages);
     if (stopped || token !== state.loadToken) return;
     renderMessages(true);
   }
+
+  // Récupère les messages auxquels répondent ceux-ci, quand ils ne sont pas déjà affichés.
+  async function loadQuoted(messages) {
+    const wanted = [
+      ...new Set(
+        messages
+          .map((m) => m.reply_to)
+          .filter((id) => id && !state.quoted.has(id) && !state.messages.some((m) => m.id === id))
+      ),
+    ];
+    if (!wanted.length) return;
+    const { data } = await supabase.from("messages").select("id, user_id, body").in("id", wanted);
+    for (const row of data || []) state.quoted.set(row.id, { user_id: row.user_id, body: row.body });
+    await ensureProfiles((data || []).map((row) => row.user_id));
+  }
+
+  const replyInfo = (message) => {
+    if (!message.reply_to) return null;
+    return state.messages.find((m) => m.id === message.reply_to) || state.quoted.get(message.reply_to) || null;
+  };
 
   // --- Temps réel ------------------------------------------------------------
   // Un seul abonnement pour tous les messages visibles (le RLS filtre) : il alimente la conversation
@@ -838,6 +931,7 @@ export function createChat({ supabase, user }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, onRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channel_members" }, refreshStructureSoon)
       .subscribe();
@@ -866,8 +960,10 @@ export function createChat({ supabase, user }) {
       const viewing = state.channel && state.channel.id === message.channel_id;
       if (viewing) {
         await ensureProfiles([message.user_id]);
+        await loadQuoted([message]);
         if (stopped || !state.channel || state.channel.id !== message.channel_id) return;
-        addMessage(message, mine);
+        const hidden = state.tagFilter.size && !(message.tag_ids || []).some((t) => state.tagFilter.has(t));
+        if (!hidden) addMessage(message, mine);
         if (!mine) {
           if (visible()) markRead(message.channel_id);
           else bumpUnread(message.channel_id);
@@ -912,13 +1008,15 @@ export function createChat({ supabase, user }) {
     const body = input.value.trim();
     if (!body || !state.channel) return;
 
+    const row = { channel_id: state.channel.id, body };
+    if (state.replyTo) row.reply_to = state.replyTo.id;
+    if (state.composerTags.size) row.tag_ids = [...state.composerTags];
+    const replied = state.replyTo;
+
     input.value = "";
     autosize();
-    const { data, error } = await supabase
-      .from("messages")
-      .insert({ channel_id: state.channel.id, body })
-      .select()
-      .single();
+    hideSuggest();
+    const { data, error } = await supabase.from("messages").insert(row).select().single();
 
     if (error) {
       input.value = body;
@@ -926,7 +1024,268 @@ export function createChat({ supabase, user }) {
       toast("Message non envoyé : " + error.message);
       return;
     }
-    addMessage(data, true);
+    if (replied) state.quoted.set(replied.id, { user_id: replied.user_id, body: replied.body });
+    state.replyTo = null;
+    state.composerTags = new Set();
+    renderComposerExtra();
+    const hidden = state.tagFilter.size && !(data.tag_ids || []).some((t) => state.tagFilter.has(t));
+    if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
+    else addMessage(data, true);
+  }
+
+  // --- Dates de tournée, réponses et citations -------------------------------------
+
+  const currentRoomId = () => (state.channel && state.channel.kind === "channel" ? state.channel.room_id : null);
+  const tagById = (id) => state.tags.find((t) => t.id === id);
+  const tagText = (tag) => (tag.on_date ? `${tag.label} · ${shortDate(tag.on_date)}` : tag.label);
+  const tagsOfRoom = (roomId) =>
+    state.tags
+      .filter((t) => t.room_id === roomId)
+      .sort((a, b) => (a.on_date || "9999").localeCompare(b.on_date || "9999") || a.label.localeCompare(b.label, "fr"));
+
+  function tagChip(tag, active, onClick) {
+    const chip = el("button", "tag-chip", tag.label);
+    chip.type = "button";
+    chip.dataset.tag = tag.id;
+    chip.setAttribute("aria-pressed", String(active));
+    if (tag.on_date) chip.append(el("small", "", shortDate(tag.on_date)));
+    chip.addEventListener("click", onClick);
+    return chip;
+  }
+
+  function renderTagBar() {
+    const roomId = currentRoomId();
+    const tags = roomId ? tagsOfRoom(roomId) : [];
+    const manage = Boolean(roomId) && isAdmin();
+    $("#tag-bar").hidden = !roomId || (!tags.length && !manage);
+    $("#tags-manage").hidden = !manage;
+    const box = $("#tag-filter");
+    box.replaceChildren();
+    for (const id of [...state.tagFilter]) if (!tagById(id)) state.tagFilter.delete(id);
+    if (!tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce salon."));
+    for (const tag of tags) box.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
+    if (state.tagFilter.size) {
+      const clear = el("button", "tag-chip", "Toutes");
+      clear.type = "button";
+      clear.dataset.clear = "true";
+      clear.addEventListener("click", () => {
+        state.tagFilter = new Set();
+        reloadMessages();
+      });
+      box.prepend(clear);
+    }
+  }
+
+  function toggleTagFilter(id) {
+    if (state.tagFilter.has(id)) state.tagFilter.delete(id);
+    else state.tagFilter.add(id);
+    reloadMessages();
+  }
+
+  async function reloadMessages() {
+    renderTagBar();
+    if (!state.channel) return;
+    const token = ++state.loadToken;
+    await loadMessages(state.channel.id, token);
+  }
+
+  function renderComposerExtra() {
+    const reply = state.replyTo;
+    $("#reply-bar").hidden = !reply;
+    if (reply) {
+      $("#reply-author").textContent = authorName(reply.user_id);
+      $("#reply-excerpt").textContent = excerpt(reply.body);
+    }
+    const box = $("#composer-tags");
+    box.replaceChildren();
+    for (const id of state.composerTags) {
+      const tag = tagById(id);
+      if (!tag) continue;
+      const chip = tagChip(tag, true, () => {
+        state.composerTags.delete(id);
+        renderComposerExtra();
+      });
+      chip.classList.add("on");
+      chip.append(el("small", "", "×"));
+      box.append(chip);
+    }
+    box.hidden = !box.childNodes.length;
+    $("#composer-extra").hidden = !reply && box.hidden;
+  }
+
+  function startReply(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message) return;
+    state.replyTo = message;
+    state.selectedId = null;
+    renderComposerExtra();
+    renderMessages();
+    $("#composer-input").focus();
+  }
+
+  function startQuote(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message) return;
+    const input = $("#composer-input");
+    const line = `> ${authorName(message.user_id)} : ${excerpt(message.body, 140)}\n\n`;
+    input.value = line + input.value.replace(/^(> .*\n)+\n?/, "");
+    state.selectedId = null;
+    renderMessages();
+    autosize();
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  function jumpToMessage(id) {
+    const target = [...document.querySelectorAll("#messages .msg")].find((node) => node.dataset.id === id);
+    if (!target) return toast("Ce message est plus ancien que ceux qui sont affichés.");
+    target.scrollIntoView({ block: "center" });
+    target.classList.add("flash");
+    setTimeout(() => target.classList.remove("flash"), 1500);
+  }
+
+  // Saisie de « # » : propose les dates du salon ; le choix ajoute la date au message.
+  let suggestIndex = 0;
+  let suggestItems = [];
+
+  function hashQuery() {
+    const input = $("#composer-input");
+    const before = input.value.slice(0, input.selectionStart ?? input.value.length);
+    const match = before.match(/(^|\s)#([^\s#]*)$/);
+    return match ? { query: match[2], start: before.length - match[2].length - 1 } : null;
+  }
+
+  function updateSuggest() {
+    const roomId = currentRoomId();
+    const found = roomId ? hashQuery() : null;
+    if (!found) return hideSuggest();
+    const q = plain(found.query);
+    suggestItems = tagsOfRoom(roomId).filter(
+      (tag) => !state.composerTags.has(tag.id) && plain(tagText(tag)).includes(q)
+    );
+    const box = $("#tag-suggest");
+    box.replaceChildren();
+    if (!suggestItems.length) return hideSuggest();
+    suggestIndex = Math.min(suggestIndex, suggestItems.length - 1);
+    suggestItems.forEach((tag, index) => {
+      const item = el("li", "", tagText(tag));
+      item.setAttribute("role", "option");
+      item.setAttribute("aria-selected", String(index === suggestIndex));
+      item.dataset.tag = tag.id;
+      // mousedown : le choix se fait avant que le champ perde le focus
+      item.addEventListener("mousedown", (event) => {
+        event.preventDefault();
+        pickSuggest(tag.id);
+      });
+      box.append(item);
+    });
+    box.hidden = false;
+  }
+
+  function hideSuggest() {
+    suggestIndex = 0;
+    suggestItems = [];
+    const box = $("#tag-suggest");
+    box.hidden = true;
+    box.replaceChildren();
+  }
+
+  function pickSuggest(id) {
+    const found = hashQuery();
+    if (!found || !tagById(id)) return hideSuggest();
+    const input = $("#composer-input");
+    const end = found.start + 1 + found.query.length;
+    input.value = (input.value.slice(0, found.start) + input.value.slice(end)).replace(/ {2,}/g, " ");
+    input.setSelectionRange(found.start, found.start);
+    state.composerTags.add(id);
+    hideSuggest();
+    renderComposerExtra();
+    autosize();
+    input.focus();
+  }
+
+  // Gestion des dates de tournée (administrateurs) --------------------------------
+
+  let editingTag = null;
+
+  function openTagsDialog() {
+    const roomId = currentRoomId();
+    if (!roomId || !isAdmin()) return;
+    const room = roomById(roomId);
+    $("#tags-title").textContent = `Dates de tournée · ${room.name}`;
+    editingTag = null;
+    resetTagForm();
+    renderTagList();
+    setNotice("#tags-message", "");
+    openDialog("#dialog-tags");
+  }
+
+  function resetTagForm() {
+    $("#tag-label").value = editingTag ? editingTag.label : "";
+    $("#tag-date").value = editingTag?.on_date || "";
+    $("#tag-add").textContent = editingTag ? "Enregistrer" : "Ajouter";
+  }
+
+  function renderTagList() {
+    const list = $("#tags-list");
+    list.replaceChildren();
+    const tags = tagsOfRoom(currentRoomId());
+    if (!tags.length) list.append(el("li", "muted", "Aucune date pour l'instant."));
+    for (const tag of tags) {
+      const row = el("li", "tag-row");
+      row.append(el("span", "pick-name", tagText(tag)));
+      const edit = el("button", "ghost small", "Modifier");
+      edit.type = "button";
+      edit.dataset.edit = tag.id;
+      const del = el("button", "ghost small", "Supprimer");
+      del.type = "button";
+      del.dataset.del = tag.id;
+      row.append(edit, del);
+      list.append(row);
+    }
+  }
+
+  async function submitTag(event) {
+    event.preventDefault();
+    const roomId = currentRoomId();
+    const label = $("#tag-label").value.trim().replace(/^#+\s*/, "");
+    const on_date = $("#tag-date").value || null;
+    if (!label) return setNotice("#tags-message", "Donne un nom à la date.");
+    const request = editingTag
+      ? supabase.from("tour_tags").update({ label, on_date }).eq("id", editingTag.id).select().single()
+      : supabase.from("tour_tags").insert({ room_id: roomId, label, on_date }).select().single();
+    const { data, error } = await request;
+    if (error) {
+      setNotice("#tags-message", error.code === "23505" ? "Une date porte déjà ce nom dans ce salon." : "Enregistrement impossible : " + error.message);
+      return;
+    }
+    state.tags = state.tags.filter((t) => t.id !== data.id).concat(data);
+    editingTag = null;
+    resetTagForm();
+    setNotice("#tags-message", "");
+    renderTagList();
+    renderTagBar();
+    renderMessages();
+  }
+
+  async function deleteTag(id) {
+    const tag = tagById(id);
+    if (!tag) return;
+    if (!window.confirm(`Supprimer la date « ${tag.label} » ? Elle sera retirée des messages qui la portent.`)) return;
+    const { error } = await supabase.from("tour_tags").delete().eq("id", id);
+    if (error) return setNotice("#tags-message", "Suppression impossible : " + error.message);
+    state.tags = state.tags.filter((t) => t.id !== id);
+    state.tagFilter.delete(id);
+    state.composerTags.delete(id);
+    state.messages = state.messages.map((m) => ({ ...m, tag_ids: (m.tag_ids || []).filter((t) => t !== id) }));
+    if (editingTag && editingTag.id === id) {
+      editingTag = null;
+      resetTagForm();
+    }
+    renderTagList();
+    renderTagBar();
+    renderComposerExtra();
+    renderMessages();
   }
 
   async function deleteMessage(id) {
@@ -1865,9 +2224,15 @@ export function createChat({ supabase, user }) {
     on($("#messages"), "click", (event) => {
       const remove = event.target.closest("[data-action='delete']");
       if (remove) return deleteMessage(remove.dataset.id);
+      const reply = event.target.closest("[data-action='reply']");
+      if (reply) return startReply(reply.dataset.id);
+      const quote = event.target.closest("[data-action='quote']");
+      if (quote) return startQuote(quote.dataset.id);
+      const jump = event.target.closest(".msg-quote");
+      if (jump) return jumpToMessage(jump.dataset.reply);
       if (event.target.closest("a")) return; // un lien s'ouvre, sans sélectionner le message
-      // Toucher un message le sélectionne (affiche « Supprimer ») ; toucher ailleurs désélectionne.
-      const row = event.target.closest(".msg[data-deletable]");
+      // Toucher un message le sélectionne (affiche Répondre, Citer, Supprimer) ; toucher ailleurs désélectionne.
+      const row = event.target.closest(".msg");
       const next = row && state.selectedId !== row.dataset.id ? row.dataset.id : null;
       if (next === state.selectedId) return;
       state.selectedId = next;
@@ -1880,8 +2245,43 @@ export function createChat({ supabase, user }) {
     });
 
     const input = $("#composer-input");
-    on(input, "input", autosize);
+    on(input, "input", () => {
+      autosize();
+      updateSuggest();
+    });
+    on(input, "blur", () => setTimeout(hideSuggest, 120));
+    on($("#reply-cancel"), "click", () => {
+      state.replyTo = null;
+      renderComposerExtra();
+    });
+    on($("#tags-manage"), "click", openTagsDialog);
+    on($("#tags-form"), "submit", submitTag);
+    on($("#tags-list"), "click", (event) => {
+      const edit = event.target.closest("[data-edit]");
+      if (edit) {
+        editingTag = tagById(edit.dataset.edit) || null;
+        resetTagForm();
+        return $("#tag-label").focus();
+      }
+      const del = event.target.closest("[data-del]");
+      if (del) deleteTag(del.dataset.del);
+    });
     on(input, "keydown", (event) => {
+      if (!$("#tag-suggest").hidden && suggestItems.length) {
+        if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+          event.preventDefault();
+          suggestIndex = (suggestIndex + (event.key === "ArrowDown" ? 1 : suggestItems.length - 1)) % suggestItems.length;
+          return updateSuggest();
+        }
+        if (event.key === "Enter" || event.key === "Tab") {
+          event.preventDefault();
+          return pickSuggest(suggestItems[suggestIndex].id);
+        }
+        if (event.key === "Escape") {
+          event.preventDefault();
+          return hideSuggest();
+        }
+      }
       if (event.key !== "Enter" || event.shiftKey || event.isComposing) return;
       // Sur écran tactile, Entrée passe à la ligne ; l'envoi se fait avec le bouton.
       const touch = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
@@ -1973,6 +2373,11 @@ export function createChat({ supabase, user }) {
     state.ws = null;
     state.allRooms = [];
     state.allChannels = [];
+    state.tags = [];
+    state.tagFilter = new Set();
+    state.composerTags = new Set();
+    state.replyTo = null;
+    state.quoted = new Map();
     state.channel = null;
     state.messages = [];
     state.selectedId = null;

@@ -8,6 +8,11 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.1.0 — 2026-11-14
+- Dates de tournée par salon (étiquettes choisies avec #, filtre des messages par date)
+- répondre à un message et citer
+- migration 006 à exécuter
+
 ## 3.0.0 — 2026-11-14
 - Nouvelle hiérarchie : espace (production ou compagnie) > salon (un spectacle) > sous-salon (par métier), avec deux niveaux d'accès
 - les salons existants deviennent des salons avec un sous-salon « Tous »

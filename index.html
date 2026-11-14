@@ -198,7 +198,22 @@
         <button type="button" class="primary" id="empty-action" hidden></button>
       </div>
 
+      <div id="tag-bar" class="tag-bar" hidden>
+        <span class="tag-bar-title">Dates</span>
+        <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
+        <button type="button" class="ghost small" id="tags-manage" hidden>Gérer</button>
+      </div>
+
       <div id="messages" class="messages" aria-live="polite" hidden></div>
+
+      <div id="composer-extra" class="composer-extra" hidden>
+        <div id="reply-bar" class="reply-bar" hidden>
+          <div class="reply-text"><strong id="reply-author"></strong><span id="reply-excerpt"></span></div>
+          <button type="button" class="icon-btn tiny" id="reply-cancel" aria-label="Annuler la réponse">×</button>
+        </div>
+        <div id="composer-tags" class="tag-chips" hidden></div>
+      </div>
+      <ul id="tag-suggest" class="tag-suggest" role="listbox" aria-label="Dates de tournée" hidden></ul>
 
       <form id="composer" class="composer" hidden>
         <textarea id="composer-input" rows="1" maxlength="8000" placeholder="Écrire un message" aria-label="Message"></textarea>
@@ -330,6 +345,21 @@
           <button type="submit" class="primary" id="channel-submit">Créer</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="dialog-tags">
+      <h3 id="tags-title" tabindex="-1">Dates de tournée</h3>
+      <p class="muted" id="tags-note">Les dates sont rattachées au salon : tous ses sous-salons peuvent les utiliser. Dans un message, tape <strong>#</strong> pour en choisir une.</p>
+      <ul id="tags-list" class="pick-list"></ul>
+      <form id="tags-form" class="tags-form">
+        <input id="tag-label" type="text" maxlength="40" placeholder="Ex. Lausanne, Théâtre Vidy" aria-label="Nom de la date" required />
+        <input id="tag-date" type="date" aria-label="Date (facultatif)" />
+        <button type="submit" class="primary small" id="tag-add">Ajouter</button>
+      </form>
+      <p id="tags-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
     </dialog>
 
     <dialog id="dialog-dm">
