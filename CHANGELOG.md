@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.16.1 — 2026-11-14
+- Menu : fond plus saturé (même teinte que l'espace) pour le distinguer du fil de discussion
+
 ## 3.16.0 — 2026-11-14
 - Glisser vers la droite dans un fil ouvre le menu
 - bandeau jaune de rappel quand les notifications sont inactives
