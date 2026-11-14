@@ -1389,7 +1389,14 @@ export function createChat({ supabase, user }) {
   const tagText = (tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
   // Dernier jour d'une date (fin, sinon dernière représentation, sinon début) ; une date est passée quand il est avant aujourd'hui.
   const tagLastDay = (tag) => tag.end_date || [...(tag.shows || [])].sort().pop() || tag.start_date || "";
-  const tagIsPast = (tag) => Boolean(tagLastDay(tag)) && tagLastDay(tag) < toISO(new Date());
+  // Barrée à partir du surlendemain du dernier jour : le lendemain (retour) compte encore comme « en cours ».
+  const tagIsPast = (tag) => {
+    const last = tagLastDay(tag);
+    if (!last) return false;
+    const limit = fromISO(last);
+    limit.setDate(limit.getDate() + 1);
+    return toISO(limit) < toISO(new Date());
+  };
   const firstShow = (tag) => [...(tag.shows || [])].sort()[0] || null;
   // À venir d'abord (par ordre chronologique), puis sans date, puis les passées (rayées) à la fin.
   const tagsOfRoom = (roomId) =>
