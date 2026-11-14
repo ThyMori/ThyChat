@@ -1,0 +1,176 @@
+/* ThyChat — thème sombre, accent ambre (lumière de scène).
+   Toutes les couleurs passent par des variables : pour réaligner sur le design
+   de ThyApp / thierry-morin.com, il suffit de modifier le bloc :root. */
+
+:root {
+  --bg: #0e0e11;
+  --bg-elev: #17171c;
+  --bg-input: #1d1d23;
+  --border: #2a2a32;
+  --text: #ece9e4;
+  --muted: #9a9aa5;
+  --accent: #e8a84a;
+  --accent-strong: #f2b95f;
+  --accent-ink: #1a1206;
+  --danger: #e5645a;
+  --ok: #6ec08a;
+  --radius: 12px;
+  --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+[hidden] { display: none !important; }
+
+.screen {
+  min-height: 100%;
+  padding: calc(var(--safe-top) + 16px) 16px calc(var(--safe-bottom) + 16px);
+}
+
+.center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.muted { color: var(--muted); margin: 0; }
+
+/* Carte de connexion */
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px 20px;
+}
+
+.brand { text-align: center; margin-bottom: 20px; }
+.brand h1 { margin: 10px 0 2px; font-size: 1.6rem; letter-spacing: 0.01em; }
+
+/* Marque : disque de lumière ambre */
+.brand-mark {
+  width: 44px;
+  height: 44px;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: radial-gradient(circle at 50% 40%, var(--accent-strong) 0%, var(--accent) 38%, rgba(232, 168, 74, 0) 72%);
+  box-shadow: 0 0 28px rgba(232, 168, 74, 0.35);
+}
+.brand-mark.small { width: 22px; height: 22px; margin: 0; box-shadow: 0 0 14px rgba(232, 168, 74, 0.35); }
+
+/* Formulaires */
+form { display: flex; flex-direction: column; }
+
+label {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 14px 0 6px;
+}
+
+input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px; /* évite le zoom automatique sur iOS */
+  color: var(--text);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(232, 168, 74, 0.18);
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  padding: 12px 16px;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+button.primary {
+  margin-top: 18px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+}
+button.primary:hover:not(:disabled) { background: var(--accent-strong); }
+
+button.link {
+  background: none;
+  color: var(--muted);
+  margin-top: 6px;
+  font-size: 0.9rem;
+}
+button.link:hover { color: var(--text); }
+
+button.ghost {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.9rem;
+}
+button.ghost:hover { border-color: var(--muted); }
+
+/* Messages d'information / d'erreur */
+.notice {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  font-size: 0.9rem;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+}
+.notice[data-kind="error"] { border-color: rgba(229, 100, 90, 0.5); color: #f0a49d; }
+.notice[data-kind="ok"] { border-color: rgba(110, 192, 138, 0.5); color: #a9dbbb; }
+
+.fineprint { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 18px 0 0; }
+
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--bg-input);
+  padding: 1px 5px;
+  border-radius: 6px;
+}
+
+/* Écran applicatif (provisoire) */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.topbar-brand { display: flex; align-items: center; gap: 10px; }
+
+.placeholder { padding: 32px 4px; max-width: 560px; }
+.placeholder h2 { margin: 0 0 8px; }
+.placeholder p { margin: 6px 0; }

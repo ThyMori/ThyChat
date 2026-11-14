@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ThyChat</title>
+  <meta name="description" content="Messagerie professionnelle pour les équipes de spectacle vivant.">
+  <meta name="theme-color" content="#0e0e11">
+  <meta name="color-scheme" content="dark">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ThyChat">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Capture le fragment d'URL avant que Supabase ne le consomme (liens d'invitation / de réinitialisation). -->
+  <script>window.__initialHash = location.hash;</script>
+</head>
+<body>
+
+  <main id="screen-loading" class="screen center" aria-live="polite">
+    <div class="brand-mark" aria-hidden="true"></div>
+    <p class="muted">Chargement…</p>
+  </main>
+
+  <main id="screen-login" class="screen center" hidden>
+    <section class="card">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <h1>ThyChat</h1>
+        <p class="muted">La messagerie de l'équipe.</p>
+      </header>
+
+      <p id="config-warning" class="notice" data-kind="error" hidden>
+        Supabase n'est pas encore configuré. Renseigne l'URL et la clé publique dans <code>js/config.js</code>.
+      </p>
+
+      <form id="login-form" novalidate>
+        <label for="email">E-mail</label>
+        <input id="email" name="email" type="email" inputmode="email" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+
+        <label for="password">Mot de passe</label>
+        <input id="password" name="password" type="password" autocomplete="current-password" required>
+
+        <p id="login-message" class="notice" role="alert" hidden></p>
+
+        <button type="submit" class="primary" id="login-submit">Se connecter</button>
+        <button type="button" class="link" id="forgot-password">Mot de passe oublié ?</button>
+      </form>
+
+      <p class="fineprint">Accès sur invitation uniquement.</p>
+    </section>
+  </main>
+
+  <main id="screen-set-password" class="screen center" hidden>
+    <section class="card">
+      <header class="brand">
+        <div class="brand-mark" aria-hidden="true"></div>
+        <h1 id="set-password-title">Bienvenue</h1>
+        <p class="muted" id="set-password-subtitle">Choisis ton mot de passe pour activer ton compte.</p>
+      </header>
+
+      <form id="set-password-form" novalidate>
+        <div id="name-field">
+          <label for="new-name">Nom affiché</label>
+          <input id="new-name" name="name" type="text" autocomplete="name" placeholder="Prénom Nom" maxlength="60">
+        </div>
+
+        <label for="new-password">Mot de passe (10 caractères minimum)</label>
+        <input id="new-password" name="new-password" type="password" autocomplete="new-password" minlength="10" required>
+
+        <label for="confirm-password">Confirmer le mot de passe</label>
+        <input id="confirm-password" name="confirm-password" type="password" autocomplete="new-password" minlength="10" required>
+
+        <p id="set-password-message" class="notice" role="alert" hidden></p>
+
+        <button type="submit" class="primary" id="set-password-submit">Enregistrer et entrer</button>
+      </form>
+    </section>
+  </main>
+
+  <main id="screen-app" class="screen" hidden>
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="brand-mark small" aria-hidden="true"></div>
+        <strong>ThyChat</strong>
+      </div>
+      <button type="button" class="ghost" id="logout">Se déconnecter</button>
+    </header>
+
+    <section class="placeholder">
+      <h2 id="app-greeting">Connecté</h2>
+      <p class="muted" id="app-status"></p>
+      <p class="muted">Les espaces, canaux et messages arrivent à l'étape suivante.</p>
+    </section>
+  </main>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
