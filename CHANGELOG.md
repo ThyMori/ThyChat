@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 2.0.1 — 2026-11-14
+- Déclencheur des notifications push en SQL (migration 004), plus simple que le Database Webhook
+
 ## 2.0.0 — 2026-11-14
 - Rôles (administrateur général, administrateur d'espace, utilisateur) et invitations depuis l'application
 - Salons à accès restreint et messages privés

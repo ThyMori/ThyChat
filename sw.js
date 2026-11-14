@@ -4,7 +4,7 @@
 // Les appels à Supabase et aux CDN ne sont jamais interceptés ni mis en cache.
 // Gère aussi la réception des notifications push.
 
-const VERSION = "2.0.0"; // géré par scripts/bump-version.mjs
+const VERSION = "2.0.1"; // géré par scripts/bump-version.mjs
 const CACHE = `thychat-shell-${VERSION}`;
 const SHELL = [
   "./",

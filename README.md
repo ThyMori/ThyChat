@@ -88,7 +88,16 @@ Deux petites fonctions serveur sont nécessaires : `invite-member` (inviter par 
 
 Pour recommencer avec de nouvelles clés : `npx web-push generate-vapid-keys` (puis mets la clé publique dans `js/config.js` ; chacun devra réactiver les notifications).
 
-**3. Le déclencheur.** Supabase > **Database > Webhooks** > **Create a new hook** : table `public.messages`, évènement **Insert**, type **Supabase Edge Functions**, fonction `send-push`, méthode POST, et ajoute l'en-tête HTTP `x-webhook-secret` avec la valeur de `PUSH_WEBHOOK_SECRET`.
+**3. Le déclencheur.** Le plus simple : colle `supabase/migrations/004_push_trigger.sql` dans le SQL Editor (Run), puis exécute ceci une fois, en mettant ton adresse de projet et le même mot de passe que `PUSH_WEBHOOK_SECRET` :
+
+```sql
+insert into public.app_settings (key, value) values
+  ('push_url', 'https://ajhtjciomlnvynccjfbd.supabase.co/functions/v1/send-push'),
+  ('push_secret', 'LE_MOT_DE_PASSE_CHOISI')
+on conflict (key) do update set value = excluded.value;
+```
+
+(Variante en clics, si ton tableau de bord la propose : **Integrations > Database Webhooks** ou **Database > Webhooks**, table `public.messages`, évènement Insert, fonction `send-push`, en-tête `x-webhook-secret`. Ne fais pas les deux : les notifications seraient doublées.)
 
 **4. Essayer.** Sur un téléphone, ouvre ThyChat, **Notifications > Activer sur cet appareil**, ferme l'application, puis écris depuis un autre compte : la notification arrive. Sur iPhone / iPad (iOS 16.4 ou plus), l'application doit d'abord être installée sur l'écran d'accueil.
 
@@ -105,6 +114,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | Fichier | Apporte |
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
+| `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
 | `003_roles_salons_push.sql` | administrateur général, salons par assignation, messages privés, non lus, silences, notifications push, photos de profil (**indispensable à la version 2**) |
 
 ## Couleurs des espaces
