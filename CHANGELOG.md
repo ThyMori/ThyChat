@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 2.0.3 — 2026-11-14
+- Bouton « Retour » du téléphone : ramène à la liste des salons ou ferme la fenêtre ouverte, au lieu de bloquer sur un écran gris
+
 ## 2.0.2 — 2026-11-14
 - Le bouton « Installer l'application » lance l'installation directement et disparaît une fois l'application installée
 

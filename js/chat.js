@@ -76,7 +76,20 @@ function renderBody(container, text) {
   });
 }
 
+// Bouton « Retour » du téléphone : sur mobile, on garde une entrée d'historique devant soi pour que « Retour »
+// ferme la boîte de dialogue ou revienne à la liste des salons, au lieu de quitter l'application.
+const isMobile = () => Boolean(window.matchMedia && window.matchMedia("(max-width: 760px)").matches);
+
+function guardHistory() {
+  try {
+    if (isMobile() && !(history.state && history.state.tcGuard)) history.pushState({ tcGuard: true }, "");
+  } catch {
+    /* historique indisponible : sans conséquence */
+  }
+}
+
 function openDialog(selector) {
+  guardHistory();
   const dialog = $(selector);
   if (dialog.showModal) dialog.showModal();
   else dialog.setAttribute("open", "");
@@ -679,6 +692,7 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
     }
 
     writeLast({ channel: state.channel.id });
+    guardHistory();
     setView("chat");
     state.messages = [];
     renderMessages(true);
@@ -1595,7 +1609,28 @@ const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b
       on(button, "click", () => closeDialog(button.closest("dialog")));
     }
 
-    on($("#open-sidebar"), "click", () => $("#screen-app").classList.add("sidebar-open"));
+    on($("#open-sidebar"), "click", () => {
+      guardHistory();
+      $("#screen-app").classList.add("sidebar-open");
+    });
+
+    on(window, "popstate", () => {
+      if (stopped || !isMobile()) return;
+      const opened = [...document.querySelectorAll("dialog[open]")];
+      if (opened.length) {
+        for (const dialog of opened) closeDialog(dialog); // « Retour » ferme la boîte de dialogue
+        guardHistory();
+        return;
+      }
+      if (history.state && history.state.tcGuard) return;
+      const screen = $("#screen-app");
+      if (!screen.classList.contains("sidebar-open")) {
+        screen.classList.add("sidebar-open"); // « Retour » depuis un salon : retour à la liste
+        guardHistory();
+      } else {
+        history.back(); // la liste est déjà affichée : on quitte vraiment
+      }
+    });
     on($("#close-sidebar"), "click", closeSidebar);
     on($("#backdrop"), "click", closeSidebar);
 
