@@ -156,6 +156,11 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 - Une discussion privée entre deux personnes est unique : elle apparaît dans **tous** les espaces que les deux personnes ont en commun, quel que soit l'espace ouvert. Le silence d'un espace ne la concerne pas.
 - La poubelle 🗑 de l'en-tête supprime toute la discussion (messages et photos) **pour les deux personnes**. Les administrateurs ne voient jamais les messages privés.
 
+## Recherche et liste des messages privés
+
+- La loupe 🔍 ouvre la recherche dans les messages (au moins 2 caractères) : dans tout ce que tu peux lire, ou dans le sous-salon ouvert ; 50 résultats les plus récents. Un résultat ouvre le sous-salon sur le message (même ancien), y compris dans un autre espace. Aucune migration n'est nécessaire (les règles RLS limitent déjà la lecture).
+- Les messages privés sont en lignes compactes, classés du fil le plus récent au plus ancien. Le bouton + filtre les personnes et les fils par nom : un fil existant est rouvert, sinon il est créé.
+
 ## Couleurs des espaces
 
 Chaque espace (une production, une compagnie…) a sa couleur, qui teinte toute l'interface : fond, barre latérale, bulles, boutons. À la création, ThyChat propose une couleur pas encore utilisée par tes autres espaces ; les administrateurs la changent dans **Espace et membres**. La palette est dans `js/themes.js`.

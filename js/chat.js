@@ -136,6 +136,7 @@ const excerpt = (text, max = 90) => {
   return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 };
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16)));
+const MESSAGE_COLS = "id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at";
 const PHOTO_LABEL = "📷 Photo";
 const messageExcerpt = (message, max = 90) =>
   excerpt(message && message.body, max) || (message && message.attachments && message.attachments.length ? PHOTO_LABEL : "");
@@ -242,6 +243,8 @@ export function createChat({ supabase, user }) {
     openRooms: readOpen(), // salons dépliés dans la barre latérale
     allChannels: [], // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
+    dmActivity: new Map(), // id du message privé -> date du dernier message
+    focus: null, // message à montrer à l'ouverture d'un sous-salon (résultat de recherche) : { id, at }
     channel: null,
     messages: [],
     tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
@@ -384,7 +387,10 @@ export function createChat({ supabase, user }) {
   const dmPartner = (channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
   // Les messages privés ne dépendent d'aucun espace : ils apparaissent dans tous.
   const dms = () =>
-    state.allChannels.filter((c) => c.kind === "dm").sort((a, b) => channelTitle(a).localeCompare(channelTitle(b), "fr"));
+    state.allChannels
+      .filter((c) => c.kind === "dm")
+      .sort((a, b) => dmLast(b).localeCompare(dmLast(a)) || channelTitle(a).localeCompare(channelTitle(b), "fr"));
+  const dmLast = (channel) => state.dmActivity.get(channel.id) || channel.created_at || "";
 
   function channelTitle(channel) {
     if (channel.kind !== "dm") return channel.name;
@@ -443,7 +449,7 @@ export function createChat({ supabase, user }) {
 
     const channelsResult = await supabase
       .from("channels")
-      .select("id, workspace_id, room_id, name, description, kind, everyone")
+      .select("id, workspace_id, room_id, name, description, kind, everyone, created_at")
       .order("name");
     if (stopped) return false;
     if (channelsResult.error) {
@@ -470,6 +476,16 @@ export function createChat({ supabase, user }) {
         state.dmMembers.set(row.channel_id, list);
       }
       await ensureProfiles([...state.dmMembers.values()].flat());
+      // Dernier message de chaque fil : le plus récent est classé en haut.
+      const last = await supabase
+        .from("messages")
+        .select("channel_id, created_at")
+        .in("channel_id", dmIds)
+        .is("parent_id", null)
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      state.dmActivity = new Map();
+      for (const row of last.data || []) if (!state.dmActivity.has(row.channel_id)) state.dmActivity.set(row.channel_id, row.created_at);
     }
 
     const mutes = await supabase.from("notification_mutes").select("scope, target_id, muted_until, forever");
@@ -615,7 +631,8 @@ export function createChat({ supabase, user }) {
 
     if (channel.kind === "dm") {
       const partner = dmPartner(channel);
-      item.append(partner ? avatarFor(partner) : el("span", "avatar soft", "?"));
+      item.classList.add("dm");
+      item.append(partner ? avatarFor(partner, "tiny soft") : el("span", "avatar tiny soft", "?"));
     } else {
       item.append(el("span", "avatar tiny soft", initials(channel.name, 1)));
     }
@@ -710,6 +727,7 @@ export function createChat({ supabase, user }) {
       $("#channel-bell").hidden = true;
       $("#channel-edit").hidden = true;
       $("#channel-delete-dm").hidden = true;
+      $("#channel-search").hidden = true;
       return;
     }
     avatar.className = "avatar small soft";
@@ -743,6 +761,7 @@ export function createChat({ supabase, user }) {
     bell.title = muteNote || "Notifications";
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
+    $("#channel-search").hidden = !channel;
   }
 
   // Pastilles de non lus : listes, bouton d'espace, titre de l'onglet et icône de l'application.
@@ -962,7 +981,7 @@ export function createChat({ supabase, user }) {
     state.calendarOpen = false;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
     state.selectedId = null;
-    if (!state.channel || state.channel.room_id !== previousRoom) state.tagFilter = new Set();
+    if (!state.channel || state.channel.room_id !== previousRoom || state.focus) state.tagFilter = new Set();
     if (state.pendingFilter) {
       if (state.channel && tagById(state.pendingFilter)) state.tagFilter = new Set([state.pendingFilter]);
       state.pendingFilter = null;
@@ -1007,7 +1026,7 @@ export function createChat({ supabase, user }) {
   async function loadMessages(channelId, token) {
     let query = supabase
       .from("messages")
-      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at")
+      .select(MESSAGE_COLS)
       .eq("channel_id", channelId)
       .is("parent_id", null);
     if (state.tagFilter.size) query = query.overlaps("tag_ids", [...state.tagFilter]);
@@ -1018,11 +1037,27 @@ export function createChat({ supabase, user }) {
       return;
     }
     state.messages = (data || []).slice().reverse();
+    // Arrivée depuis une recherche : si le message est plus ancien que la page chargée, on charge depuis ce message.
+    const focus = state.focus;
+    state.focus = null;
+    if (focus && !state.messages.some((m) => m.id === focus.id)) {
+      const more = await supabase
+        .from("messages")
+        .select(MESSAGE_COLS)
+        .eq("channel_id", channelId)
+        .is("parent_id", null)
+        .gte("created_at", focus.at)
+        .order("created_at", { ascending: true })
+        .limit(500);
+      if (stopped || token !== state.loadToken) return;
+      if (!more.error && more.data && more.data.length) state.messages = more.data;
+    }
     await ensureProfiles(state.messages.map((m) => m.user_id));
     await loadQuoted(state.messages);
     await resolveImages(state.messages);
     if (stopped || token !== state.loadToken) return;
     renderMessages(true);
+    if (focus) showMessage(focus.id);
   }
 
   // Récupère les messages auxquels répondent ceux-ci, quand ils ne sont pas déjà affichés.
@@ -1076,6 +1111,10 @@ export function createChat({ supabase, user }) {
       const message = payload.new;
       if (message.parent_id) return;
       const mine = message.user_id === user.id;
+      if (state.dmActivity.has(message.channel_id) || state.allChannels.some((c) => c.id === message.channel_id && c.kind === "dm")) {
+        state.dmActivity.set(message.channel_id, message.created_at);
+        renderChannels();
+      }
 
       if (!state.allChannels.some((c) => c.id === message.channel_id)) {
         refreshStructureSoon(); // nouveau salon ou nouveau message privé
@@ -1114,6 +1153,10 @@ export function createChat({ supabase, user }) {
   }
 
   function addMessage(message, forceBottom = false) {
+    if (state.allChannels.some((c) => c.id === message.channel_id && c.kind === "dm")) {
+      state.dmActivity.set(message.channel_id, message.created_at);
+      renderChannels();
+    }
     if (state.messages.some((m) => m.id === message.id)) return;
     state.messages.push(message);
     state.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
@@ -2142,25 +2185,168 @@ export function createChat({ supabase, user }) {
     await refreshStructure();
   }
 
+  // --- Recherche dans les messages -----------------------------------------------------
+
+  let searchTimer = null;
+  let searchToken = 0;
+
+  function openSearch(scope) {
+    const select = $("#search-scope");
+    select.querySelector('option[value="here"]').disabled = !state.channel;
+    select.value = scope === "here" && state.channel ? "here" : "all";
+    $("#search-status").textContent = "";
+    $("#search-results").replaceChildren();
+    openDialog("#dialog-search");
+    $("#search-input").value = "";
+    setTimeout(() => $("#search-input").focus(), 50);
+  }
+
+  function scheduleSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(runSearch, 300);
+  }
+
+  // Nom lisible du lieu d'un message : « Hamlet · Technique » ou « Message privé · Camille ».
+  function placeOf(channel) {
+    if (channel.kind === "dm") return "Message privé · " + channelTitle(channel);
+    const room = roomById(channel.room_id);
+    const ws = state.workspaces.length > 1 ? state.workspaces.find((w) => w.id === channel.workspace_id) : null;
+    return [ws && ws.name, room && room.name, channel.name].filter(Boolean).join(" · ");
+  }
+
+  // Extrait autour de la première occurrence, occurrences surlignées (sans innerHTML).
+  function highlighted(text, needle) {
+    const box = el("span", "search-excerpt");
+    const flat = String(text || "").replace(/\s+/g, " ").trim();
+    const at = flat.toLowerCase().indexOf(needle.toLowerCase());
+    let from = 0;
+    let to = flat.length;
+    if (flat.length > 160 && at >= 0) {
+      from = Math.max(0, at - 50);
+      to = Math.min(flat.length, from + 160);
+    } else if (flat.length > 160) {
+      to = 160;
+    }
+    const part = flat.slice(from, to);
+    if (from > 0) box.append("…");
+    const lower = part.toLowerCase();
+    const key = needle.toLowerCase();
+    let i = 0;
+    while (i < part.length) {
+      const hit = key ? lower.indexOf(key, i) : -1;
+      if (hit < 0) {
+        box.append(part.slice(i));
+        break;
+      }
+      box.append(part.slice(i, hit));
+      box.append(el("mark", "", part.slice(hit, hit + key.length)));
+      i = hit + key.length;
+    }
+    if (to < flat.length) box.append("…");
+    return box;
+  }
+
+  async function runSearch() {
+    const needle = $("#search-input").value.trim();
+    const results = $("#search-results");
+    const status = $("#search-status");
+    const token = ++searchToken;
+    if (needle.length < 2) {
+      results.replaceChildren();
+      status.textContent = needle ? "Tape au moins 2 caractères." : "";
+      return;
+    }
+    status.textContent = "Recherche…";
+    const escaped = needle.replace(/[\\%_]/g, (m) => "\\" + m);
+    let query = supabase
+      .from("messages")
+      .select("id, channel_id, user_id, body, created_at")
+      .ilike("body", `%${escaped}%`)
+      .is("parent_id", null);
+    if ($("#search-scope").value === "here" && state.channel) query = query.eq("channel_id", state.channel.id);
+    const { data, error } = await query.order("created_at", { ascending: false }).limit(50);
+    if (stopped || token !== searchToken) return;
+    results.replaceChildren();
+    if (error) {
+      status.textContent = "Recherche impossible : " + error.message;
+      return;
+    }
+    const rows = (data || []).filter((m) => state.allChannels.some((c) => c.id === m.channel_id));
+    await ensureProfiles(rows.map((m) => m.user_id));
+    if (stopped || token !== searchToken) return;
+    status.textContent = rows.length ? (rows.length === 50 ? "50 résultats les plus récents." : `${rows.length} résultat${rows.length > 1 ? "s" : ""}.`) : "Aucun message trouvé.";
+    for (const message of rows) {
+      const channel = state.allChannels.find((c) => c.id === message.channel_id);
+      const item = el("li");
+      const button = el("button", "search-hit");
+      button.type = "button";
+      button.dataset.id = message.id;
+      button.dataset.channel = message.channel_id;
+      button.dataset.at = message.created_at;
+      const meta = el("span", "search-meta");
+      meta.append(el("strong", "", placeOf(channel)), ` · ${authorName(message.user_id)} · ${dayLabel(new Date(message.created_at))} ${timeFmt.format(new Date(message.created_at))}`);
+      button.append(meta, highlighted(message.body, needle));
+      item.append(button);
+      results.append(item);
+    }
+  }
+
+  async function openFoundMessage(button) {
+    const channel = state.allChannels.find((c) => c.id === button.dataset.channel);
+    if (!channel) return;
+    closeDialog($("#dialog-search"));
+    state.focus = { id: button.dataset.id, at: button.dataset.at };
+    if (channel.kind !== "dm" && state.ws && channel.workspace_id !== state.ws.id) await selectWorkspace(channel.workspace_id, channel.id);
+    else await selectChannel(channel.id);
+  }
+
+  function showMessage(id) {
+    const node = document.querySelector(`#messages .msg[data-id="${id}"]`);
+    if (!node) return;
+    if (node.scrollIntoView) node.scrollIntoView({ block: "center" });
+    node.classList.add("flash");
+    setTimeout(() => node.classList.remove("flash"), 2400);
+  }
+
   // --- Messages privés ----------------------------------------------------------------
+
+  let dmCandidates = [];
 
   async function openDmPicker() {
     if (!state.ws) return;
     setNotice("#dm-message", "");
+    $("#dm-search").value = "";
     openDialog("#dialog-dm");
+    const people = (await workspaceUsers(state.ws.id)).filter((row) => row.user_id !== user.id).map((row) => row.user_id);
+    // Les fils déjà ouverts d'abord (du plus récent au plus ancien), puis les autres personnes de l'espace.
+    const threads = dms().map((channel) => ({ user_id: dmPartner(channel), thread: channel })).filter((c) => c.user_id);
+    const withThread = new Set(threads.map((c) => c.user_id));
+    const others = people
+      .filter((id) => !withThread.has(id))
+      .map((id) => ({ user_id: id, thread: null }))
+      .sort((a, b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
+    dmCandidates = [...threads, ...others];
+    renderDmPick();
+    setTimeout(() => $("#dm-search").focus(), 50);
+  }
+
+  function renderDmPick() {
     const list = $("#dm-pick");
     list.replaceChildren();
-    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.user_id !== user.id);
-    if (!users.length) {
-      list.append(el("li", "muted", "Personne d'autre dans cet espace pour l'instant."));
+    const q = plain($("#dm-search").value.trim());
+    const rows = dmCandidates.filter((c) => !q || plain(authorName(c.user_id)).includes(q));
+    if (!rows.length) {
+      list.append(el("li", "muted", dmCandidates.length ? "Personne ne correspond." : "Personne d'autre dans cet espace pour l'instant."));
       return;
     }
-    for (const row of users) {
+    for (const row of rows) {
       const item = el("li");
       const button = el("button", "pick-button");
       button.type = "button";
       button.dataset.user = row.user_id;
+      if (row.thread) button.dataset.thread = row.thread.id;
       button.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
+      if (row.thread) button.append(el("small", "muted", "discussion en cours"));
       item.append(button);
       list.append(item);
     }
@@ -2184,6 +2370,12 @@ export function createChat({ supabase, user }) {
   }
 
   async function startDm(otherId) {
+    const existing = dms().find((c) => dmPartner(c) === otherId);
+    if (existing) {
+      closeDialog($("#dialog-dm"));
+      await selectChannel(existing.id);
+      return;
+    }
     const { data, error } = await supabase.rpc("open_dm", { ws: state.ws.id, other: otherId });
     if (error) return setNotice("#dm-message", error.message);
     closeDialog($("#dialog-dm"));
@@ -2756,6 +2948,20 @@ export function createChat({ supabase, user }) {
     });
     on($("#dm-list"), "click", openFromList);
 
+    on($("#dm-search"), "input", renderDmPick);
+    on($("#open-search"), "click", () => openSearch("all"));
+    on($("#channel-search"), "click", () => openSearch("here"));
+    on($("#search-form"), "submit", (event) => {
+      event.preventDefault();
+      clearTimeout(searchTimer);
+      runSearch();
+    });
+    on($("#search-input"), "input", scheduleSearch);
+    on($("#search-scope"), "change", runSearch);
+    on($("#search-results"), "click", (event) => {
+      const button = event.target.closest(".search-hit");
+      if (button) openFoundMessage(button);
+    });
     on($("#dm-pick"), "click", (event) => {
       const button = event.target.closest("[data-user]");
       if (button) startDm(button.dataset.user);

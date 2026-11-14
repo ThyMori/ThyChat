@@ -961,3 +961,26 @@ dialog.help ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-si
   text-shadow: none;
 }
 .cal-star.alone { color: #ffd75e; font-size: 1.1rem; }
+
+/* Messages privés : liste compacte */
+.channel-item.dm { padding: 4px 10px; gap: 8px; }
+.channel-item.dm .channel-name { font-size: 0.85rem; font-weight: 500; }
+.channel-item.dm .avatar { width: 22px; height: 22px; font-size: 0.65rem; }
+.dm-list { max-height: 22vh; }
+#dm-search { width: 100%; margin: 0 0 8px; }
+.pick-button small { margin-left: auto; font-size: 0.72rem; }
+
+/* Recherche dans les messages */
+dialog.search { width: min(560px, 94vw); }
+.search-form { display: flex; gap: 8px; margin-bottom: 6px; }
+.search-form input { flex: 1; min-width: 0; }
+.search-form select { flex: none; max-width: 45%; }
+.search-results { list-style: none; margin: 8px 0 0; padding: 0; max-height: 52vh; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+.search-hit { display: flex; flex-direction: column; gap: 3px; width: 100%; text-align: left; padding: 9px 12px; font: inherit; font-size: 0.9rem; color: var(--text); background: var(--bg-input); border: 1px solid var(--border); border-radius: 12px; }
+.search-hit:hover { border-color: var(--accent); }
+.search-meta { font-size: 0.75rem; color: var(--muted); }
+.search-meta strong { color: var(--text); font-weight: 600; }
+.search-excerpt { overflow-wrap: anywhere; }
+.search-excerpt mark { background: hsl(var(--h) 80% 55% / 0.45); color: inherit; border-radius: 3px; padding: 0 1px; }
+.msg.flash .bubble { animation: flash 2.4s ease-out; }
+@keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px hsl(var(--h) 90% 65% / 0.9); } 100% { box-shadow: 0 0 0 3px transparent; } }

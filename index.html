@@ -125,6 +125,7 @@
           <strong>ThyChat</strong>
         </div>
         <span class="head-actions">
+          <button type="button" class="icon-btn" id="open-search" aria-label="Rechercher dans les messages" title="Rechercher dans les messages">🔍</button>
           <button type="button" class="icon-btn info-btn" id="open-help" aria-label="Informations : toutes les fonctions de ThyChat" title="Informations">i</button>
           <button type="button" class="icon-btn only-mobile" id="close-sidebar" aria-label="Fermer le menu">✕</button>
         </span>
@@ -183,6 +184,7 @@
           <p id="channel-desc" class="muted"></p>
         </div>
         <button type="button" class="icon-btn" id="channel-edit" title="Réglages du sous-salon" aria-label="Réglages du sous-salon" hidden>⚙</button>
+        <button type="button" class="icon-btn" id="channel-search" title="Rechercher dans les messages" aria-label="Rechercher dans les messages" hidden>🔍</button>
         <button type="button" class="icon-btn" id="channel-delete-dm" title="Supprimer la discussion" aria-label="Supprimer la discussion privée" hidden>🗑</button>
         <button type="button" class="icon-btn bell" id="channel-bell" title="Notifications" aria-label="Notifications" hidden>🔔</button>
       </header>
@@ -395,7 +397,8 @@
           <li><strong>Espace</strong> : une production ou une compagnie, avec sa couleur et sa photo. Tu en changes avec le bouton en haut de la barre latérale.</li>
           <li><strong>Spectacle</strong> : un spectacle en particulier, dans un espace. Il se plie et se déplie ; un cadenas indique qu'il est réservé à certaines personnes.</li>
           <li><strong>Sous-salon</strong> : là où l'on discute, par métier ou par sujet (Tous, Technique, Musiciens…). Chaque spectacle a un sous-salon « Tous ».</li>
-          <li><strong>Message privé</strong> : une discussion à deux avec quelqu'un d'un de tes espaces (bouton + à côté de « Messages privés »). Elle est la même dans tous les espaces que vous partagez : tu la retrouves quel que soit l'espace ouvert. La poubelle 🗑 en haut supprime toute la discussion (messages et photos), pour vous deux.</li>
+          <li><strong>Message privé</strong> : une discussion à deux avec quelqu'un d'un de tes espaces (bouton + à côté de « Messages privés »). Elle est la même dans tous les espaces que vous partagez : tu la retrouves quel que soit l'espace ouvert. La poubelle 🗑 en haut supprime toute la discussion (messages et photos), pour vous deux. La liste est classée du fil le plus récent au plus ancien ; le bouton + permet de retrouver un fil en tapant un nom, ou d'en commencer un nouveau.</li>
+          <li><strong>Recherche</strong> : la loupe 🔍 (en haut du menu, ou dans l'en-tête d'un sous-salon) cherche un mot ou une phrase dans tous les messages auxquels tu as accès, ou seulement dans le sous-salon ouvert. Touche un résultat pour ouvrir la discussion au bon message, qui clignote un instant. La recherche ignore les majuscules mais pas les accents.</li>
         </ul>
       </section>
 
@@ -496,9 +499,26 @@
       </div>
     </dialog>
 
+    <dialog id="dialog-search" class="search">
+      <h3 id="search-title" tabindex="-1">Rechercher dans les messages</h3>
+      <form id="search-form" class="search-form">
+        <input type="search" id="search-input" placeholder="Un mot ou une phrase" autocomplete="off" aria-label="Texte à chercher">
+        <select id="search-scope" aria-label="Où chercher">
+          <option value="all">Partout</option>
+          <option value="here">Dans ce sous-salon</option>
+        </select>
+      </form>
+      <p id="search-status" class="muted" role="status"></p>
+      <ul id="search-results" class="search-results"></ul>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
     <dialog id="dialog-dm">
       <h3>Message privé</h3>
-      <p class="muted">Choisis une personne de cet espace.</p>
+      <p class="muted">Tape un nom pour retrouver une discussion ou en commencer une nouvelle.</p>
+      <input type="search" id="dm-search" placeholder="Rechercher une personne ou une discussion" autocomplete="off" aria-label="Rechercher une personne ou une discussion">
       <ul id="dm-pick" class="pick-list"></ul>
       <p id="dm-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
