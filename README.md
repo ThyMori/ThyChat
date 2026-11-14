@@ -25,13 +25,17 @@ supabase/schema.sql     tables, sécurité (RLS), temps réel
 1. Créer un projet sur supabase.com, avec une région européenne (RGPD).
 2. **SQL Editor > New query** : coller le contenu de `supabase/schema.sql`, puis **Run**.
 3. **Authentication > Sign In / Providers** : désactiver **Allow new users to sign up** (accès sur invitation uniquement).
-4. **Authentication > URL Configuration** : mettre en **Site URL** l'adresse de l'application (`https://thymori.github.io/ThyChat/`) et l'ajouter aussi dans **Redirect URLs**.
+4. **Authentication > URL Configuration** : mettre en **Site URL** l'adresse de l'application (`https://thychat.thierry-morin.com/`) et l'ajouter aussi dans **Redirect URLs**.
 5. **Project Settings > API** : copier l'**URL du projet** et la **clé publique** (`anon` ou `publishable`) dans `js/config.js`.
    La clé `service_role` / `secret` ne doit **jamais** y figurer.
 
 ### 2. Publier sur GitHub Pages
 
-**Settings > Pages > Build and deployment** : *Deploy from a branch*, branche `main`, dossier `/ (root)`. L'application est alors disponible à `https://thymori.github.io/ThyChat/`.
+L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `CNAME` à la racine déclare le domaine).
+
+1. **DNS** (chez l'hébergeur du domaine `thierry-morin.com`) : ajouter un enregistrement **CNAME** `thychat` pointant vers `thymori.github.io`.
+2. **Settings > Pages > Build and deployment** : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
+3. **Settings > Pages > Custom domain** : vérifier que `thychat.thierry-morin.com` est renseigné, attendre la validation du DNS, puis cocher **Enforce HTTPS**.
 
 ### 3. Inviter les équipes
 
