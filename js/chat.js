@@ -5,6 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
+import { MAX_PDF_BYTES, isPdf, sizeLabel, uploadTagDocument, removeTagDocuments, signDocument } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
@@ -244,6 +245,7 @@ export function createChat({ supabase, user }) {
     allChannels: [], // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     dmActivity: new Map(), // id du message privé -> date du dernier message
+    tagDocs: [], // documents PDF des dates : { id, tag_id, name, path, size_bytes }
     focus: null, // message à montrer à l'ouverture d'un sous-salon (résultat de recherche) : { id, at }
     channel: null,
     messages: [],
@@ -465,6 +467,9 @@ export function createChat({ supabase, user }) {
       return false;
     }
     state.tags = tagsResult.data || [];
+    // Documents des dates (migration 012 : sans elle, simplement aucun document).
+    const docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at").order("created_at");
+    state.tagDocs = docsResult.error ? [] : docsResult.data || [];
 
     const dmIds = state.allChannels.filter((c) => c.kind === "dm").map((c) => c.id);
     state.dmMembers = new Map();
@@ -570,6 +575,8 @@ export function createChat({ supabase, user }) {
 
   // Petites icônes au trait (sobres, de la couleur du texte).
   const ICON_PATHS = {
+    file: ["M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z", "M14 3v5h5", "M9 13h6M9 17h6"],
+    x: ["M18 6 6 18", "m6 6 12 12"],
     "bell-off": ["M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5", "M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7", "M10.3 21a1.94 1.94 0 0 0 3.4 0", "m2 2 20 20"],
   };
   function icon(name) {
@@ -1114,6 +1121,7 @@ export function createChat({ supabase, user }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "tag_documents" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channel_members" }, refreshStructureSoon)
       .subscribe();
@@ -1362,6 +1370,9 @@ export function createChat({ supabase, user }) {
     const manage = Boolean(roomId) && isAdmin();
     $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage);
     $("#tags-manage").hidden = !manage;
+    const roomDocs = roomId ? docsOfRoom(roomId) : [];
+    $("#tags-docs").hidden = !roomId || (!roomDocs.length && !manage);
+    $("#tags-docs-label").textContent = roomDocs.length ? `Documents (${roomDocs.length})` : "Documents";
     const box = $("#tag-filter");
     box.replaceChildren();
     for (const id of [...state.tagFilter]) if (!tagById(id)) state.tagFilter.delete(id);
@@ -1419,6 +1430,132 @@ export function createChat({ supabase, user }) {
     box.hidden = !box.childNodes.length;
     renderPendingImages();
     $("#composer-extra").hidden = state.calendarOpen || (!reply && box.hidden && $("#composer-images").hidden);
+  }
+
+  // --- Documents PDF des dates -------------------------------------------------------------
+
+  const docsOfTag = (tagId) => state.tagDocs.filter((d) => d.tag_id === tagId);
+  const docsOfRoom = (roomId) => {
+    const ids = new Set(state.tags.filter((t) => t.room_id === roomId).map((t) => t.id));
+    return state.tagDocs.filter((d) => ids.has(d.tag_id));
+  };
+  let docsTarget = null; // date qui reçoit les fichiers choisis
+
+  function openDocs() {
+    if (!currentRoomId()) return;
+    const room = roomById(currentRoomId());
+    $("#docs-title").textContent = room ? `Documents · ${room.name}` : "Documents du spectacle";
+    $("#docs-note").textContent = isAdmin()
+      ? "Ajoute des PDF (15 Mo au plus) à chaque date : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir."
+      : "Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.";
+    setNotice("#docs-message", "");
+    renderDocs();
+    openDialog("#dialog-docs");
+  }
+
+  function renderDocs() {
+    const box = $("#docs-list");
+    box.replaceChildren();
+    const roomId = currentRoomId();
+    if (!roomId) return;
+    const admin = isAdmin();
+    const tags = tagsOfRoom(roomId).filter((t) => admin || docsOfTag(t.id).length);
+    if (!tags.length) {
+      box.append(el("p", "muted", admin ? "Crée d'abord une date de tournée (bouton « Gérer »)." : "Aucun document pour l'instant."));
+      return;
+    }
+    for (const tag of tags) {
+      const section = el("section", "docs-tag");
+      const head = el("div", "docs-tag-head");
+      head.append(el("strong", "", tag.label));
+      if (tag.start_date) head.append(el("small", "muted", rangeText(tag)));
+      if (admin) {
+        const add = el("button", "ghost small", "Ajouter un PDF");
+        add.type = "button";
+        add.dataset.addDoc = tag.id;
+        head.append(add);
+      }
+      section.append(head);
+      const docs = docsOfTag(tag.id);
+      if (!docs.length) section.append(el("p", "muted docs-empty", "Aucun document."));
+      for (const doc of docs) {
+        const row = el("div", "doc-row");
+        const open = el("button", "doc-open");
+        open.type = "button";
+        open.dataset.openDoc = doc.id;
+        open.append(icon("file"), el("span", "doc-name", doc.name), el("small", "muted", sizeLabel(doc.size_bytes)));
+        row.append(open);
+        if (admin) {
+          const del = el("button", "icon-btn tiny", "");
+          del.type = "button";
+          del.dataset.delDoc = doc.id;
+          del.title = "Retirer ce document";
+          del.setAttribute("aria-label", "Retirer le document " + doc.name);
+          del.append(icon("x"));
+          row.append(del);
+        }
+        section.append(row);
+      }
+      box.append(section);
+    }
+  }
+
+  async function addDocuments(files) {
+    const tag = docsTarget && tagById(docsTarget);
+    docsTarget = null;
+    if (!tag || !isAdmin()) return;
+    const list = [...files];
+    const problems = [];
+    for (const file of list) {
+      if (!isPdf(file)) {
+        problems.push(`« ${file.name} » n'est pas un PDF.`);
+        continue;
+      }
+      if (file.size > MAX_PDF_BYTES) {
+        problems.push(`« ${file.name} » dépasse 15 Mo.`);
+        continue;
+      }
+      let stored = null;
+      try {
+        stored = await uploadTagDocument(supabase, tag.room_id, tag.id, file);
+        const { data, error } = await supabase.from("tag_documents").insert({ tag_id: tag.id, ...stored }).select().single();
+        if (error) throw error;
+        state.tagDocs.push(data);
+      } catch (error) {
+        if (stored) await removeTagDocuments(supabase, [stored.path]);
+        problems.push(`« ${file.name} » : ${error && error.message ? error.message : "envoi impossible"}${/bucket|not found|tag_documents/i.test(String(error && error.message)) ? " (exécute la migration 012)" : ""}`);
+      }
+    }
+    setNotice("#docs-message", problems.join(" "));
+    renderDocs();
+    renderTagBar();
+  }
+
+  async function openDocument(id) {
+    const doc = state.tagDocs.find((d) => d.id === id);
+    if (!doc) return;
+    // La fenêtre est ouverte tout de suite (clic de la personne) pour ne pas être bloquée, puis dirigée vers le PDF.
+    const tab = window.open("", "_blank");
+    try {
+      const url = await signDocument(supabase, doc.path);
+      if (tab) tab.location.href = url;
+      else window.location.href = url;
+    } catch (error) {
+      if (tab) tab.close();
+      setNotice("#docs-message", "Ouverture impossible : " + (error && error.message ? error.message : "lien indisponible"));
+    }
+  }
+
+  async function deleteDocument(id) {
+    const doc = state.tagDocs.find((d) => d.id === id);
+    if (!doc || !window.confirm(`Retirer le document « ${doc.name} » ?`)) return;
+    const { error } = await supabase.from("tag_documents").delete().eq("id", id);
+    if (error) return setNotice("#docs-message", "Suppression impossible : " + error.message);
+    state.tagDocs = state.tagDocs.filter((d) => d.id !== id);
+    await removeTagDocuments(supabase, [doc.path]);
+    setNotice("#docs-message", "");
+    renderDocs();
+    renderTagBar();
   }
 
   // --- Calendrier et frise hebdomadaire ---------------------------------------------
@@ -1809,8 +1946,11 @@ export function createChat({ supabase, user }) {
     const tag = tagById(id);
     if (!tag) return;
     if (!window.confirm(`Supprimer la date « ${tag.label} » ? Elle sera retirée des messages qui la portent.`)) return;
+    const docPaths = docsOfTag(id).map((d) => d.path);
     const { error } = await supabase.from("tour_tags").delete().eq("id", id);
     if (error) return setNotice("#tags-message", "Suppression impossible : " + error.message);
+    removeTagDocuments(supabase, docPaths);
+    state.tagDocs = state.tagDocs.filter((d) => d.tag_id !== id);
     state.tags = state.tags.filter((t) => t.id !== id);
     state.tagFilter.delete(id);
     state.composerTags.delete(id);
@@ -2104,8 +2244,10 @@ export function createChat({ supabase, user }) {
   async function deleteRoom() {
     if (!editingRoom) return;
     if (!window.confirm(`Supprimer le spectacle « ${editingRoom.name} », ses sous-salons et tous leurs messages ? Cette action est définitive.`)) return;
+    const docPaths = docsOfRoom(editingRoom.id).map((d) => d.path);
     const { error } = await supabase.from("rooms").delete().eq("id", editingRoom.id);
     if (error) return setNotice("#room-message", "Suppression impossible : " + error.message);
+    removeTagDocuments(supabase, docPaths);
     closeDialog($("#dialog-room"));
     editingRoom = null;
     await refreshStructure();
@@ -3127,6 +3269,22 @@ export function createChat({ supabase, user }) {
       renderComposerExtra();
     });
     on($("#tags-manage"), "click", openTagsDialog);
+    on($("#tags-docs"), "click", openDocs);
+    on($("#docs-list"), "click", (event) => {
+      const add = event.target.closest("[data-add-doc]");
+      const open = event.target.closest("[data-open-doc]");
+      const del = event.target.closest("[data-del-doc]");
+      if (add) {
+        docsTarget = add.dataset.addDoc;
+        $("#docs-file").click();
+      } else if (open) openDocument(open.dataset.openDoc);
+      else if (del) deleteDocument(del.dataset.delDoc);
+    });
+    on($("#docs-file"), "change", (event) => {
+      const files = [...event.target.files];
+      event.target.value = "";
+      addDocuments(files);
+    });
     on($("#tags-form"), "submit", submitTag);
     on($("#tag-show-add"), "click", () => {
       const value = $("#tag-show").value;

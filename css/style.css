@@ -994,3 +994,17 @@ dialog.search { width: min(560px, 94vw); }
 .mute-ic .ic { width: 0.95em; height: 0.95em; }
 .ic-wrap { display: inline-flex; }
 #channel-bell .ic:last-child, #notif-ic .ic:last-child { display: none; } /* la cloche barrée s'affiche en silence */
+
+/* Documents PDF des dates */
+dialog.docs { width: min(560px, 94vw); }
+.docs-list { display: flex; flex-direction: column; gap: 14px; margin: 10px 0 6px; max-height: 58vh; overflow-y: auto; }
+.docs-tag { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px; background: var(--bg-input); border: 1px solid var(--border); border-radius: 12px; }
+.docs-tag-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+.docs-tag-head .ghost { margin-left: auto; align-self: center; }
+.docs-empty { margin: 0; font-size: 0.85rem; }
+.doc-row { display: flex; align-items: center; gap: 6px; }
+.doc-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 8px 10px; font: inherit; font-size: 0.9rem; color: var(--text); background: transparent; border: 1px solid var(--border); border-radius: 10px; text-align: left; }
+.doc-open:hover { border-color: var(--accent); }
+.doc-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.doc-open small { flex: none; }
+#tags-docs .ic { width: 1em; height: 1em; }

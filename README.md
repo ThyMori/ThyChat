@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `012_tag_documents.sql` | documents PDF attachés aux dates de tournée : table `tag_documents` et stockage privé `tag-documents` (**indispensable à la version 3.10**) |
 | `011_search_accents.sql` | recherche dans les messages sans tenir compte des accents (sans elle, la recherche ignore seulement les majuscules) |
 | `010_private_messages_global.sql` | messages privés communs à tous les espaces (une seule discussion par paire, doublons fusionnés), suppression d'une discussion privée (**indispensable à la version 3.7** ; redéployer `send-push`) |
 | `009_message_images.sql` | photos dans les messages : stockage privé `message-images`, message sans texte, contrôle du dossier (**indispensable à la version 3.6** ; redéployer `send-push` pour la notification « 📷 Photo ») |
@@ -156,6 +157,11 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 
 - Une discussion privée entre deux personnes est unique : elle apparaît dans **tous** les espaces que les deux personnes ont en commun, quel que soit l'espace ouvert. Le silence d'un espace ne la concerne pas.
 - La poubelle 🗑 de l'en-tête supprime toute la discussion (messages et photos) **pour les deux personnes**. Les administrateurs ne voient jamais les messages privés.
+
+## Documents des dates
+
+- Chaque date de tournée peut recevoir des PDF (feuilles de route, billets, livrets d'accueil…), ajoutés par les **administrateurs de l'espace** depuis le bouton **Documents** de la barre des dates. Tous les membres ayant accès au spectacle peuvent les ouvrir.
+- Les fichiers (15 Mo au plus, PDF uniquement) sont dans le stockage privé `tag-documents/<spectacle>/<date>/…` ; la lecture passe par des liens temporaires d'une heure. Les règles RLS (table et stockage) réservent l'ajout et la suppression aux administrateurs. Supprimer une date ou un spectacle supprime ses documents.
 
 ## Recherche et liste des messages privés
 

@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.10.0 — 2026-11-14
+- Documents PDF par date de tournée (feuilles de route, billets, livrets) ajoutés par les administrateurs, lisibles par les membres
+
 ## 3.9.1 — 2026-11-14
 - Boutons loupe, poubelle et cloche : icônes au trait, plus sobres (à la place des émojis)
 
