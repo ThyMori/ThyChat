@@ -233,16 +233,32 @@
           <button type="button" class="icon-btn tiny" id="reply-cancel" aria-label="Annuler la réponse">×</button>
         </div>
         <div id="composer-tags" class="tag-chips" hidden></div>
+        <div id="composer-images" class="composer-images" hidden></div>
       </div>
       <ul id="tag-suggest" class="tag-suggest" role="listbox" aria-label="Dates de tournée" hidden></ul>
 
+      <div id="attach-menu" class="attach-menu" hidden>
+        <button type="button" id="attach-photo"><span aria-hidden="true">🖼️</span> Photo</button>
+        <button type="button" id="attach-camera"><span aria-hidden="true">📷</span> Prendre une photo</button>
+      </div>
+      <input type="file" id="file-photo" accept="image/*" multiple hidden>
+      <input type="file" id="file-camera" accept="image/*" capture="environment" hidden>
+
       <form id="composer" class="composer" hidden>
+        <button type="button" class="attach" id="composer-attach" aria-label="Ajouter une photo" aria-expanded="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>
+        </button>
         <textarea id="composer-input" rows="1" maxlength="8000" placeholder="Écrire un message" aria-label="Message"></textarea>
         <button type="submit" class="send" id="composer-send" aria-label="Envoyer">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.01 21 23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </form>
     </section>
+
+    <dialog id="dialog-image" class="lightbox">
+      <img id="lightbox-img" alt="Photo du message">
+      <button type="button" class="icon-btn" id="lightbox-close" aria-label="Fermer">×</button>
+    </dialog>
 
     <div id="toast" class="toast" role="status" hidden></div>
 
@@ -387,6 +403,7 @@
         <ul>
           <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
           <li>Touche un message pour afficher ses actions : <strong>Répondre</strong> (le message d'origine s'affiche au-dessus de ta réponse, touche-le pour y retourner), <strong>Citer</strong> (copie un extrait dans ton message) et, pour tes propres messages, <strong>Rayer</strong> (le texte reste lisible mais barré ; « Rétablir » l'annule).</li>
+          <li><strong>Photos</strong> : touche le <strong>+</strong> à gauche de la zone de saisie pour choisir une photo (ou, sur téléphone, en prendre une). Tu peux aussi <strong>coller</strong> une image copiée (Ctrl+V ou Cmd+V, ou « Coller » en appui long sur téléphone). Jusqu'à 4 photos par message, avec ou sans texte ; touche une photo reçue pour l'agrandir. Elles ne sont visibles que par les personnes qui ont accès au sous-salon.</li>
           <li><strong>Supprimer</strong> : tes messages, et ceux de tout le monde pour les administrateurs.</li>
           <li>Les liens sont cliquables.</li>
         </ul>

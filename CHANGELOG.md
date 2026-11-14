@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.6.0 — 2026-11-14
+- Photos dans les messages : bouton +, collage d'une image du presse-papier, jusqu'à 4 photos, agrandissement
+
 ## 3.5.1 — 2026-11-14
 - Les jours de représentation saisis sont enregistrés même sans toucher « Ajouter ★ » et l'étoile est plus visible
 - le #Date choisi reste dans le message sous forme de pastille

@@ -92,7 +92,8 @@ Deno.serve(async (req) => {
     const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
     if (!subs?.length) return json({ ok: true, sent: 0 });
 
-    const text = clip(String(message.body || ""), 140);
+    const hasImage = Array.isArray(message.attachments) && message.attachments.length > 0;
+    const text = clip(String(message.body || ""), 140) || (hasImage ? "📷 Photo" : "");
     const isDm = channel.kind === "dm";
     let sent = 0;
 

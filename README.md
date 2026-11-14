@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `009_message_images.sql` | photos dans les messages : stockage privé `message-images`, message sans texte, contrôle du dossier (**indispensable à la version 3.6** ; redéployer `send-push` pour la notification « 📷 Photo ») |
 | `007_strike_space_photo.sql` | messages rayés par leur auteur, photo de chaque espace (**à exécuter avant d'utiliser la version 3.3**) |
 | `008_date_ranges.sql` | plage de dates (début, fin) et dates de représentation ★ pour chaque date de tournée (**indispensable à la version 3.4**) |
 | `006_tags_replies.sql` | dates de tournée (étiquettes rattachées au spectacle), réponses à un message (**indispensable à la version 3.1** ; pas de fonction à redéployer) |
@@ -143,6 +144,12 @@ Le bouton **i** en haut de la barre latérale ouvre une page qui explique toutes
 - **Rayer** : l'auteur d'un message le touche puis choisit « Rayer » ; le texte reste lisible mais barré et atténué pour tout le monde. « Rétablir » l'annule. On ne raye que ses propres messages.
 - **Photo d'espace** : dans **Espace et membres**, les administrateurs de l'espace (production ou compagnie) peuvent changer ou retirer la photo ; elle remplace les initiales dans la barre latérale et la liste des espaces.
 
+## Photos dans les messages
+
+- Le bouton **+** de la zone de saisie ajoute une photo (galerie, ou appareil photo sur téléphone) ; on peut aussi **coller** une image du presse-papier. Jusqu'à 4 photos par message, avec ou sans texte.
+- Chaque image est réduite (1600 px au plus) et convertie en JPEG avant l'envoi, puis rangée dans le stockage privé `message-images/<sous-salon>/…`. Les règles RLS du stockage n'autorisent la lecture et l'envoi qu'aux personnes qui ont accès au sous-salon ; l'affichage passe par des liens temporaires de 24 h.
+- Supprimer un message supprime aussi ses photos.
+
 ## Couleurs des espaces
 
 Chaque espace (une production, une compagnie…) a sa couleur, qui teinte toute l'interface : fond, barre latérale, bulles, boutons. À la création, ThyChat propose une couleur pas encore utilisée par tes autres espaces ; les administrateurs la changent dans **Espace et membres**. La palette est dans `js/themes.js`.
@@ -163,7 +170,8 @@ Un bandeau propose l'installation (reportable une semaine, trois fois maximum) e
 - [x] Messages en temps réel (envoi, suppression, liens cliquables)
 - [x] Couleur par espace, look « bulles » façon messagerie grand public
 - [ ] Fils de discussion, messages épinglés, recherche
-- [ ] Envoi de fichiers et d'images (plans de feu, fiches techniques)
+- [x] Photos dans les messages (bouton +, collage)
+- [ ] Envoi de fichiers (plans de feu, fiches techniques en PDF)
 - [x] Messages privés, spectacles par assignation, rôles, invitations, profil avec photo
 - [x] Notifications push, silences par espace / spectacle / sous-salon, pastilles de non lus
 - [ ] Invitation par numéro de téléphone (fournisseur de SMS)

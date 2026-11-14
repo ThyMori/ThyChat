@@ -5,6 +5,7 @@
 
 import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHue } from "./themes.js";
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
+import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, signPaths } from "./images.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
   safeAvatarUrl,
@@ -134,6 +135,9 @@ const excerpt = (text, max = 90) => {
   const flat = String(text || "").replace(/^(> .*\n?)+/, "").replace(/\s+/g, " ").trim();
   return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 };
+const PHOTO_LABEL = "📷 Photo";
+const messageExcerpt = (message, max = 90) =>
+  excerpt(message && message.body, max) || (message && message.attachments && message.attachments.length ? PHOTO_LABEL : "");
 const shortDate = (iso) => (iso ? new Date(iso + "T00:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }) : "");
 
 const pad2 = (n) => String(n).padStart(2, "0");
@@ -246,6 +250,8 @@ export function createChat({ supabase, user }) {
     calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
     pendingFilter: null, // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
     tagFilter: new Set(), // dates sélectionnées pour filtrer le sous-salon ouvert
+    pendingImages: [], // photos en attente d'envoi : { id, blob, width, height, url }
+    imageUrls: new Map(), // chemin -> lien temporaire d'une photo
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
     replyTo: null, // message auquel on répond
     quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
@@ -811,13 +817,14 @@ export function createChat({ supabase, user }) {
         quote.dataset.reply = message.reply_to;
         quote.append(
           el("strong", "", quoted ? authorName(quoted.user_id) : "Message"),
-          el("span", "", quoted ? excerpt(quoted.body) : "Message introuvable")
+          el("span", "", quoted ? messageExcerpt(quoted) : "Message introuvable")
         );
         bubble.append(quote);
       }
 
       const body = el("div", "msg-body");
       const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
+      if (message.attachments && message.attachments.length) bubble.append(imagesBlock(message));
       renderMessageBody(body, message.body, bodyTags);
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
@@ -867,7 +874,7 @@ export function createChat({ supabase, user }) {
     setView("empty", {
       title: "La base n'est pas prête",
       text:
-        "Exécute les fichiers supabase/migrations/005_rooms.sql, 006_tags_replies.sql, 007_strike_space_photo.sql puis 008_date_ranges.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
+        "Exécute les fichiers supabase/migrations/005_rooms.sql, 006_tags_replies.sql, 007_strike_space_photo.sql, 008_date_ranges.sql puis 009_message_images.sql (après 003 et 004, ou supabase/schema.sql) dans l'éditeur SQL de Supabase, puis recharge la page. (" +
         error.message +
         ")",
     });
@@ -960,6 +967,7 @@ export function createChat({ supabase, user }) {
       state.pendingFilter = null;
     }
     state.composerTags = new Set();
+    clearPendingImages();
     state.replyTo = null;
     renderChannels();
     renderHeader();
@@ -998,7 +1006,7 @@ export function createChat({ supabase, user }) {
   async function loadMessages(channelId, token) {
     let query = supabase
       .from("messages")
-      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, pinned, created_at, edited_at")
+      .select("id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at")
       .eq("channel_id", channelId)
       .is("parent_id", null);
     if (state.tagFilter.size) query = query.overlaps("tag_ids", [...state.tagFilter]);
@@ -1011,6 +1019,7 @@ export function createChat({ supabase, user }) {
     state.messages = (data || []).slice().reverse();
     await ensureProfiles(state.messages.map((m) => m.user_id));
     await loadQuoted(state.messages);
+    await resolveImages(state.messages);
     if (stopped || token !== state.loadToken) return;
     renderMessages(true);
   }
@@ -1025,8 +1034,8 @@ export function createChat({ supabase, user }) {
       ),
     ];
     if (!wanted.length) return;
-    const { data } = await supabase.from("messages").select("id, user_id, body").in("id", wanted);
-    for (const row of data || []) state.quoted.set(row.id, { user_id: row.user_id, body: row.body });
+    const { data } = await supabase.from("messages").select("id, user_id, body, attachments").in("id", wanted);
+    for (const row of data || []) state.quoted.set(row.id, { user_id: row.user_id, body: row.body, attachments: row.attachments });
     await ensureProfiles((data || []).map((row) => row.user_id));
   }
 
@@ -1076,6 +1085,7 @@ export function createChat({ supabase, user }) {
       if (viewing) {
         await ensureProfiles([message.user_id]);
         await loadQuoted([message]);
+        await resolveImages([message]);
         if (stopped || !state.channel || state.channel.id !== message.channel_id) return;
         const hidden = state.tagFilter.size && !(message.tag_ids || []).some((t) => state.tagFilter.has(t));
         if (!hidden) addMessage(message, mine);
@@ -1118,34 +1128,146 @@ export function createChat({ supabase, user }) {
 
   // --- Actions -----------------------------------------------------------------
 
+  let sending = false;
+
   async function sendMessage() {
+    if (sending || !state.channel) return;
     const input = $("#composer-input");
     const body = input.value.trim();
-    if (!body || !state.channel) return;
+    const images = state.pendingImages.slice();
+    if (!body && !images.length) return;
 
-    const row = { channel_id: state.channel.id, body };
+    const channelId = state.channel.id;
+    const row = { channel_id: channelId, body };
     if (state.replyTo) row.reply_to = state.replyTo.id;
     if (state.composerTags.size) row.tag_ids = [...state.composerTags];
     const replied = state.replyTo;
 
-    input.value = "";
-    autosize();
-    hideSuggest();
-    const { data, error } = await supabase.from("messages").insert(row).select().single();
-
-    if (error) {
-      input.value = body;
+    sending = true;
+    $("#composer-send").disabled = true;
+    const uploaded = [];
+    try {
+      for (const image of images) uploaded.push(await uploadMessageImage(supabase, channelId, image));
+      if (uploaded.length) row.attachments = uploaded;
+      input.value = "";
       autosize();
-      toast("Message non envoyé : " + error.message);
-      return;
+      hideSuggest();
+      const { data, error } = await supabase.from("messages").insert(row).select().single();
+      if (error) {
+        input.value = body;
+        autosize();
+        await removeMessageImages(supabase, uploaded.map((u) => u.path));
+        toast("Message non envoyé : " + error.message);
+        return;
+      }
+      if (replied) state.quoted.set(replied.id, { user_id: replied.user_id, body: replied.body, attachments: replied.attachments });
+      state.replyTo = null;
+      state.composerTags = new Set();
+      clearPendingImages();
+      renderComposerExtra();
+      await resolveImages([data]);
+      const hidden = state.tagFilter.size && !(data.tag_ids || []).some((t) => state.tagFilter.has(t));
+      if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
+      else if (state.channel && state.channel.id === channelId) addMessage(data, true);
+    } catch (error) {
+      await removeMessageImages(supabase, uploaded.map((u) => u.path));
+      toast("Photo non envoyée : " + (error && error.message ? error.message : "erreur inconnue") + (/bucket|not found/i.test(String(error && error.message)) ? " (exécute la migration 009)" : ""));
+    } finally {
+      sending = false;
+      $("#composer-send").disabled = false;
     }
-    if (replied) state.quoted.set(replied.id, { user_id: replied.user_id, body: replied.body });
-    state.replyTo = null;
-    state.composerTags = new Set();
+  }
+
+  // --- Photos dans les messages ------------------------------------------------------
+
+  function clearPendingImages() {
+    for (const image of state.pendingImages) URL.revokeObjectURL(image.url);
+    state.pendingImages = [];
+  }
+
+  function renderPendingImages() {
+    const box = $("#composer-images");
+    box.replaceChildren();
+    for (const image of state.pendingImages) {
+      const thumb = el("div", "pending-image");
+      const img = document.createElement("img");
+      img.src = image.url;
+      img.alt = "Photo à envoyer";
+      const remove = el("button", "icon-btn tiny", "×");
+      remove.type = "button";
+      remove.setAttribute("aria-label", "Retirer la photo");
+      remove.addEventListener("click", () => {
+        URL.revokeObjectURL(image.url);
+        state.pendingImages = state.pendingImages.filter((i) => i.id !== image.id);
+        renderComposerExtra();
+      });
+      thumb.append(img, remove);
+      box.append(thumb);
+    }
+    box.hidden = !state.pendingImages.length;
+  }
+
+  async function addImages(files) {
+    const list = [...files].filter((f) => f && /^image\//.test(f.type));
+    if (!list.length) return;
+    const room = MAX_IMAGES - state.pendingImages.length;
+    if (room <= 0) return toast(`Au plus ${MAX_IMAGES} photos par message.`);
+    if (list.length > room) toast(`Au plus ${MAX_IMAGES} photos par message.`);
+    for (const file of list.slice(0, room)) {
+      try {
+        const { blob, width, height } = await resizedJpeg(file);
+        state.pendingImages.push({ id: Math.random().toString(36).slice(2), blob, width, height, url: URL.createObjectURL(blob) });
+      } catch {
+        toast("Cette image ne peut pas être lue.");
+      }
+    }
     renderComposerExtra();
-    const hidden = state.tagFilter.size && !(data.tag_ids || []).some((t) => state.tagFilter.has(t));
-    if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
-    else addMessage(data, true);
+  }
+
+  // Liens temporaires des photos des messages donnés.
+  async function resolveImages(messages) {
+    const paths = [];
+    for (const m of messages) for (const a of m.attachments || []) if (a.path && !state.imageUrls.has(a.path)) paths.push(a.path);
+    if (!paths.length) return;
+    const urls = await signPaths(supabase, [...new Set(paths)]);
+    for (const [path, url] of urls) state.imageUrls.set(path, url);
+  }
+
+  function imagesBlock(message) {
+    const box = el("div", "msg-images");
+    box.dataset.count = String(Math.min(message.attachments.length, 4));
+    for (const attachment of message.attachments) {
+      const img = document.createElement("img");
+      img.alt = "Photo";
+      img.loading = "lazy";
+      if (attachment.w && attachment.h) img.style.aspectRatio = `${attachment.w} / ${attachment.h}`;
+      const url = state.imageUrls.get(attachment.path);
+      if (url) img.src = url;
+      let retried = false;
+      img.addEventListener("error", async () => {
+        if (retried) return;
+        retried = true;
+        state.imageUrls.delete(attachment.path);
+        await resolveImages([{ attachments: [attachment] }]);
+        const fresh = state.imageUrls.get(attachment.path);
+        if (fresh) img.src = fresh;
+      });
+      img.addEventListener("click", (event) => {
+        event.stopPropagation();
+        if (!img.src) return;
+        $("#lightbox-img").src = img.src;
+        openDialog("#dialog-image");
+      });
+      box.append(img);
+    }
+    return box;
+  }
+
+  function toggleAttachMenu(force) {
+    const menu = $("#attach-menu");
+    const open = force === undefined ? menu.hidden : force;
+    menu.hidden = !open;
+    $("#composer-attach").setAttribute("aria-expanded", String(open));
   }
 
   // --- Dates de tournée, réponses et citations -------------------------------------
@@ -1210,7 +1332,7 @@ export function createChat({ supabase, user }) {
     $("#reply-bar").hidden = !reply;
     if (reply) {
       $("#reply-author").textContent = authorName(reply.user_id);
-      $("#reply-excerpt").textContent = excerpt(reply.body);
+      $("#reply-excerpt").textContent = messageExcerpt(reply);
     }
     const box = $("#composer-tags");
     box.replaceChildren();
@@ -1229,7 +1351,8 @@ export function createChat({ supabase, user }) {
       box.append(chip);
     }
     box.hidden = !box.childNodes.length;
-    $("#composer-extra").hidden = state.calendarOpen || (!reply && box.hidden);
+    renderPendingImages();
+    $("#composer-extra").hidden = state.calendarOpen || (!reply && box.hidden && $("#composer-images").hidden);
   }
 
   // --- Calendrier et frise hebdomadaire ---------------------------------------------
@@ -1437,7 +1560,7 @@ export function createChat({ supabase, user }) {
     const message = state.messages.find((m) => m.id === id);
     if (!message) return;
     const input = $("#composer-input");
-    const line = `> ${authorName(message.user_id)} : ${excerpt(message.body, 140)}\n\n`;
+    const line = `> ${authorName(message.user_id)} : ${messageExcerpt(message, 140)}\n\n`;
     input.value = line + input.value.replace(/^(> .*\n)+\n?/, "");
     state.selectedId = null;
     renderMessages();
@@ -1632,10 +1755,14 @@ export function createChat({ supabase, user }) {
 
   async function deleteMessage(id) {
     if (!window.confirm("Supprimer ce message ? Cette action est définitive.")) return;
+    const target = state.messages.find((m) => m.id === id);
     const { error } = await supabase.from("messages").delete().eq("id", id);
     if (error) {
       toast("Suppression impossible : " + error.message);
       return;
+    }
+    if (target && target.attachments && target.attachments.length) {
+      removeMessageImages(supabase, target.attachments.map((a) => a.path).filter(Boolean));
     }
     removeMessage(id);
   }
@@ -2683,6 +2810,33 @@ export function createChat({ supabase, user }) {
       updateSuggest();
     });
     on(input, "blur", () => setTimeout(hideSuggest, 120));
+    on(input, "paste", (event) => {
+      const files = [...((event.clipboardData && event.clipboardData.files) || [])].filter((f) => /^image\//.test(f.type));
+      if (!files.length) return; // du texte : collage normal
+      event.preventDefault();
+      addImages(files);
+    });
+    if (!(window.matchMedia && window.matchMedia("(pointer: coarse)").matches)) $("#attach-camera").hidden = true;
+    on($("#composer-attach"), "click", () => toggleAttachMenu());
+    on($("#attach-photo"), "click", () => {
+      toggleAttachMenu(false);
+      $("#file-photo").click();
+    });
+    on($("#attach-camera"), "click", () => {
+      toggleAttachMenu(false);
+      $("#file-camera").click();
+    });
+    for (const id of ["#file-photo", "#file-camera"]) {
+      on($(id), "change", (event) => {
+        addImages(event.target.files);
+        event.target.value = "";
+      });
+    }
+    on($("#lightbox-close"), "click", () => closeDialog($("#dialog-image")));
+    on($("#dialog-image"), "click", () => closeDialog($("#dialog-image")));
+    on(document, "click", (event) => {
+      if (!$("#attach-menu").hidden && !event.target.closest("#attach-menu, #composer-attach")) toggleAttachMenu(false);
+    });
     on($("#reply-cancel"), "click", () => {
       state.replyTo = null;
       renderComposerExtra();
@@ -2862,6 +3016,7 @@ export function createChat({ supabase, user }) {
     state.tags = [];
     state.tagFilter = new Set();
     state.composerTags = new Set();
+    clearPendingImages();
     state.replyTo = null;
     state.quoted = new Map();
     state.channel = null;
