@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.24.1 — 2026-11-14
+- Fenêtre des dates de tournée : le formulaire n'apparaît plus qu'avec le bouton + Ajouter une date (ou en modifiant une date)
+
 ## 3.24.0 — 2026-11-14
 - Dates de tournée : choix des jours en touchant début puis fin (ou en glissant) dans un mini-calendrier
 - représentations ajoutées d'un appui, avec plusieurs par jour possibles (ajouter ou retirer)

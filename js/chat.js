@@ -2293,6 +2293,7 @@ export function createChat({ supabase, user }) {
   // Gestion des dates de tournée (administrateurs) --------------------------------
 
   let editingTag = null;
+  let tagFormOpen = false; // formulaire masqué tant qu'on n'ajoute ni ne modifie rien
 
   function openTagsDialog() {
     const roomId = currentRoomId();
@@ -2300,6 +2301,7 @@ export function createChat({ supabase, user }) {
     const room = roomById(roomId);
     $("#tags-title").textContent = `Dates de tournée · ${room.name}`;
     editingTag = null;
+    tagFormOpen = false;
     resetTagForm();
     renderTagList();
     setNotice("#tags-message", "");
@@ -2433,7 +2435,9 @@ export function createChat({ supabase, user }) {
     pendingShowDay = null;
     $("#show-choice").hidden = true;
     $("#tag-add").textContent = editingTag ? "Enregistrer" : "Ajouter";
-    $("#tag-cancel").hidden = !editingTag;
+    const formShown = tagFormOpen || !!editingTag;
+    $("#tags-form").hidden = !formShown;
+    $("#tag-new").hidden = formShown;
     if (rangePicker) {
       rangePicker.goTo($("#tag-start").value || null);
       showsPicker.goTo(editingShows[0] || $("#tag-start").value || null);
@@ -2570,6 +2574,7 @@ export function createChat({ supabase, user }) {
     }
     state.tags = state.tags.filter((t) => t.id !== data.id).concat(data);
     editingTag = null;
+    tagFormOpen = false;
     resetTagForm();
     setNotice("#tags-message", "");
     renderTagList();
@@ -2595,6 +2600,7 @@ export function createChat({ supabase, user }) {
     state.messages = state.messages.map((m) => ({ ...m, tag_ids: (m.tag_ids || []).filter((t) => t !== id) }));
     if (editingTag && editingTag.id === id) {
       editingTag = null;
+      tagFormOpen = false;
       resetTagForm();
     }
     renderTagList();
@@ -4059,7 +4065,15 @@ export function createChat({ supabase, user }) {
     });
     on($("#tag-cancel"), "click", () => {
       editingTag = null;
+      tagFormOpen = false;
+      setNotice("#tags-message", "");
       resetTagForm();
+    });
+    on($("#tag-new"), "click", () => {
+      editingTag = null;
+      tagFormOpen = true;
+      resetTagForm();
+      $("#tag-label").focus();
     });
     on($("#open-calendar"), "click", () => openCalendar(null));
     on($("#week-strip"), "click", () => openCalendar(currentRoomId()));

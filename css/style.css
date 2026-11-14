@@ -1184,3 +1184,5 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .show-choice { border: 1px solid var(--accent); border-radius: 10px; padding: 8px; margin-bottom: 8px; }
 .show-choice p { margin: 0 0 6px; }
 .show-choice-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.tags-form[hidden], #tag-new[hidden] { display: none; }
+#tag-new { margin-top: 10px; }
