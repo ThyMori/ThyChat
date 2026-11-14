@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.20.0 — 2026-11-14
+- Dates de tournée : classées par ordre chronologique, dates passées rayées en fin de liste, première représentation affichée
+- champ du nom à taille normale
+
 ## 3.19.0 — 2026-11-14
 - Gérer les dates de tournée passe dans le menu ⋮ de l'en-tête (le bouton « Gérer » de la barre des dates disparaît)
 

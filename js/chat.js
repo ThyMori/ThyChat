@@ -1387,16 +1387,27 @@ export function createChat({ supabase, user }) {
   const currentRoomId = () => (state.channel && state.channel.kind === "channel" ? state.channel.room_id : null);
   const tagById = (id) => state.tags.find((t) => t.id === id);
   const tagText = (tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
+  // Dernier jour d'une date (fin, sinon dernière représentation, sinon début) ; une date est passée quand il est avant aujourd'hui.
+  const tagLastDay = (tag) => tag.end_date || [...(tag.shows || [])].sort().pop() || tag.start_date || "";
+  const tagIsPast = (tag) => Boolean(tagLastDay(tag)) && tagLastDay(tag) < toISO(new Date());
+  const firstShow = (tag) => [...(tag.shows || [])].sort()[0] || null;
+  // À venir d'abord (par ordre chronologique), puis sans date, puis les passées (rayées) à la fin.
   const tagsOfRoom = (roomId) =>
     state.tags
       .filter((t) => t.room_id === roomId)
-      .sort((a, b) => (a.start_date || "9999").localeCompare(b.start_date || "9999") || a.label.localeCompare(b.label, "fr"));
+      .sort(
+        (a, b) =>
+          Number(tagIsPast(a)) - Number(tagIsPast(b)) ||
+          (a.start_date || "9999").localeCompare(b.start_date || "9999") ||
+          a.label.localeCompare(b.label, "fr"),
+      );
 
   function tagChip(tag, active, onClick) {
     const chip = el("button", "tag-chip", tag.label);
     chip.type = "button";
     chip.dataset.tag = tag.id;
     chip.setAttribute("aria-pressed", String(active));
+    if (tagIsPast(tag)) chip.classList.add("is-past");
     if (tag.start_date) chip.append(el("small", "", rangeText(tag)));
     chip.addEventListener("click", onClick);
     return chip;
@@ -2163,8 +2174,14 @@ export function createChat({ supabase, user }) {
     if (!tags.length) list.append(el("li", "muted", "Aucune date pour l'instant."));
     for (const tag of tags) {
       const row = el("li", "tag-row");
-      const shows = (tag.shows || []).map((iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }));
-      row.append(el("span", "pick-name", tagText(tag) + (shows.length ? ` · ★ ${shows.join(", ")}` : " · aucune représentation ★")));
+      const shows = [...(tag.shows || [])].sort().map((iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }));
+      const first = firstShow(tag);
+      const info = first
+        ? ` · ★ 1re représentation le ${fromISO(first).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}` + (shows.length > 1 ? ` (${shows.length} au total)` : "")
+        : " · aucune représentation ★";
+      const name = el("span", "pick-name", tagText(tag) + info);
+      if (tagIsPast(tag)) name.classList.add("is-past");
+      row.append(name);
       const edit = el("button", "ghost small", "Modifier");
       edit.type = "button";
       edit.dataset.edit = tag.id;

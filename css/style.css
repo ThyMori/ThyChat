@@ -1119,3 +1119,10 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .me-menu[hidden] { display: none; }
 .me-menu > button { width: 100%; justify-content: flex-start; text-align: left; }
 .me-menu > button[hidden] { display: none; }
+
+/* Dialogue des dates : le champ « nom » garde une hauteur normale ; dates passées rayées */
+.tags-form input[type="text"] { flex: none; }
+.is-past, .tag-chip.is-past { text-decoration: line-through; opacity: 0.6; }
+.tag-chip.is-past small { text-decoration: line-through; }
+.tag-row { flex-wrap: wrap; }
+.tag-row .pick-name { flex: 1 1 100%; white-space: normal; overflow: visible; text-overflow: clip; }
