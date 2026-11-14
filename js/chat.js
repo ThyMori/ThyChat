@@ -568,8 +568,28 @@ export function createChat({ supabase, user }) {
 
   // --- Rendu ---------------------------------------------------------------
 
+  // Petites icônes au trait (sobres, de la couleur du texte).
+  const ICON_PATHS = {
+    "bell-off": ["M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5", "M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7", "M10.3 21a1.94 1.94 0 0 0 3.4 0", "m2 2 20 20"],
+  };
+  function icon(name) {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("class", "ic");
+    svg.setAttribute("aria-hidden", "true");
+    for (const d of ICON_PATHS[name]) {
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", d);
+      svg.append(path);
+    }
+    return svg;
+  }
+
   function flag(text, className, title) {
-    const node = el("span", className, text);
+    const node = el("span", className);
+    if (text === "bell-off") node.append(icon("bell-off"));
+    else node.textContent = text;
     if (title) node.title = title;
     return node;
   }
@@ -611,7 +631,7 @@ export function createChat({ supabase, user }) {
       text.append(el("strong", "", ws.name), el("small", "", roleLabel(ws.role)));
       row.append(text);
       const side = el("span", "ws-flags");
-      if (info.muted) side.append(flag("🔕", "mute-ic", muteLabel(wsMute(ws.id)) || "Espace en silence"));
+      if (info.muted) side.append(flag("bell-off", "mute-ic", muteLabel(wsMute(ws.id)) || "Espace en silence"));
       const n = info.muted ? info.all : info.count;
       if (n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
       row.append(side);
@@ -646,7 +666,7 @@ export function createChat({ supabase, user }) {
     if (channel.kind === "channel" && !channel.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
     if (isMuted) {
       const label = muteLabel(mutedRowFor(channel)) || "Silence";
-      side.append(flag("🔕", "mute-ic", label));
+      side.append(flag("bell-off", "mute-ic", label));
     }
     const n = state.unread.get(channel.id) || 0;
     if (n > 0) side.append(flag(countLabel(n), isMuted ? "unread muted" : "unread"));
@@ -675,7 +695,7 @@ export function createChat({ supabase, user }) {
     toggle.append(text);
     const side = el("span", "channel-side");
     if (!room.everyone) side.append(flag("🔒", "lock-ic", "Accès restreint"));
-    if (info.muted) side.append(flag("🔕", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Spectacle en silence"));
+    if (info.muted) side.append(flag("bell-off", "mute-ic", muteLabel(state.mutes.get(muteKey("room", room.id))) || "Spectacle en silence"));
     const n = info.muted ? info.all : info.count;
     if (!open && n > 0) side.append(flag(countLabel(n), info.muted ? "unread muted" : "unread"));
     toggle.append(side);
@@ -751,12 +771,14 @@ export function createChat({ supabase, user }) {
       if (channel.description) parts.push(channel.description);
     }
     const muteNote = channel ? muteLabel(mutedRowFor(channel)) : "";
-    if (muteNote) parts.push("🔕 " + muteNote);
+    if (muteNote) parts.push(muteNote);
     $("#channel-desc").textContent = parts.join(" · ");
 
     const bell = $("#channel-bell");
     bell.hidden = !channel;
-    bell.textContent = channel && muted(channel) ? "🔕" : "🔔";
+    const bellOff = Boolean(channel && muted(channel));
+    bell.querySelector(".ic:first-child").style.display = bellOff ? "none" : "inline";
+    bell.querySelector(".ic:last-child").style.display = bellOff ? "inline" : "none";
     bell.classList.toggle("is-muted", Boolean(channel && muted(channel)));
     bell.title = muteNote || "Notifications";
     $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
@@ -2765,7 +2787,8 @@ export function createChat({ supabase, user }) {
   function renderPushStatus() {
     const status = state.pushStatus;
     const off = status !== "on";
-    $("#notif-ic").textContent = off ? "🔕" : "🔔";
+    $("#notif-ic").querySelector(".ic:first-child").style.display = off ? "none" : "inline";
+    $("#notif-ic").querySelector(".ic:last-child").style.display = off ? "inline" : "none";
     $("#notif-label").textContent = status === "off" ? "Activer les notifications" : "Notifications";
     $("#open-notifications").classList.toggle("is-warn", status === "off");
     const box = $("#push-box");
@@ -2799,7 +2822,9 @@ export function createChat({ supabase, user }) {
     const item = el("li", "mute-row");
     if (choice !== "off") item.classList.add("is-muted");
     const text = el("span", "mute-text");
-    const title = el("strong", "", (choice !== "off" ? "🔕 " : "") + name);
+    const title = el("strong", "");
+    if (choice !== "off") title.append(icon("bell-off"), " ");
+    title.append(name);
     text.append(title);
     const sub = muteLabel(row) || extra || "";
     if (sub) text.append(el("small", "", sub));

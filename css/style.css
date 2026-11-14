@@ -983,3 +983,14 @@ dialog.search { width: min(560px, 94vw); }
 .search-excerpt mark { background: hsl(var(--h) 80% 55% / 0.45); color: inherit; border-radius: 3px; padding: 0 1px; }
 .msg.flash .bubble { animation: flash 2.4s ease-out; }
 @keyframes flash { 0%, 40% { box-shadow: 0 0 0 3px hsl(var(--h) 90% 65% / 0.9); } 100% { box-shadow: 0 0 0 3px transparent; } }
+
+/* Icônes au trait : sobres et discrètes */
+.ic { width: 1.1em; height: 1.1em; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.18em; flex: none; }
+.icon-btn .ic { width: 18px; height: 18px; }
+#open-search, #channel-search, #channel-delete-dm, #channel-bell { color: var(--muted); background: transparent; }
+#open-search:hover, #channel-search:hover, #channel-delete-dm:hover, #channel-bell:hover { color: var(--text); border-color: var(--muted); }
+#channel-delete-dm:hover { color: #e88a8a; border-color: #8a4a4a; }
+.icon-btn.bell.is-muted { color: var(--accent); }
+.mute-ic .ic { width: 0.95em; height: 0.95em; }
+.ic-wrap { display: inline-flex; }
+#channel-bell .ic:last-child, #notif-ic .ic:last-child { display: none; } /* la cloche barrée s'affiche en silence */
