@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.6.4 — 2026-11-14
+- Étoile de représentation centrée sur le jour et posée sur la frise de la date (calendrier et frise du spectacle)
+
 ## 3.6.3 — 2026-11-14
 - Invitation : si la session a expiré, elle est renouvelée automatiquement avant de réessayer (sinon message clair)
 

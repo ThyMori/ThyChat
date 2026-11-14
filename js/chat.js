@@ -1388,13 +1388,6 @@ export function createChat({ supabase, user }) {
       const head = el("div", "cal-day-head");
       if (opts.compact) head.append(el("small", "", weekdayShort(day)));
       head.append(el("span", "cal-num", String(day.getDate())));
-      const shows = tags.filter((t) => (t.shows || []).includes(isos[index]));
-      if (shows.length) {
-        const star = el("span", "cal-star", "★" + (shows.length > 1 ? shows.length : ""));
-        star.style.setProperty("--h", String(hueOfTag(shows[0])));
-        star.title = "Représentation : " + shows.map((t) => `${roomById(t.room_id)?.name || ""} · ${t.label}`).join(", ");
-        head.append(star);
-      }
       cell.append(head);
       grid.append(cell);
     });
@@ -1413,6 +1406,20 @@ export function createChat({ supabase, user }) {
       if (isos[last] !== tag.end_date) bar.classList.add("cont-right");
       bar.title = `${label} · ${rangeText(tag)}`;
       grid.append(bar);
+    }
+
+    // ★ des représentations : au milieu de la journée, posée sur la frise de la date (ou sous les frises si elle n'en a pas ce jour-là).
+    for (const tag of tags) {
+      for (const iso of tag.shows || []) {
+        const index = isos.indexOf(iso);
+        if (index < 0) continue;
+        const onBar = Boolean(tag.start_date) && iso >= tag.start_date && iso <= tag.end_date;
+        const star = el("span", "cal-star" + (onBar ? " on-bar" : " alone"), "★");
+        star.style.gridColumn = String(index + 1);
+        star.style.gridRow = String(onBar ? (lanes.get(tag.id) ?? 0) + 2 : laneCount + 2);
+        star.style.setProperty("--h", String(hueOfTag(tag)));
+        grid.append(star);
+      }
     }
     return grid;
   }
