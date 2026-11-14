@@ -1723,10 +1723,35 @@ export function createChat({ supabase, user }) {
   // Espaces où je peux inviter : tous pour l'administrateur général, sinon ceux que j'administre.
   const invitableSpaces = () => state.workspaces.filter((ws) => state.isSuper || ws.role === "admin");
 
+  // Liste déroulante : les personnes déjà présentes dans mes espaces (hors moi), avec leurs espaces.
+  async function fillInvitePeople() {
+    const select = $("#invite-person");
+    select.length = 1;
+    select.value = "";
+    $("#invite-new").hidden = false;
+    const ids = state.workspaces.map((ws) => ws.id);
+    const { data } = await supabase.from("workspace_members").select("workspace_id, user_id").in("workspace_id", ids);
+    const spacesOf = new Map();
+    for (const row of data || []) {
+      if (row.user_id === user.id) continue;
+      const names = spacesOf.get(row.user_id) || [];
+      names.push(state.workspaces.find((ws) => ws.id === row.workspace_id)?.name || "");
+      spacesOf.set(row.user_id, names);
+    }
+    await ensureProfiles([...spacesOf.keys()]);
+    const people = [...spacesOf.keys()].sort((a, b) => authorName(a).localeCompare(authorName(b), "fr"));
+    for (const id of people) {
+      const option = el("option", "", `${authorName(id)} · ${spacesOf.get(id).filter(Boolean).join(", ")}`);
+      option.value = id;
+      select.append(option);
+    }
+  }
+
   function openInvite() {
     if (!state.ws || !isAdmin()) return;
     $("#invite-email").value = "";
     $("#invite-name").value = "";
+    fillInvitePeople();
     setNotice("#invite-message", "");
     const list = $("#invite-spaces");
     list.replaceChildren();
@@ -1807,9 +1832,10 @@ export function createChat({ supabase, user }) {
 
   async function submitInvite(event) {
     event.preventDefault();
-    const email = $("#invite-email").value.trim();
+    const personId = $("#invite-person").value;
+    const email = personId ? "" : $("#invite-email").value.trim();
     const displayName = $("#invite-name").value.trim();
-    if (!email) return setNotice("#invite-message", "Saisis l'adresse e-mail de la personne.");
+    if (!personId && !email) return setNotice("#invite-message", "Choisis une personne ou saisis son adresse e-mail.");
 
     const assignments = [];
     for (const row of document.querySelectorAll("#invite-spaces .invite-space")) {
@@ -1834,11 +1860,17 @@ export function createChat({ supabase, user }) {
     setNotice("#invite-message", "");
 
     const { data, error } = await supabase.functions.invoke("invite-member", {
-      body: { email, display_name: displayName, assignments, redirect_to: location.origin + location.pathname },
+      body: personId
+        ? { user_id: personId, assignments }
+        : { email, display_name: displayName, assignments, redirect_to: location.origin + location.pathname },
     });
 
     if (error) {
       const notDeployed = error.name === "FunctionsFetchError" || error.context?.status === 404;
+      if (notDeployed && personId) {
+        button.disabled = false;
+        return setNotice("#invite-message", "La fonction d'invitation doit être redéployée pour ajouter une personne depuis la liste (voir README).");
+      }
       if (notDeployed) {
         // Repli : ajout direct si le compte existe déjà (la fonction « invite-member » n'est pas déployée).
         let failure = "";
@@ -2293,6 +2325,9 @@ export function createChat({ supabase, user }) {
     on($("#workspace-form"), "submit", submitWorkspace);
     on($("#channel-form"), "submit", submitChannel);
     on($("#invite-form"), "submit", submitInvite);
+    on($("#invite-person"), "change", () => {
+      $("#invite-new").hidden = Boolean($("#invite-person").value);
+    });
     for (const button of document.querySelectorAll("[data-close]")) {
       on(button, "click", () => closeDialog(button.closest("dialog")));
     }

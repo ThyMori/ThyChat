@@ -36,11 +36,12 @@ Deno.serve(async (req) => {
     const caller = auth.user.id;
 
     const body = await req.json();
-    const email = String(body.email || "").trim().toLowerCase();
+    let email = String(body.email || "").trim().toLowerCase();
+    const personId = typeof body.user_id === "string" ? body.user_id : "";
     const displayName = String(body.display_name || "").trim().slice(0, 80);
     const assignments: Assignment[] = Array.isArray(body.assignments) ? body.assignments : [];
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Adresse e-mail invalide." }, 400);
+    if (!personId && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return json({ error: "Adresse e-mail invalide." }, 400);
     if (!assignments.length) return json({ error: "Choisis au moins un espace." }, 400);
 
     // Droits : administrateur général, ou administrateur de chaque espace visé.
@@ -60,6 +61,23 @@ Deno.serve(async (req) => {
       if (!isSuper && !allowed.has(a.workspace_id)) {
         return json({ error: "Tu n'es pas administrateur de cet espace." }, 403);
       }
+    }
+
+    // Personne choisie dans la liste : un compte existant que l'appelant connaît déjà
+    // (administrateur général, ou personne qui partage un espace avec lui).
+    if (personId) {
+      if (!isSuper) {
+        const { data: mine } = await admin.from("workspace_members").select("workspace_id").eq("user_id", caller);
+        const { data: theirs } = await admin
+          .from("workspace_members")
+          .select("workspace_id")
+          .eq("user_id", personId)
+          .in("workspace_id", (mine ?? []).map((row) => row.workspace_id));
+        if (!theirs?.length) return json({ error: "Cette personne n'est pas dans tes espaces." }, 403);
+      }
+      const { data: found, error: foundError } = await admin.auth.admin.getUserById(personId);
+      if (foundError || !found.user?.email) return json({ error: "Personne introuvable." }, 404);
+      email = found.user.email.toLowerCase();
     }
 
     // Compte existant, ou nouvelle invitation par e-mail.

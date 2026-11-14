@@ -422,10 +422,16 @@
     <dialog id="dialog-invite">
       <form id="invite-form" novalidate>
         <h3>Inviter quelqu'un</h3>
-        <label for="invite-email">Adresse e-mail</label>
-        <input id="invite-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off">
-        <label for="invite-name">Nom (facultatif)</label>
-        <input id="invite-name" type="text" maxlength="80" autocomplete="off">
+        <label for="invite-person">Personne</label>
+        <select id="invite-person">
+          <option value="">Nouvelle personne (par e-mail)…</option>
+        </select>
+        <div id="invite-new">
+          <label for="invite-email">Adresse e-mail</label>
+          <input id="invite-email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" autocomplete="off">
+          <label for="invite-name">Nom (facultatif)</label>
+          <input id="invite-name" type="text" maxlength="80" autocomplete="off">
+        </div>
         <fieldset class="access">
           <legend>Espaces</legend>
           <ul id="invite-spaces" class="pick-list"></ul>

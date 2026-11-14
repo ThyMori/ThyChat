@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.2.0 — 2026-11-14
+- Invitation : liste déroulante des personnes déjà présentes pour les ajouter à un espace (fonction invite-member à redéployer)
+
 ## 3.1.0 — 2026-11-14
 - Dates de tournée par salon (étiquettes choisies avec #, filtre des messages par date)
 - répondre à un message et citer

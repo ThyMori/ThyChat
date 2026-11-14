@@ -50,7 +50,7 @@ L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `C
 
 ### 3. Inviter les équipes
 
-Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fonctions Supabase » plus bas) : **Espace et membres > Inviter quelqu'un…**. La personne reçoit un e-mail, clique, choisit son mot de passe, et arrive directement dans les espaces et salons qui lui sont assignés.
+Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fonctions Supabase » plus bas) : **Espace et membres > Inviter quelqu'un…**. Une liste déroulante propose les personnes déjà présentes dans tes espaces (à ajouter en un clic) ; « Nouvelle personne » invite par e-mail. La personne reçoit un e-mail, clique, choisit son mot de passe, et arrive directement dans les espaces et salons qui lui sont assignés.
 
 ## Rôles et accès
 
