@@ -203,6 +203,7 @@
             <button type="button" class="icon-btn" id="channel-people" title="Personnes de ce sous-salon" aria-label="Personnes de ce sous-salon" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18 14.2a6.5 6.5 0 0 1 3.5 5.8"/></svg></button>
           <button type="button" class="icon-btn" id="channel-edit" title="Réglages du sous-salon" aria-label="Réglages du sous-salon" hidden>⚙</button>
           <button type="button" class="icon-btn" id="channel-media" title="Médias du fil" aria-label="Médias du fil" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 8"/></svg></button>
+          <button type="button" class="icon-btn" id="channel-postits" title="Post-it jetés" aria-label="Post-it jetés" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 3h16v12l-5 6H4z"/><path d="M20 15l-5 6v-4a2 2 0 0 1 2-2z"/><path d="M8 8h8M8 12h5"/></svg></button>
           <button type="button" class="icon-btn" id="channel-search" title="Rechercher dans les messages" aria-label="Rechercher dans les messages" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
           <button type="button" class="icon-btn" id="channel-delete-dm" title="Supprimer la discussion" aria-label="Supprimer la discussion privée" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16"/><path d="M10 11v6M14 11v6"/><path d="m6 7 1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/><path d="M9 7V4h6v3"/></svg></button>
           <button type="button" class="icon-btn bell" id="channel-bell" title="Notifications" aria-label="Notifications" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5"/><path d="M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/><path d="m2 2 20 20"/></svg></button>
@@ -249,6 +250,7 @@
         <div id="tag-filter" class="tag-chips" role="group" aria-label="Filtrer par date de tournée"></div>
       </div>
 
+      <div id="postit-wall" class="postit-wall" aria-label="Post-it du fil" hidden></div>
       <div id="select-bar" class="select-bar" hidden>
         <button type="button" class="icon-btn" id="select-cancel" aria-label="Quitter la sélection">✕</button>
         <strong id="select-count" aria-live="polite"></strong>
@@ -272,6 +274,7 @@
 
       <div id="attach-menu" class="attach-menu" hidden>
         <button type="button" id="attach-photo"><span aria-hidden="true">🖼️</span> Photo</button>
+        <button type="button" id="attach-postit"><svg class="ic postit-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M4 3h16v12l-5 6H4z"/><path class="pl-fold" d="M20 15l-5 6v-4a2 2 0 0 1 2-2z"/><path class="pl-line" d="M8 8h8M8 12h5"/></svg> Post-it</button>
         <button type="button" id="attach-camera"><span aria-hidden="true">📷</span> Prendre une photo</button>
       </div>
       <input type="file" id="file-photo" accept="image/*" multiple hidden>
@@ -493,6 +496,7 @@
           <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
           <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
           <li>Ce qui est en silence est atténué et marqué d'une cloche barrée.</li>
+          <li><strong>Post-it</strong> : touche le <strong>+</strong> de la zone de saisie puis « Post-it » pour écrire un petit mot jaune, collé en haut du fil pour toutes les personnes qui y ont accès. Touche un Post-it pour le décoller et le lire en grand : « Garder » le recolle (il revient à chaque ouverture du fil), « Jeter le Post-it » le froisse et le retire <em>pour toi seulement</em>. Le menu ⋮ propose « Post-it jetés » pour relire les anciens, les remettre ou les jeter définitivement. L'auteur (ou un administrateur) peut aussi retirer un Post-it pour tout le monde.</li>
           <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour, avec un filtre par date de tournée (#).</li>
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
           <li><strong>Sourdine d'un fil</strong> : dans le menu ⋮ d'un fil, « Mettre ce fil en sourdine » coupe les notifications de ce fil seulement (8 heures, 1 semaine ou toujours) ; les autres fils continuent de notifier. Le même bouton la réactive.</li>
@@ -650,6 +654,41 @@
       <p id="move-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Annuler</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-postit" class="postit-dialog">
+      <form id="postit-form" method="dialog">
+        <h3>Nouveau Post-it</h3>
+        <p class="muted">Il sera collé en haut du fil pour toutes les personnes qui y ont accès, jusqu'à ce que chacune le jette.</p>
+        <textarea id="postit-input" class="postit-input" rows="5" maxlength="300" placeholder="Écris ton mot ici…" aria-label="Texte du Post-it"></textarea>
+        <small id="postit-count" class="muted">0 / 300</small>
+        <p id="postit-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close>Annuler</button>
+          <button type="submit" class="primary">Coller</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dialog-postit-read" class="postit-dialog">
+      <div id="postit-read-note" class="postit-read-note"></div>
+      <p id="postit-read-when" class="muted postit-read-when"></p>
+      <p id="postit-read-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost small danger" id="postit-delete-all" hidden>Retirer pour tous</button>
+        <button type="button" class="ghost" id="postit-keep">Garder</button>
+        <button type="button" class="primary" id="postit-throw">Jeter le Post-it</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-postit-trash" class="docs">
+      <h3 id="postit-trash-title" tabindex="-1">Post-it jetés</h3>
+      <p class="muted">Les Post-it que tu as jetés dans ce fil. « Remettre » les recolle en haut du fil ; « Jeter définitivement » les efface de cette liste (pour toi seulement).</p>
+      <div id="postit-trash-list" class="postit-trash-list"></div>
+      <p id="postit-trash-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
       </div>
     </dialog>
 

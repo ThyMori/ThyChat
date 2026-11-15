@@ -1226,3 +1226,97 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .msg.theirs .msg-actions { justify-content: flex-start; }
 .msg-del { align-self: flex-end; }
 .msg.theirs .msg-del { align-self: flex-start; }
+
+/* ---- Post-it ---- */
+/* Police manuscrite « Caveat » (licence SIL OFL, voir fonts/OFL.txt), hébergée avec l'application. */
+@font-face {
+  font-family: "Caveat";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/caveat-700.woff2") format("woff2");
+}
+:root { --postit-bg: #fff27a; --postit-ink: #3a3000; --postit-edge: #e6d44a; }
+
+.postit-wall { display: flex; align-items: flex-start; gap: 14px; padding: 12px 16px 14px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+.postit-wall[hidden] { display: none; }
+
+.postit {
+  position: relative; flex: none; display: flex; flex-direction: column; justify-content: space-between; gap: 6px;
+  width: 150px; min-height: 100px; padding: 16px 12px 10px; border: 0; border-radius: 2px;
+  background: linear-gradient(170deg, var(--postit-bg) 70%, var(--postit-edge));
+  color: var(--postit-ink); text-align: left; cursor: pointer;
+  font-family: "Caveat", "Segoe Print", "Bradley Hand", "Marker Felt", cursive; font-weight: 700; font-size: 1.3rem; line-height: 1.1;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+  transform: rotate(var(--tilt, 0deg)); transform-origin: 50% 0;
+}
+/* petite bande adhésive en haut, coin replié en bas à droite */
+.postit::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 9px; background: rgba(0, 0, 0, 0.07); }
+.postit::after { content: ""; position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: linear-gradient(135deg, transparent 50%, rgba(0, 0, 0, 0.16) 50%); }
+.postit-text { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; }
+.postit-from { font-size: 1rem; opacity: 0.7; }
+.postit.mini { width: 120px; min-height: 80px; font-size: 1.1rem; cursor: default; }
+.postit.mini .postit-text { -webkit-line-clamp: 3; }
+
+/* il se colle sur l'écran : tombe de haut, rebondit une fois, se pose */
+@keyframes postit-stick {
+  0% { transform: translateY(-34px) rotate(calc(var(--tilt, 0deg) * 3 - 10deg)) scale(1.28); opacity: 0; box-shadow: 0 22px 24px rgba(0, 0, 0, 0.35); }
+  40% { opacity: 1; }
+  72% { transform: translateY(3px) rotate(var(--tilt, 0deg)) scale(0.97); box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4); }
+  100% { transform: rotate(var(--tilt, 0deg)) scale(1); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35); }
+}
+.postit.stick-in { animation: postit-stick 520ms cubic-bezier(0.2, 0.7, 0.3, 1) var(--delay, 0ms) both; }
+
+/* il se décolle : le bas se soulève comme une page qu'on lève depuis la bande collante */
+@keyframes postit-peel {
+  0% { transform: rotate(var(--tilt, 0deg)); box-shadow: 0 2px 4px rgba(0, 0, 0, 0.35); }
+  100% { transform: perspective(520px) rotateX(48deg) rotate(calc(var(--tilt, 0deg) - 5deg)) translateY(-8px) scale(1.12); box-shadow: 0 18px 22px rgba(0, 0, 0, 0.4); }
+}
+.postit.peeling { animation: postit-peel 380ms ease-in forwards; z-index: 2; }
+
+/* lecture en grand */
+.postit-dialog { background: var(--bg-elev); }
+.postit-read-note { display: flex; justify-content: center; padding: 8px 0 4px; }
+.postit-read-note .postit { width: min(320px, 78vw); min-height: 220px; padding: 22px 18px 14px; font-size: 1.9rem; cursor: default; }
+.postit-read-note .postit-text { display: block; -webkit-line-clamp: unset; overflow: visible; max-height: 52vh; overflow-y: auto; }
+.postit-read-note .postit-from { font-size: 1.3rem; }
+.postit-read-when { text-align: center; margin: 6px 0 0; }
+@keyframes postit-lift {
+  from { transform: perspective(520px) rotateX(40deg) scale(0.72) rotate(-8deg); opacity: 0; }
+  to { transform: rotate(-1.5deg) scale(1); opacity: 1; }
+}
+.postit.lifted { animation: postit-lift 320ms ease-out both; transform: rotate(-1.5deg); }
+
+/* il se froisse en boule, puis part à la poubelle */
+@keyframes postit-crumple {
+  0% { transform: rotate(-1.5deg) scale(1); border-radius: 2px; filter: none; opacity: 1; }
+  28% { transform: scale(0.84, 1.04) rotate(6deg) skew(-6deg, 3deg); border-radius: 14px 4px 18px 6px; filter: brightness(0.94) contrast(1.15); }
+  58% { transform: scale(0.42, 0.38) rotate(-26deg) skew(9deg, -7deg); border-radius: 38% 46% 40% 50%; filter: brightness(0.82) contrast(1.4); opacity: 1; }
+  78% { transform: translate(6px, 18px) scale(0.2) rotate(-60deg); border-radius: 50%; filter: brightness(0.74) contrast(1.5); opacity: 1; }
+  100% { transform: translate(60px, 220px) scale(0.1) rotate(240deg); border-radius: 50%; filter: brightness(0.7) contrast(1.5); opacity: 0; }
+}
+.postit.crumpling { animation: postit-crumple 700ms ease-in forwards; background-image: repeating-linear-gradient(115deg, rgba(0, 0, 0, 0.06) 0 6px, transparent 6px 13px), linear-gradient(170deg, var(--postit-bg) 70%, var(--postit-edge)); }
+
+/* saisie */
+.postit-input { width: 100%; box-sizing: border-box; padding: 14px 14px 10px; border: 0; border-radius: 2px; resize: none;
+  background: linear-gradient(170deg, var(--postit-bg) 70%, var(--postit-edge)); color: var(--postit-ink);
+  font-family: "Caveat", "Segoe Print", "Bradley Hand", "Marker Felt", cursive; font-weight: 700; font-size: 1.7rem; line-height: 1.15;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35); transform: rotate(-1deg); }
+.postit-input::placeholder { color: var(--postit-ink); opacity: 0.45; }
+.postit-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* liste des jetés */
+.postit-trash-list { max-height: 58vh; overflow-y: auto; display: flex; flex-direction: column; gap: 14px; }
+.postit-trash-row { display: flex; gap: 14px; align-items: flex-start; }
+.postit-trash-side { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.postit-trash-side .danger { color: var(--danger); }
+.postit-trash-row .postit { opacity: 0.85; filter: saturate(0.8); }
+
+/* logo dans le menu « + » */
+.postit-logo { width: 1.2em; height: 1.2em; vertical-align: -0.2em; stroke: var(--postit-ink); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; fill: none; }
+.postit-logo .pl-sheet { fill: var(--postit-bg); }
+.postit-logo .pl-fold { fill: var(--postit-edge); }
+
+@media (prefers-reduced-motion: reduce) {
+  .postit.stick-in, .postit.lifted { animation-duration: 1ms; }
+}

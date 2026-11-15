@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.32.0 — 2026-11-15
+- Post-it : petits mots jaunes manuscrits collés en haut d'un fil (animations coller, décoller, froisser), à jeter par chacun
+- menu ⋮ « Post-it jetés » pour les relire ou les jeter définitivement
+
 ## 3.31.1 — 2026-11-15
 - Les options d'un message passent à la ligne au lieu de dépasser de l'écran sur téléphone
 

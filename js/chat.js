@@ -286,6 +286,9 @@ export function createChat({ supabase, user }) {
     imageUrls: new Map(), // chemin -> lien temporaire d'une photo
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
     editing: null, // { id, head } : message de moi en cours de modification
+    postits: [], // Post-it du fil ouvert
+    postitStates: new Map(), // id -> « discarded » | « purged » (mon état)
+    postitsReady: true, // false tant que la migration 020 n'est pas passée
     replyTo: null, // message auquel on répond
     quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
     selectedId: null, // message touché (affiche « Supprimer »)
@@ -840,6 +843,7 @@ export function createChat({ supabase, user }) {
       $("#channel-delete-dm").hidden = true;
       $("#channel-search").hidden = true;
       $("#channel-media").hidden = true;
+      $("#channel-postits").hidden = true;
       $("#channel-people").hidden = true;
       return;
     }
@@ -882,6 +886,7 @@ export function createChat({ supabase, user }) {
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
     $("#channel-search").hidden = !channel;
     $("#channel-media").hidden = !channel;
+    $("#channel-postits").hidden = !channel;
     $("#channel-people").hidden = !channel || channel.kind !== "channel";
   }
 
@@ -1319,6 +1324,8 @@ export function createChat({ supabase, user }) {
 
     if (!state.channel) {
       state.messages = [];
+      state.postits = [];
+      renderPostitWall();
       setView("empty", {
         title: "Aucun spectacle",
         text: isAdmin()
@@ -1346,6 +1353,7 @@ export function createChat({ supabase, user }) {
     closeSidebar();
     markRead(state.channel.id);
 
+    loadPostits(state.channel.id, token);
     await loadMessages(state.channel.id, token);
   }
 
@@ -1415,6 +1423,7 @@ export function createChat({ supabase, user }) {
     state.realtime = supabase
       .channel("thychat:live")
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, onRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "postits" }, onPostitRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
@@ -1780,6 +1789,257 @@ export function createChat({ supabase, user }) {
       box.append(img);
     }
     return box;
+  }
+
+  // --- Post-it : petits mots jaunes collés en haut du fil -------------------------------------------
+  // Chaque personne les jette pour elle seule ; ils reviennent à chaque ouverture du fil tant qu'elle ne l'a pas fait.
+
+  const POSTIT_MAX = 300;
+  const PEEL_MS = 380; // durée de l'animation « décollé »
+  const CRUMPLE_MS = 700; // durée de l'animation « froissé »
+  let postitOpenId = null;
+  let postitBusy = false;
+  let postitFreshId = null; // à coller avec animation au prochain affichage
+
+  const postitById = (id) => state.postits.find((p) => p.id === id);
+  const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id));
+  const trashedPostits = () => state.postits.filter((p) => state.postitStates.get(p.id) === "discarded").slice().reverse();
+  // Inclinaison stable (-3° à +3°) propre à chaque Post-it.
+  const tiltOf = (id) => {
+    let h = 0;
+    for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 997;
+    return ((h % 61) - 30) / 10;
+  };
+
+  async function loadPostits(channelId, token) {
+    state.postits = [];
+    state.postitStates = new Map();
+    renderPostitWall();
+    const posts = await supabase.from("postits").select("id, channel_id, user_id, body, created_at").eq("channel_id", channelId).order("created_at", { ascending: true });
+    if (stopped || token !== state.loadToken) return;
+    state.postitsReady = !posts.error;
+    if (posts.error) return renderPostitWall();
+    state.postits = posts.data || [];
+    const ids = state.postits.map((p) => p.id);
+    if (ids.length) {
+      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", ids);
+      if (stopped || token !== state.loadToken) return;
+      for (const row of states.data || []) state.postitStates.set(row.postit_id, row.state);
+    }
+    await ensureProfiles(state.postits.map((p) => p.user_id));
+    if (stopped || token !== state.loadToken) return;
+    renderPostitWall(true);
+  }
+
+  // Un Post-it (collé en haut du fil, ou petit dans la liste des jetés).
+  function postitNode(postit, options = {}) {
+    const node = el(options.button === false ? "div" : "button", "postit" + (options.mini ? " mini" : ""));
+    if (options.button !== false) node.type = "button";
+    node.dataset.id = postit.id;
+    node.style.setProperty("--tilt", tiltOf(postit.id) + "deg");
+    node.style.setProperty("--delay", (options.delay || 0) + "ms");
+    node.append(el("span", "postit-text", postit.body), el("span", "postit-from", "— " + authorName(postit.user_id)));
+    return node;
+  }
+
+  function renderPostitWall(animate = false) {
+    const wall = $("#postit-wall");
+    wall.replaceChildren();
+    const list = state.calendarOpen || !state.channel ? [] : activePostits();
+    wall.hidden = !list.length;
+    list.forEach((postit, index) => {
+      const node = postitNode(postit, { delay: animate ? index * 110 : 0 });
+      if (animate || postit.id === postitFreshId) node.classList.add("stick-in");
+      wall.append(node);
+    });
+    postitFreshId = null;
+  }
+
+  function openPostitWrite() {
+    if (!state.channel) return;
+    $("#postit-input").value = "";
+    $("#postit-count").textContent = `0 / ${POSTIT_MAX}`;
+    setNotice("#postit-message", "");
+    openDialog("#dialog-postit");
+    $("#postit-input").focus();
+  }
+
+  async function submitPostit(event) {
+    event.preventDefault();
+    if (!state.channel || postitBusy) return;
+    const body = $("#postit-input").value.trim();
+    if (!body) return setNotice("#postit-message", "Écris quelque chose sur ton Post-it.");
+    postitBusy = true;
+    const channelId = state.channel.id;
+    const { data, error } = await supabase.from("postits").insert({ channel_id: channelId, body: body.slice(0, POSTIT_MAX) }).select().single();
+    postitBusy = false;
+    if (error) {
+      return setNotice("#postit-message", "Post-it non collé : " + error.message + (/postits|relation|schema cache/i.test(error.message) ? " (exécute la migration 020 dans Supabase)." : ""));
+    }
+    closeDialog($("#dialog-postit"));
+    if (state.channel && state.channel.id === channelId && !postitById(data.id)) {
+      state.postits.push(data);
+      postitFreshId = data.id;
+      renderPostitWall();
+    }
+  }
+
+  // Toucher un Post-it : il se décolle de l'écran, puis s'ouvre en grand.
+  function peelPostit(id) {
+    const postit = postitById(id);
+    if (!postit || postitBusy) return;
+    const stuck = $("#postit-wall").querySelector(`[data-id="${id}"]`);
+    if (stuck) {
+      stuck.classList.remove("stick-in");
+      stuck.classList.add("peeling");
+    }
+    postitBusy = true;
+    setTimeout(() => {
+      postitBusy = false;
+      if (stopped) return;
+      showPostit(id);
+    }, stuck ? PEEL_MS : 0);
+  }
+
+  function showPostit(id) {
+    const postit = postitById(id);
+    if (!postit) return renderPostitWall();
+    postitOpenId = id;
+    const holder = $("#postit-read-note");
+    holder.replaceChildren(postitNode(postit, { button: false }));
+    holder.firstChild.classList.add("lifted");
+    const when = new Date(postit.created_at);
+    $("#postit-read-when").textContent = `${authorName(postit.user_id)} · ${dayLabel(when)} à ${timeFmt.format(when)}`;
+    $("#postit-delete-all").hidden = !(postit.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel"));
+    $("#postit-throw").disabled = false;
+    setNotice("#postit-read-message", "");
+    openDialog("#dialog-postit-read");
+  }
+
+  // Fermer sans jeter : le Post-it se recolle en haut du fil.
+  function stickBack() {
+    const id = postitOpenId;
+    postitOpenId = null;
+    if (!id || !postitById(id) || state.postitStates.has(id)) return renderPostitWall();
+    postitFreshId = id;
+    renderPostitWall();
+  }
+
+  // Jeter le Post-it : il se froisse, puis disparaît du haut du fil (pour moi seulement).
+  async function throwPostit() {
+    const id = postitOpenId;
+    if (!id || postitBusy) return;
+    postitBusy = true;
+    $("#postit-throw").disabled = true;
+    const note = $("#postit-read-note").firstChild;
+    if (note) {
+      note.classList.remove("lifted");
+      note.classList.add("crumpling");
+    }
+    const { error } = await supabase.from("postit_states").upsert({ postit_id: id, user_id: user.id, state: "discarded" }, { onConflict: "postit_id,user_id" });
+    await new Promise((resolve) => setTimeout(resolve, CRUMPLE_MS));
+    postitBusy = false;
+    if (error) {
+      if (note) note.classList.remove("crumpling");
+      $("#postit-throw").disabled = false;
+      return setNotice("#postit-read-message", "Impossible de jeter le Post-it : " + error.message);
+    }
+    state.postitStates.set(id, "discarded");
+    postitOpenId = null;
+    closeDialog($("#dialog-postit-read"));
+    renderPostitWall();
+    if (!$("#dialog-postit-trash").hasAttribute("open")) toast("Post-it jeté. Il reste consultable dans « Post-it jetés » (menu ⋮).", "ok");
+  }
+
+  // Retirer pour tout le monde (auteur ou administrateur).
+  async function deletePostitForAll() {
+    const id = postitOpenId;
+    const postit = id && postitById(id);
+    if (!postit || !window.confirm("Retirer ce Post-it pour tout le monde ? Cette action est définitive.")) return;
+    const { error } = await supabase.from("postits").delete().eq("id", id);
+    if (error) return setNotice("#postit-read-message", "Suppression impossible : " + error.message);
+    removePostit(id);
+    postitOpenId = null;
+    closeDialog($("#dialog-postit-read"));
+  }
+
+  function removePostit(id) {
+    state.postits = state.postits.filter((p) => p.id !== id);
+    state.postitStates.delete(id);
+    renderPostitWall();
+    if ($("#dialog-postit-trash").hasAttribute("open")) renderPostitTrash();
+  }
+
+  async function onPostitRealtime(payload) {
+    if (stopped) return;
+    if (payload.eventType === "INSERT") {
+      const postit = payload.new;
+      if (!state.channel || postit.channel_id !== state.channel.id || postitById(postit.id)) return;
+      await ensureProfiles([postit.user_id]);
+      if (!state.channel || postit.channel_id !== state.channel.id || postitById(postit.id)) return;
+      state.postits.push(postit);
+      postitFreshId = postit.id;
+      renderPostitWall();
+    } else if (payload.eventType === "DELETE") {
+      const id = payload.old && payload.old.id;
+      if (id && postitById(id)) {
+        if (postitOpenId === id) {
+          postitOpenId = null;
+          closeDialog($("#dialog-postit-read"));
+        }
+        removePostit(id);
+      }
+    }
+  }
+
+  // « Post-it jetés » : consulter les vieux Post-it du fil, les remettre ou les jeter définitivement.
+  function openPostitTrash() {
+    if (!state.channel) return;
+    setNotice("#postit-trash-message", "");
+    renderPostitTrash();
+    openDialog("#dialog-postit-trash");
+  }
+
+  function renderPostitTrash() {
+    const box = $("#postit-trash-list");
+    box.replaceChildren();
+    const list = trashedPostits();
+    $("#postit-trash-title").textContent = state.channel ? `Post-it jetés · ${channelTitle(state.channel)}` : "Post-it jetés";
+    if (!list.length) return box.append(el("p", "muted", "Aucun Post-it jeté dans ce fil."));
+    for (const postit of list) {
+      const row = el("div", "postit-trash-row");
+      const when = new Date(postit.created_at);
+      const note = postitNode(postit, { mini: true, button: false });
+      const side = el("div", "postit-trash-side");
+      side.append(el("small", "muted", `${dayLabel(when)} · ${timeFmt.format(when)}`));
+      const back = el("button", "ghost small", "Remettre");
+      back.type = "button";
+      back.dataset.restore = postit.id;
+      const purge = el("button", "ghost small danger", "Jeter définitivement");
+      purge.type = "button";
+      purge.dataset.purge = postit.id;
+      side.append(back, purge);
+      row.append(note, side);
+      box.append(row);
+    }
+  }
+
+  async function restorePostit(id) {
+    const { error } = await supabase.from("postit_states").delete().eq("postit_id", id).eq("user_id", user.id);
+    if (error) return setNotice("#postit-trash-message", "Impossible de remettre le Post-it : " + error.message);
+    state.postitStates.delete(id);
+    postitFreshId = id;
+    renderPostitWall();
+    renderPostitTrash();
+    toast("Post-it remis en haut du fil.", "ok");
+  }
+
+  async function purgePostit(id) {
+    if (!window.confirm("Jeter définitivement ce Post-it ? Il disparaîtra aussi de cette liste (pour toi seulement).")) return;
+    const { error } = await supabase.from("postit_states").upsert({ postit_id: id, user_id: user.id, state: "purged" }, { onConflict: "postit_id,user_id" });
+    if (error) return setNotice("#postit-trash-message", "Impossible de jeter le Post-it : " + error.message);
+    state.postitStates.set(id, "purged");
+    renderPostitTrash();
   }
 
   // Médias du fil : toutes les photos envoyées dans ce fil, la plus récente d'abord, filtrables par date de tournée (#).
@@ -2572,6 +2832,7 @@ export function createChat({ supabase, user }) {
     state.calendarOpen = true;
     state.selectedId = null;
     state.multi = new Set();
+    renderPostitWall();
     if (roomId && roomById(roomId)) state.calScope = roomId;
     else if (state.calScope !== "all" && !roomById(state.calScope)) state.calScope = "ws";
     const now = new Date();
@@ -4396,6 +4657,29 @@ export function createChat({ supabase, user }) {
     on($("#open-search"), "click", () => openSearch("all"));
     on($("#channel-search"), "click", () => openSearch("here"));
     on($("#channel-media"), "click", openMedia);
+    on($("#channel-postits"), "click", openPostitTrash);
+    on($("#attach-postit"), "click", () => {
+      toggleAttachMenu(false);
+      openPostitWrite();
+    });
+    on($("#postit-form"), "submit", submitPostit);
+    on($("#postit-input"), "input", () => {
+      $("#postit-count").textContent = `${$("#postit-input").value.length} / ${POSTIT_MAX}`;
+    });
+    on($("#postit-wall"), "click", (event) => {
+      const note = event.target.closest(".postit");
+      if (note) peelPostit(note.dataset.id);
+    });
+    on($("#postit-throw"), "click", throwPostit);
+    on($("#postit-keep"), "click", () => closeDialog($("#dialog-postit-read")));
+    on($("#postit-delete-all"), "click", deletePostitForAll);
+    on($("#dialog-postit-read"), "close", stickBack);
+    on($("#postit-trash-list"), "click", (event) => {
+      const restore = event.target.closest("[data-restore]");
+      if (restore) return restorePostit(restore.dataset.restore);
+      const purge = event.target.closest("[data-purge]");
+      if (purge) purgePostit(purge.dataset.purge);
+    });
     on($("#search-form"), "submit", (event) => {
       event.preventDefault();
       clearTimeout(searchTimer);
