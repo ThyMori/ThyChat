@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.35.0 — 2026-11-15
+- To-Do : la personne qui coche une case la signe de son nom (visible aussi dans les To-Do terminées)
+
 ## 3.34.1 — 2026-11-15
 - To-Do : confirmation à chaque case cochée ou décochée
 

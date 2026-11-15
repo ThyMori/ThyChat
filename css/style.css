@@ -1402,3 +1402,4 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .todos-sheet { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .todos-sheet .postit { width: min(300px, 80vw); min-height: 120px; cursor: default; font-size: 1.4rem; }
 .todos-where { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 0.85rem; }
+.todo-by { margin-left: auto; padding-left: 8px; flex: none; font-size: 0.95rem; color: var(--todo-done); white-space: nowrap; transform: rotate(-3deg); }

@@ -1805,6 +1805,9 @@ export function createChat({ supabase, user }) {
   // To-Do : une ligne de `postits` avec kind = "todo", body = titre, items = [{ t, done }].
   const isTodo = (p) => p.kind === "todo";
   const todoItems = (p) => (Array.isArray(p.items) ? p.items : []);
+  // Empreinte d'une To-Do (ordre des clés sans importance), pour repérer un vrai changement.
+  const todoKey = (p) => JSON.stringify([p.body, todoItems(p).map((i) => [i.t, Boolean(i.done), i.by || ""])]);
+  const todoSigners = (list) => list.flatMap((p) => (isTodo(p) ? todoItems(p).map((i) => i.by) : [])).filter(Boolean);
   const todoDone = (p) => isTodo(p) && todoItems(p).length > 0 && todoItems(p).every((i) => i.done);
   const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id) && !todoDone(p));
   // Jetés par moi, ou To-Do terminées (sauf si je les ai jetées définitivement).
@@ -1840,7 +1843,7 @@ export function createChat({ supabase, user }) {
       if (stopped || token !== state.loadToken) return;
       for (const row of states.data || []) state.postitStates.set(row.postit_id, row.state);
     }
-    await ensureProfiles(state.postits.map((p) => p.user_id));
+    await ensureProfiles([...state.postits.map((p) => p.user_id), ...todoSigners(state.postits)]);
     if (stopped || token !== state.loadToken) return;
     renderPostitWall(true);
   }
@@ -1864,6 +1867,7 @@ export function createChat({ supabase, user }) {
         box.checked = Boolean(item.done);
         box.dataset.index = String(index);
         label.append(box, el("span", "todo-label", item.t));
+        if (item.done && item.by) label.append(el("span", "todo-by", "— " + authorName(item.by)));
         const row = el("li");
         row.append(label);
         list.append(row);
@@ -1871,7 +1875,7 @@ export function createChat({ supabase, user }) {
       node.append(list);
     } else if (options.mini) {
       const list = el("ul", "todo-static");
-      for (const item of items) list.append(el("li", item.done ? "is-done" : "", (item.done ? "☑ " : "☐ ") + item.t));
+      for (const item of items) list.append(el("li", item.done ? "is-done" : "", (item.done ? "☑ " : "☐ ") + item.t + (item.done && item.by ? " — " + authorName(item.by) : "")));
       node.append(list);
     }
     node.append(el("span", "todo-count", `${items.filter((i) => i.done).length} / ${items.length}`), el("span", "postit-from", "— " + authorName(postit.user_id)));
@@ -1923,11 +1927,12 @@ export function createChat({ supabase, user }) {
   const TODO_ITEM_MAX = 100;
   let todoEditingId = null;
 
-  function addTodoRow(text = "", done = false, focus = false, after = null) {
+  function addTodoRow(text = "", done = false, focus = false, after = null, by = "") {
     const list = $("#todo-items");
     if (list.children.length >= TODO_MAX_ITEMS) return null;
     const row = el("li");
     row.dataset.done = done ? "1" : "";
+    if (by) row.dataset.by = by;
     const input = el("input");
     input.type = "text";
     input.maxLength = TODO_ITEM_MAX;
@@ -1954,7 +1959,7 @@ export function createChat({ supabase, user }) {
     $("#todo-submit").textContent = editing ? "Enregistrer" : "Coller";
     $("#todo-title").value = editing ? editing.body : "";
     $("#todo-items").replaceChildren();
-    if (editing) todoItems(editing).forEach((item) => addTodoRow(item.t, item.done));
+    if (editing) todoItems(editing).forEach((item) => addTodoRow(item.t, item.done, false, null, item.by || ""));
     else for (let i = 0; i < 3; i++) addTodoRow();
     setNotice("#todo-message", "");
     openDialog("#dialog-todo");
@@ -1965,7 +1970,7 @@ export function createChat({ supabase, user }) {
     event.preventDefault();
     if (!state.channel || postitBusy) return;
     const items = [...$("#todo-items").children]
-      .map((row) => ({ t: row.querySelector("input").value.trim().slice(0, TODO_ITEM_MAX), done: Boolean(row.dataset.done) }))
+      .map((row) => ({ t: row.querySelector("input").value.trim().slice(0, TODO_ITEM_MAX), done: Boolean(row.dataset.done), ...(row.dataset.done && row.dataset.by ? { by: row.dataset.by } : {}) }))
       .filter((item) => item.t);
     if (!items.length) return setNotice("#todo-message", "Écris au moins une ligne dans ta To-Do.");
     const title = $("#todo-title").value.trim().slice(0, 60) || "À faire";
@@ -1994,11 +1999,24 @@ export function createChat({ supabase, user }) {
   async function setTodoItem(postit, index, done) {
     const { error } = await supabase.rpc("set_todo_item", { p_id: postit.id, p_index: index, p_done: done });
     if (error) return error;
-    const items = todoItems(postit).map((item, i) => (i === index ? { ...item, done } : item));
+    const items = todoItems(postit).map((item, i) => {
+      if (i !== index) return item;
+      const { by, ...rest } = item;
+      return done ? { ...rest, done, by: user.id } : { ...rest, done };
+    });
     postit.items = items;
     const mine = postitById(postit.id);
     if (mine && mine !== postit) mine.items = items;
     return null;
+  }
+
+  // Montre (ou retire) la signature à côté d'une case qui vient d'être cochée (ou décochée).
+  function signTodoRow(box, postit) {
+    const label = box.closest("label");
+    if (!label) return;
+    for (const old of label.querySelectorAll(".todo-by")) old.remove();
+    const item = todoItems(postit)[Number(box.dataset.index)];
+    if (item && item.done && item.by) label.append(el("span", "todo-by", "— " + authorName(item.by)));
   }
 
   // Chaque case cochée ou décochée demande une confirmation (la liste est commune à tout le monde).
@@ -2025,6 +2043,7 @@ export function createChat({ supabase, user }) {
       return setNotice("#postit-read-message", "Case non enregistrée : " + error.message);
     }
     setNotice("#postit-read-message", "");
+    signTodoRow(box, postit);
     const count = $("#postit-read-note").querySelector(".todo-count");
     if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
     if (todoDone(postit)) finishTodo();
@@ -2074,7 +2093,7 @@ export function createChat({ supabase, user }) {
       gone = new Set((states.data || []).map((r) => r.postit_id));
     }
     todoView.list = visible.filter((p) => !gone.has(p.id) && !todoDone(p));
-    await ensureProfiles(todoView.list.map((p) => p.user_id));
+    await ensureProfiles([...todoView.list.map((p) => p.user_id), ...todoSigners(todoView.list)]);
     if (token !== todoToken || stopped) return;
     renderTodos();
   }
@@ -2134,6 +2153,7 @@ export function createChat({ supabase, user }) {
       return setNotice("#todos-message", "Case non enregistrée : " + error.message);
     }
     setNotice("#todos-message", "");
+    signTodoRow(box, postit);
     const count = node.querySelector(".todo-count");
     if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
     if (state.channel && state.channel.id === postit.channel_id) renderPostitWall();
@@ -2293,7 +2313,8 @@ export function createChat({ supabase, user }) {
     } else if (payload.eventType === "UPDATE") {
       const postit = payload.new;
       const mine = postit && postitById(postit.id);
-      const changed = mine && (postit.body !== mine.body || JSON.stringify(postit.items || null) !== JSON.stringify(mine.items || null));
+      if (mine) await ensureProfiles(todoSigners([postit]));
+      const changed = mine && !stopped && (postit.body !== mine.body || todoKey(postit) !== todoKey(mine));
       if (changed) {
         const itemsOnly = postit.body === mine.body && isTodo(mine);
         mine.body = postit.body;
