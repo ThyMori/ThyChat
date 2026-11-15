@@ -1474,6 +1474,6 @@ html, body { overscroll-behavior-y: none; }
 
 /* Téléphone : texte un peu plus grand, proche de WhatsApp (tout l'interface est en rem). */
 @media (max-width: 760px) and (pointer: coarse) {
-  html { font-size: 110%; }
+  html { font-size: 120%; }
   .composer textarea { font-size: 1rem; }
 }
