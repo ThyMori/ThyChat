@@ -125,6 +125,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `029_member_channels.sql` | tout membre d'un spectacle crée des sous-salons et y invite les membres du spectacle (créateur mémorisé, `created_by`) (après la 028) |
 | `028_room_staff.sql` | fonctions par spectacle (Technique, Prod, RG) et droits sur fiche technique, feuilles de route et assignation, dans la base ; reprend l'existant (tout le monde garde la lecture de la fiche technique) ; **redéployer `send-push`** (après la 027) |
 | `027_access_requests.sql` | demandes d'inscription depuis l'écran de connexion (table `access_requests`) ; déployer aussi la fonction `request-access` (après la 026) |
 | `026_my_notes.sql` | « Mes notes » : un salon personnel par spectacle, visible par son seul propriétaire (pas même les administrateurs), limité à 25 Mo de photos et 2 000 notes par personne, sans notification (après la 025) |

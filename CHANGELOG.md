@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 4.1.0 — 2026-11-15
+- Tout membre d'un spectacle crée des sous-salons et y invite les membres du spectacle
+- le créateur gère le sien
+
 ## 4.0.0 — 2026-11-15
 - Fonctions par spectacle (Technique, Prod, RG) : droits sur fiche technique, feuilles de route et assignation, fenêtre Équipe du spectacle
 - la fiche technique n'est plus lisible que par les personnes autorisées

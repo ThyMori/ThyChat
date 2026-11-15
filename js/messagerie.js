@@ -434,6 +434,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const canEditSheet = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
   const canReadSheet = (roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
   const canEditRoadmap = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
+  // Tout membre d'un spectacle crée des sous-salons ; le créateur (ou un administrateur) gère le sien (migration 029).
+  const canManageChannel = (channel) => Boolean(channel) && channel.kind === "channel" && (isAdmin() || channel.created_by === user.id);
   const canAssign = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
 
   // Pastille ronde : photo de la personne si elle en a une, sinon son initiale.
@@ -569,7 +571,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     const channelsResult = await supabase
       .from("channels")
-      .select("id, workspace_id, room_id, name, description, kind, everyone, created_at")
+      .select("id, workspace_id, room_id, name, description, kind, everyone, created_at, created_by")
       .order("name");
     if (stopped) return false;
     if (channelsResult.error) {
@@ -877,7 +879,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (open) {
       const subs = subsOfRoom(room.id).filter((c) => !root || c.id !== root.id);
       for (const channel of subs) group.append(channelItem(channel));
-      if (!subs.length && !isAdmin()) group.append(el("p", "muted empty-sub", "Pas d'autre sous-salon pour l'instant."));
+      if (!subs.length) group.append(el("p", "muted empty-sub", "Pas d'autre sous-salon pour l'instant."));
       const mine = state.allChannels.find((c) => c.kind === "notes" && c.room_id === room.id);
       const notes = el("button", "channel-item my-notes-item");
       notes.type = "button";
@@ -889,12 +891,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       label.append(el("span", "channel-name", "Mes notes"), el("span", "channel-sub", "Visible par toi seul"));
       notes.append(label);
       group.append(notes);
-      if (isAdmin()) {
-        const add = el("button", "add-sub", "+ Nouveau sous-salon");
-        add.type = "button";
-        add.dataset.newSub = room.id;
-        group.append(add);
-      }
+      const add = el("button", "add-sub", "+ Nouveau sous-salon");
+      add.type = "button";
+      add.dataset.newSub = room.id;
+      group.append(add);
     }
     return group;
   }
@@ -987,7 +987,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     bell.title = muteNote || "Sourdine de ce fil";
     const bellLabel = bellOff ? "Sourdine active : réglages de ce fil" : "Mettre ce fil en sourdine";
     bell.setAttribute("aria-label", bellLabel);
-    $("#channel-edit").hidden = !channel || channel.kind !== "channel" || !isAdmin();
+    $("#channel-edit").hidden = !canManageChannel(channel);
     $("#channel-delete-dm").hidden = !channel || channel.kind !== "dm";
     $("#channel-search").hidden = !channel;
     $("#channel-media").hidden = !channel;
@@ -4705,7 +4705,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- Sous-salons ---
 
   async function openChannelDialog(channel, roomId) {
-    if (!state.ws || !isAdmin()) return;
+    if (!state.ws || (channel ? !canManageChannel(channel) : !roomById(roomId))) return;
     editingChannel = channel || null;
     channelRoomId = channel ? channel.room_id : roomId;
     const room = roomById(channelRoomId);
@@ -4768,8 +4768,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         .insert({ id, workspace_id: state.ws.id, room_id: channelRoomId, name, description: description || null, everyone });
       if (error) return channelError(error, button);
       channel = { id };
-      if (!everyone && picked.length) {
-        await supabase.from("channel_members").insert(picked.map((id) => ({ channel_id: channel.id, user_id: id })));
+      // Le créateur d'un sous-salon réservé y est toujours (il y accède de toute façon, mais c'est plus clair dans les listes).
+      const wanted = !everyone && !isAdmin() && !picked.includes(user.id) ? [...picked, user.id] : picked;
+      if (!everyone && wanted.length) {
+        await supabase.from("channel_members").insert(wanted.map((id) => ({ channel_id: channel.id, user_id: id })));
       }
     }
 
