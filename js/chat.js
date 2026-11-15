@@ -5329,6 +5329,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       openFromList(event);
     });
     on($("#dm-list"), "click", openFromList);
+    on($("#reload-app"), "click", reloadApp);
     on($("#dm-toggle"), "click", () => {
       state.dmOpen = !state.dmOpen;
       try {
@@ -6004,6 +6005,22 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   let outboxTimer = null;
+
+  // Recharge l'application après avoir cherché une nouvelle version (le service worker l'installe puis prend la main).
+  async function reloadApp() {
+    if (!isOnline()) return toast("Pas de réseau : impossible de mettre l'application à jour.");
+    const typing = $("#composer-input").value.trim();
+    if (typing && !window.confirm("Recharger l'application ? Le message que tu es en train d'écrire sera perdu.")) return;
+    const button = $("#reload-app");
+    button.disabled = true;
+    try {
+      const registration = navigator.serviceWorker && (await navigator.serviceWorker.getRegistration());
+      if (registration) await Promise.race([registration.update(), new Promise((resolve) => setTimeout(resolve, 4000))]);
+    } catch {
+      /* pas de service worker : on recharge simplement */
+    }
+    window.location.reload();
+  }
 
   function stop() {
     stopped = true;

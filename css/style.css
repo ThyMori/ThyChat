@@ -1441,3 +1441,9 @@ dialog.help details > ul { margin-top: 2px; margin-bottom: 6px; }
 .dm-toggle .dm-chev { display: inline-block; width: 1em; text-align: center; font-size: 1.3em; line-height: 1; transition: transform 0.15s; }
 .dm-toggle.open .dm-chev { transform: rotate(90deg); }
 .dm-toggle .unread { text-transform: none; letter-spacing: 0; }
+
+/* Pas de rechargement en tirant l'écran vers le bas ; le bouton à double flèche du menu s'en charge. */
+html, body { overscroll-behavior-y: none; }
+#messages, .channel-list, .sidebar, dialog { overscroll-behavior: contain; }
+.me-tools { display: inline-flex; align-items: center; gap: 6px; }
+#reload-app:disabled { opacity: 0.5; }

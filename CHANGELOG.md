@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.40.0 — 2026-11-15
+- Tirer l'écran vers le bas ne recharge plus l'application
+- bouton à double flèche (à côté de la roue crantée) pour la recharger et la mettre à jour
+
 ## 3.39.0 — 2026-11-15
 - Menu : « Messages privés » repliable (›), replié par défaut, avec le total des non lus
 
