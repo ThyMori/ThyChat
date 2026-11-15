@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.4 — 2026-11-15
+- Le fichier principal s'appelle messagerie.js : certains navigateurs (Murena) bloquaient chat.js et l'application ne démarrait pas
+
 ## 3.42.3 — 2026-11-15
 - Écran d'erreur au démarrage : indique l'étape atteinte et le module qui ne se charge pas
 

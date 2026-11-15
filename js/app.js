@@ -1,5 +1,5 @@
 import { supabase, isConfigured } from "./supabase.js";
-import { createChat } from "./chat.js";
+import { createChat } from "./messagerie.js";
 import { initInstall } from "./install.js";
 import { VERSION } from "./version.js";
 

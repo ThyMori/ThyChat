@@ -12,7 +12,7 @@ css/style.css           thème (variables de couleur dans :root)
 js/config.js            URL + clé publique Supabase (à renseigner)
 js/supabase.js          client Supabase
 js/app.js               authentification et routage des écrans
-js/chat.js              interface de messagerie (espaces, spectacles, sous-salons, calendrier, messages privés, non lus, membres, invitations)
+js/messagerie.js        interface de messagerie (espaces, spectacles, sous-salons, calendrier, messages privés, non lus, membres, invitations)
 js/notify.js            silences (8 h, 1 semaine, toujours) et pastille de l'icône
 js/push.js              abonnement aux notifications push de l'appareil
 js/profile.js           photo, nom et e-mail du profil

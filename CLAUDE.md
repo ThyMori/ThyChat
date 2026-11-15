@@ -29,3 +29,4 @@ Le numéro est affiché en petit en bas de l'application. Format `MAJEUR.FONCTIO
 - Fonctions Supabase (`supabase/functions/*/index.ts`) : Thierry les colle dans le tableau de bord ; elles lisent leurs clés dans les secrets (`SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY`…), jamais dans le dépôt. Seule la clé VAPID publique est dans `js/config.js`.
 - Aide : toute nouvelle fonction est décrite dans la page d'aide (`#dialog-help` dans `index.html`, bouton « i »).
 - Droits d'accès : toujours dans le SQL (RLS), jamais seulement dans l'interface.
+- Noms de fichiers : éviter ceux que les bloqueurs de publicité filtrent (`chat.js`, `ads.js`, `track*.js`…) : le navigateur de Murena bloquait `js/chat.js` et l'application ne démarrait pas (renommé en `messagerie.js`).

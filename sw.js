@@ -4,7 +4,7 @@
 // Les appels à Supabase ne sont jamais interceptés ; seule la bibliothèque Supabase (CDN) est gardée pour le hors-ligne.
 // Gère aussi la réception des notifications push.
 
-const VERSION = "3.42.3"; // géré par scripts/bump-version.mjs
+const VERSION = "3.42.4"; // géré par scripts/bump-version.mjs
 const CACHE = `thychat-shell-${VERSION}`;
 const CDN_CACHE = "thychat-cdn"; // bibliothèque Supabase (CDN) : gardée pour pouvoir démarrer sans réseau
 const SHELL = [
@@ -13,7 +13,7 @@ const SHELL = [
   "css/style.css",
   "js/app.js",
   "js/supabase.js",
-  "js/chat.js",
+  "js/messagerie.js",
   "js/themes.js",
   "js/install.js",
   "js/version.js",

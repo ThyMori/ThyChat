@@ -164,7 +164,7 @@ code {
 }
 
 /* ---------- Application ---------- */
-/* Toute l'interface est teintée par --h (la teinte de l'espace courant, définie par js/chat.js).
+/* Toute l'interface est teintée par --h (la teinte de l'espace courant, définie par js/messagerie.js).
    Changer d'espace change --h, donc l'ambiance entière : fond, barre latérale, bulles, accents. */
 #screen-app.app { --h: 28; }
 
