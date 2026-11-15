@@ -5330,6 +5330,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
     on($("#dm-list"), "click", openFromList);
     on($("#reload-app"), "click", reloadApp);
+    on($("#share-app"), "click", shareApp);
     on($("#dm-toggle"), "click", () => {
       state.dmOpen = !state.dmOpen;
       try {
@@ -6005,6 +6006,28 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   let outboxTimer = null;
+
+  // Partage l'adresse de l'application (feuille de partage du téléphone, sinon copie dans le presse-papiers).
+  const APP_URL = "https://thychat.thierry-morin.com";
+  async function shareApp() {
+    const data = { title: "ThyChat", text: "ThyChat : la messagerie des équipes de spectacle vivant.", url: APP_URL };
+    if (navigator.share) {
+      try {
+        await navigator.share(data);
+        return;
+      } catch (error) {
+        if (error && error.name === "AbortError") return; // partage annulé
+      }
+    }
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(APP_URL);
+      copied = true;
+    } catch {
+      /* presse-papiers refusé */
+    }
+    setNotice("#share-message", copied ? "Adresse copiée : " + APP_URL : "Partage impossible ici. Adresse : " + APP_URL, copied ? "ok" : "error");
+  }
 
   // Recharge l'application après avoir cherché une nouvelle version (le service worker l'installe puis prend la main).
   async function reloadApp() {
