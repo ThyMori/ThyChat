@@ -319,7 +319,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
     calendarOpen: false,
     calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
-    calScope: "ws", // « ws » (cet espace), « all » (tous mes espaces) ou l'id d'un spectacle
+    calScope: "all", // « all » (tous mes espaces, vue de base), « ws » (cet espace) ou l'id d'un spectacle
     calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
     pendingFilter: null, // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
     tagFilter: new Set(), // dates sélectionnées pour filtrer le sous-salon ouvert
@@ -3613,8 +3613,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     state.multi = new Set();
     renderPostitWall();
     renderPinBar();
-    if (roomId && roomById(roomId)) state.calScope = roomId;
-    else if (state.calScope !== "all" && !roomById(state.calScope)) state.calScope = "ws";
+    // Vue de base : tous mes espaces (le bandeau de la semaine ouvre, lui, le spectacle en cours).
+    state.calScope = roomId && roomById(roomId) ? roomId : "all";
     const now = new Date();
     state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     state.calDay = toISO(now);

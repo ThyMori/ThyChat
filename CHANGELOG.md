@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.44.1 — 2026-11-15
+- Calendrier : la vue de base est « Tous mes espaces »
+
 ## 3.44.0 — 2026-11-15
 - Mises à jour : l'application vérifie seule qu'une nouvelle version existe et affiche un bandeau « Nouvelle version disponible » pour recharger
 
