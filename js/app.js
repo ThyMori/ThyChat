@@ -265,8 +265,8 @@ $("#access-form").addEventListener("submit", async (event) => {
   $("#access-form").reset();
   accessDialog.close();
   setMessage($("#login-message"), data && data.mail_sent === false
-    ? "Ta demande est enregistrée. Thierry la verra dans les meilleurs délais ; si tu n'as pas de nouvelles, écris-lui à contact@thierry-morin.com."
-    : "Ta demande est envoyée à Thierry. Si elle est acceptée, tu recevras un e-mail de Supabase avec ton lien d'activation (regarde aussi dans tes courriers indésirables).", "ok");
+    ? "Ta demande est enregistrée. Elle sera traitée dans les meilleurs délais ; sans nouvelles, demande une invitation directement à ton équipe."
+    : "Ta demande est transmise. Si elle est acceptée, tu recevras un e-mail de Supabase avec ton lien d'activation (regarde aussi dans tes courriers indésirables).", "ok");
 });
 
 // --- Définition du mot de passe (invitation / réinitialisation) -----------

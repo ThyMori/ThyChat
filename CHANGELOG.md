@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.48.1 — 2026-11-15
+- Demande d'inscription : texte neutre (application ouverte à toutes les équipes de spectacle), sans nom de personne
+
 ## 3.48.0 — 2026-11-15
 - Demande d'inscription depuis l'écran de connexion : formulaire (nom, e-mail, spectacle/production/Cie) avec explication de la procédure Supabase, e-mail envoyé à contact@thierry-morin.com
 
