@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.31.1 — 2026-11-15
+- Les options d'un message passent à la ligne au lieu de dépasser de l'écran sur téléphone
+
 ## 3.31.0 — 2026-11-15
 - Galerie médias filtrable par date de tournée (#)
 - modifier un message déjà écrit (texte et dates #) dans n'importe quel fil, avec la mention « modifié »
