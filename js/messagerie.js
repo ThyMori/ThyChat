@@ -7,6 +7,7 @@ import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHu
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
 import { MAX_PDF_BYTES, cleanUrl, fileType, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack, copyMessageImages } from "./images.js";
+import { setupInk } from "./ink.js";
 import { createStore, withReadCache, isNetworkError } from "./offline.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
@@ -6185,6 +6186,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#attach-photo"), "click", () => {
       toggleAttachMenu(false);
       $("#file-photo").click();
+    });
+    const openInk = setupInk({ dialog: $("#dialog-ink"), toast, onDone: (file) => addImages([file]) });
+    on($("#attach-ink"), "click", () => {
+      toggleAttachMenu(false);
+      if (state.pendingImages.length >= MAX_IMAGES) return toast(`Au plus ${MAX_IMAGES} photos par message.`);
+      guardHistory();
+      openInk();
     });
     on($("#attach-camera"), "click", () => {
       toggleAttachMenu(false);

@@ -345,6 +345,7 @@
         <button type="button" id="attach-photo"><span aria-hidden="true">🖼️</span> Photo</button>
         <button type="button" id="attach-postit"><svg class="ic postit-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M4 3h16v12l-5 6H4z"/><path class="pl-fold" d="M20 15l-5 6v-4a2 2 0 0 1 2-2z"/><path class="pl-line" d="M8 8h8M8 12h5"/></svg> Post-it</button>
         <button type="button" id="attach-todo"><svg class="ic postit-logo todo-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M5 3h14v18H5z"/><path d="M8 2v3M12 2v3M16 2v3"/><path class="pl-line" d="M8 10h1.5M8 14h1.5M8 18h1.5M12 10h4M12 14h4M12 18h4"/></svg> To-Do</button>
+        <button type="button" id="attach-ink"><svg class="ic postit-logo ink-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M4 3h16v18H4z"/><path d="M7 16c2-4 3 1 5-3s3-2 5-5"/><path class="pl-line" d="M15 19l5-5"/></svg> Note manuscrite</button>
         <button type="button" id="attach-camera"><span aria-hidden="true">📷</span> Prendre une photo</button>
       </div>
       <input type="file" id="file-photo" accept="image/*" multiple hidden>
@@ -614,6 +615,7 @@
           <li><strong>« Push service not available »</strong> : le navigateur n'a pas de service de notifications, ce qui arrive sur les téléphones sans services Google (Murena /e/OS, par exemple). Utilise Firefox, ou active « Cloud messaging » dans les réglages du téléphone.</li>
           <li><strong>To-Do</strong> : touche le <strong>+</strong> de la zone de saisie puis « To-Do » pour écrire une liste de cases à cocher. Elle se colle en haut du fil comme une page de carnet à spirale, pour toutes les personnes qui y ont accès. Touche-la pour l'ouvrir en grand et cocher les cases : elles sont communes à tout le fil. Pour cocher ou décocher, touche la case elle-même (pas de confirmation) : toucher la ligne ne fait rien, pour éviter les erreurs. Ton nom s'écrit à côté de chaque case que tu coches, pour savoir qui a fait quoi ; décocher retire la signature. Quand toutes les cases sont cochées, la feuille disparaît du haut du fil dès que tu la refermes (tu peux encore décocher une case cochée par erreur tant qu'elle est ouverte) ; elle reste consultable dans « Post-it jetés » (menu ⋮). Comme un Post-it, chacun peut la jeter pour soi et l'auteur peut la corriger avec le crayon. Le bouton <strong>☑️ To-Do</strong>, à côté de « Calendrier », rassemble toutes les To-Do en cours qui te concernent, classées par spectacle.</li>
           <li><strong>Mes notes</strong> : dans chaque spectacle (déplié dans le menu, ou bouton <strong>📝 Mes notes</strong> à côté de « Calendrier », avec recherche ; les spectacles y sont classés par date la plus proche), tu as un salon personnel pour te noter des messages, photos, Post-it, To-Do ou notes. <strong>Toi seul</strong> peux le lire : les autres personnes et les administrateurs n'y ont pas accès dans l'application, et aucune notification n'est envoyée. Place limitée par personne, tous spectacles confondus : 2 000 notes et 25 Mo de photos (l'en-tête affiche ta consommation). Pour libérer de la place, supprime d'anciennes notes ou photos. Comme dans les sous-salons, la barre de dates du spectacle est reprise et la date en cours est proposée à la rédaction. Ce n’est pas un coffre-fort chiffré : n'y mets pas de mots de passe.</li>
+          <li><strong>Note manuscrite</strong> : touche le <strong>+</strong> de la zone de saisie puis « Note manuscrite » pour ouvrir une page blanc cassé. Écris ou dessine au doigt, au stylet ou à la souris ; avec <strong>deux doigts</strong>, déplace la page et pince pour zoomer (molette sur ordinateur). Choisis la couleur et l'épaisseur du trait, la gomme efface le trait touché, ↶ ↷ annulent et rétablissent, ⤢ montre tout le dessin. Dès que tu as utilisé le stylet, le doigt sert seulement à déplacer la page. « Envoyer » joint la note au message comme une <strong>photo</strong> (image recadrée sur ton dessin) : tu peux l'accompagner d'un texte avant d'envoyer. Une fois envoyée, elle ne se modifie plus.</li>
           <li><strong>Post-it</strong> : touche le <strong>+</strong> de la zone de saisie puis « Post-it » pour écrire un petit mot jaune, collé en haut du fil pour toutes les personnes qui y ont accès. Touche un Post-it pour le décoller et le lire en grand : retouche-le pour le laisser collé (il revient à chaque ouverture du fil), ou touche la poubelle pour le jeter — il se froisse et disparaît <em>pour toi seulement</em>. L'auteur d'un Post-it peut le corriger avec le crayon. Le menu ⋮ propose « Post-it jetés » pour relire les anciens, les remettre ou les jeter définitivement. « Vider la poubelle » les jette tous définitivement d'un coup. Quand tu arrives dans un fil, tu ne vois que les Post-it posés après ton arrivée (les To-Do en cours restent visibles). L'auteur (ou un administrateur) peut aussi le jeter pour tout le monde (poubelle « tous »).</li>
           <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour, avec un filtre par date de tournée (#).</li>
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
@@ -807,6 +809,32 @@
           <button type="submit" class="primary" id="todo-submit">Coller</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog id="dialog-ink" class="ink" aria-label="Note manuscrite">
+      <div class="ink-bar">
+        <button type="button" class="ghost small" id="ink-cancel">Annuler</button>
+        <span class="ink-tools">
+          <button type="button" data-ink-color="#1b1b1f" class="ink-dot" style="--c:#1b1b1f" aria-label="Noir" aria-pressed="true"></button>
+          <button type="button" data-ink-color="#1f4fd8" class="ink-dot" style="--c:#1f4fd8" aria-label="Bleu" aria-pressed="false"></button>
+          <button type="button" data-ink-color="#c62828" class="ink-dot" style="--c:#c62828" aria-label="Rouge" aria-pressed="false"></button>
+          <button type="button" data-ink-color="#2e7d32" class="ink-dot" style="--c:#2e7d32" aria-label="Vert" aria-pressed="false"></button>
+          <button type="button" data-ink-width="2" class="ink-w" aria-label="Trait fin" aria-pressed="false"><i style="height:2px"></i></button>
+          <button type="button" data-ink-width="4" class="ink-w" aria-label="Trait moyen" aria-pressed="true"><i style="height:4px"></i></button>
+          <button type="button" data-ink-width="9" class="ink-w" aria-label="Trait épais" aria-pressed="false"><i style="height:8px"></i></button>
+          <button type="button" id="ink-eraser" class="ink-act" aria-label="Gomme" title="Gomme" aria-pressed="false">🧽</button>
+        </span>
+        <button type="button" class="primary small" id="ink-send" disabled>Envoyer</button>
+      </div>
+      <canvas id="ink-canvas" aria-label="Page de la note manuscrite"></canvas>
+      <div class="ink-bar ink-bar-bottom">
+        <button type="button" class="ink-act" id="ink-undo" aria-label="Annuler le dernier trait" title="Annuler" disabled>↶</button>
+        <button type="button" class="ink-act" id="ink-redo" aria-label="Rétablir" title="Rétablir" disabled>↷</button>
+        <button type="button" class="ink-act" id="ink-zoom-out" aria-label="Dézoomer" title="Dézoomer">−</button>
+        <button type="button" class="ink-act" id="ink-fit" aria-label="Tout voir" title="Tout voir">⤢</button>
+        <button type="button" class="ink-act" id="ink-zoom-in" aria-label="Zoomer" title="Zoomer">+</button>
+        <button type="button" class="ink-act" id="ink-clear" aria-label="Tout effacer" title="Tout effacer" disabled>🗑️</button>
+      </div>
     </dialog>
 
     <dialog id="dialog-notes" class="docs">
