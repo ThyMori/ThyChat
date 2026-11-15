@@ -2453,38 +2453,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Chaque case cochée ou décochée demande une confirmation (la liste est commune à tout le monde).
-  // Réglage de cet appareil : sans confirmation, seule la case elle-même coche ou décoche (pas la ligne).
-  const TODO_CONFIRM_KEY = "thychat:todo-confirm";
-  const todoConfirmOn = () => {
-    try {
-      return localStorage.getItem(TODO_CONFIRM_KEY) !== "off";
-    } catch {
-      return true;
-    }
-  };
-  function syncTodoConfirm() {
-    const on = todoConfirmOn();
-    for (const box of document.querySelectorAll(".todo-confirm-box")) box.checked = on;
-    for (const hint of document.querySelectorAll(".todo-confirm-hint")) hint.hidden = on;
-  }
-  function setTodoConfirm(on) {
-    try {
-      localStorage.setItem(TODO_CONFIRM_KEY, on ? "on" : "off");
-    } catch {
-      /* réglage non gardé : sans conséquence */
-    }
-    syncTodoConfirm();
-  }
-  // Sans confirmation, un appui sur la ligne (hors case) ne fait rien.
+  // Pas de confirmation : seule la case elle-même coche ou décoche. Un appui sur la ligne ne fait rien.
   function guardTodoLine(event) {
-    if (todoConfirmOn()) return;
     if (event.target.closest(".todo-item") && !event.target.matches('input[type="checkbox"]')) event.preventDefault();
-  }
-
-  function confirmTodoCheck(postit, index, done) {
-    if (!todoConfirmOn()) return true;
-    const item = todoItems(postit)[index];
-    return window.confirm(`${done ? "Cocher" : "Décocher"} « ${item ? item.t : ""} » ?`);
   }
 
   async function onTodoCheck(event) {
@@ -2493,7 +2464,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const postit = postitById(postitOpenId);
     if (!postit || !isTodo(postit)) return;
     const done = box.checked;
-    if (postitBusy || !confirmTodoCheck(postit, Number(box.dataset.index), done)) {
+    if (postitBusy) {
       box.checked = !done;
       return;
     }
@@ -2593,10 +2564,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const postit = node && todoView.list.find((p) => p.id === node.dataset.id);
     if (!postit) return;
     const done = box.checked;
-    if (!confirmTodoCheck(postit, Number(box.dataset.index), done)) {
-      box.checked = !done;
-      return;
-    }
     const error = await setTodoItem(postit, Number(box.dataset.index), done);
     if (error) {
       box.checked = !done;
@@ -2691,8 +2658,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#postit-edit").hidden = postit.user_id !== user.id;
     $("#postit-delete-all").hidden = !(postit.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel"));
     $("#postit-throw").disabled = false;
-    $("#postit-confirm-row").hidden = !isTodo(postit);
-    syncTodoConfirm();
     if (isTodo(postit)) setNoticeTodoDone(postit);
     else setNotice("#postit-read-message", "");
     openDialog("#dialog-postit-read");
@@ -5610,10 +5575,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
     on($("#dialog-todos"), "close", dropFinishedTodos);
     on($("#todos-list"), "click", guardTodoLine);
-    on(document, "change", (event) => {
-      if (event.target.matches && event.target.matches(".todo-confirm-box")) setTodoConfirm(event.target.checked);
-    });
-    syncTodoConfirm();
     on($("#postit-edit"), "click", () => {
       const id = postitOpenId;
       if (!id || postitBusy) return;
