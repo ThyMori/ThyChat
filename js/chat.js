@@ -156,6 +156,25 @@ const excerpt = (text, max = 90) => {
   const flat = String(text || "").replace(/^(> .*\n?)+/, "").replace(/\s+/g, " ").trim();
   return flat.length > max ? flat.slice(0, max - 1) + "…" : flat;
 };
+// Petites icônes sobres (traits) des actions d'un message ; contenu fixe, jamais de texte venant des utilisateurs.
+const ACTION_ICONS = {
+  reply: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 6 6v3"/>',
+  quote: '<path d="M10 7C6 8 4 10 4 14v3h6v-6H7c0-2 1-3 3-4z"/><path d="M20 7c-4 1-6 3-6 7v3h6v-6h-3c0-2 1-3 3-4z"/>',
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h8"/>',
+  forward: '<path d="m15 5 5 5-5 5"/><path d="M20 10H9a5 5 0 0 0-5 5v4"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/>',
+  strike: '<path d="M5 12h14"/><path d="M16 7.5C15 6 13.7 5.5 12 5.5c-2.2 0-4 1-4 3 0 4 8 2.5 8 7 0 2-1.8 3.5-4 3.5-1.9 0-3.4-.7-4.4-2"/>',
+  unstrike: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a6 6 0 0 1 0 12h-3"/>',
+  move: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 13h6m-2-2 2 2-2 2"/>',
+  delete: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
+};
+function actionIcon(name) {
+  const holder = document.createElement("span");
+  holder.className = "act-ic";
+  holder.innerHTML = `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ACTION_ICONS[name] || ""}</svg>`;
+  return holder;
+}
+
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16)));
 const MESSAGE_COLS = "id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at";
 const PHOTO_LABEL = "📷 Photo";
@@ -1006,25 +1025,21 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
       if (message.id === state.selectedId && !state.multi.size) {
         const actions = el("div", "msg-actions");
-        const actionList = [["reply", "Répondre"], ["quote", "Citer"], ["copy", "Copier"], ["forward", "Transférer"]];
-        if (mine) actionList.push(["edit", "Modifier"], ["strike", message.struck_at ? "Rétablir" : "Rayer"]);
-        if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer"]);
-        for (const [action, label] of actionList) {
-          const button = el("button", "", label);
+        const actionList = [["reply", "Répondre", "reply"], ["quote", "Citer", "quote"], ["copy", "Copier", "copy"], ["forward", "Transférer", "forward"]];
+        if (mine) actionList.push(["edit", "Modifier", "edit"], ["strike", message.struck_at ? "Rétablir" : "Rayer", message.struck_at ? "unstrike" : "strike"]);
+        if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer", "move"]);
+        if (deletable) actionList.push(["delete", "Supprimer", "delete"]);
+        for (const [action, label, icon] of actionList) {
+          const button = el("button", "msg-act" + (action === "delete" ? " msg-del" : ""));
           button.type = "button";
+          button.title = label;
+          button.setAttribute("aria-label", label);
           button.dataset.action = action;
           button.dataset.id = message.id;
+          button.append(actionIcon(icon));
           actions.append(button);
         }
         item.append(actions);
-      }
-
-      if (deletable) {
-        const remove = el("button", "msg-del", "Supprimer");
-        remove.type = "button";
-        remove.dataset.action = "delete";
-        remove.dataset.id = message.id;
-        item.append(remove);
       }
 
       box.append(item);
@@ -5220,6 +5235,45 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         $("#screen-app").classList.add("sidebar-open");
       }
     }, opts);
+    // Glisser un message vers la gauche : il suit le doigt (comme sur WhatsApp) et se met en surbrillance.
+    {
+      const box = $("#messages");
+      let drag = null;
+      const settle = (row) => {
+        if (!row) return;
+        row.classList.remove("swiping", "armed");
+        row.classList.add("swipe-back");
+        row.style.transform = "";
+        setTimeout(() => row.classList.remove("swipe-back"), 220);
+      };
+      on(box, "touchstart", (event) => {
+        const touch = event.touches[0];
+        const row = event.target.closest && event.target.closest(".msg");
+        drag = row && event.touches.length === 1 && touch && !row.dataset.pending && !state.multi.size && !state.calendarOpen ? { row, x: touch.clientX, y: touch.clientY, on: false } : null;
+      }, { passive: true });
+      on(box, "touchmove", (event) => {
+        const touch = event.touches[0];
+        if (!drag || !touch) return;
+        const dx = touch.clientX - drag.x;
+        const dy = touch.clientY - drag.y;
+        if (!drag.on) {
+          if (dx < -10 && Math.abs(dx) > Math.abs(dy) * 1.2) drag.on = true;
+          else return;
+        }
+        const pulled = Math.min(Math.max(-dx, 0), 110);
+        drag.row.classList.add("swiping");
+        drag.row.style.transform = `translateX(${-pulled * 0.55}px)`;
+        const armed = pulled > 60;
+        if (armed && !drag.row.classList.contains("armed") && navigator.vibrate) navigator.vibrate(10);
+        drag.row.classList.toggle("armed", armed);
+      }, { passive: true });
+      const end = () => {
+        if (drag) settle(drag.row);
+        drag = null;
+      };
+      on(box, "touchend", end);
+      on(box, "touchcancel", end);
+    }
     on($("#open-profile"), "click", openProfile);
     on($("#open-help"), "click", () => {
       openDialog("#dialog-help");

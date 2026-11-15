@@ -1411,3 +1411,16 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .msg.pending.failed .bubble { opacity: 1; border-color: var(--danger); }
 .msg-pending-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.8rem; }
 .msg-pending-note .danger { color: var(--danger); }
+
+/* ---- Actions d'un message : icônes sobres ; glisser vers la gauche ---- */
+.msg-actions { gap: 4px; margin: 4px 6px 0; }
+.msg-actions .msg-act { width: 34px; height: 34px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; border: 1px solid hsl(var(--h) 30% 32%); background: transparent; color: inherit; cursor: pointer; }
+.msg-actions .msg-act .act-ic { display: inline-flex; }
+.msg-actions .msg-act .ic { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.msg-actions .msg-act:hover, .msg-actions .msg-act:focus-visible { background: hsl(var(--h) 40% 50% / 0.2); }
+.msg-actions .msg-del { color: var(--danger); display: inline-flex; align-self: auto; margin: 0; }
+.msg { touch-action: pan-y; }
+.msg.swiping { transition: none; }
+.msg.swiping .bubble { outline: 2px solid hsl(var(--h) 60% 50% / 0.45); filter: brightness(1.12); }
+.msg.swiping.armed .bubble { outline-color: hsl(var(--h) 60% 55% / 0.9); }
+.msg.swipe-back { transition: transform 0.2s ease-out; }

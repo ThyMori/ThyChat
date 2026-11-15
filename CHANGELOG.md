@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.38.0 — 2026-11-15
+- Message : glisser vers la gauche le fait suivre le doigt avec surbrillance
+- actions en petites icônes sobres
+
 ## 3.37.0 — 2026-11-15
 - Hors-ligne : derniers messages, Post-it et To-Do gardés sur l'appareil et lisibles sans réseau, démarrage sans connexion, messages écrits sans réseau mis en file d'attente et envoyés dans l'ordre au retour du réseau
 
