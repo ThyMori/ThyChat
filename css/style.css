@@ -1510,12 +1510,17 @@ html, body { overscroll-behavior-y: none; }
 :root { --ink-paper: #f6f1e4; }
 .attach-menu .ink-logo .pl-sheet { fill: var(--ink-paper); }
 dialog.ink {
-  width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: 0;
+  width: 100vw; max-width: none; height: 100dvh; max-height: none; margin: 0; padding: var(--safe-top) 0 0;
   border: 0; border-radius: 0; background: var(--ink-paper);
 }
 dialog.ink[open] { display: flex; flex-direction: column; }
 .ink-bar { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 6px 8px; background: var(--bg-elev); border-bottom: 1px solid var(--border); }
-.ink-bar-bottom { justify-content: center; gap: 10px; border-bottom: 0; border-top: 1px solid var(--border); }
+.ink-bottom { background: var(--bg-elev); border-top: 1px solid var(--border); padding-bottom: calc(var(--safe-bottom) + 4px); }
+.ink-bottom .ink-bar { border: 0; padding: 4px 10px; }
+.ink-bar-actions { justify-content: center; gap: 10px; }
+.ink-bar-main { padding-top: 2px; }
+.ink-bar-main button { min-height: 44px; padding: 0 22px; }
+
 .ink-tools { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: center; }
 #ink-canvas { flex: 1; min-height: 0; width: 100%; touch-action: none; cursor: crosshair; background: var(--ink-paper); }
 .ink-dot, .ink-w, .ink-act { display: inline-flex; align-items: center; justify-content: center; min-width: 34px; height: 34px; padding: 0; font: inherit; font-size: 1.1rem; color: var(--text); background: transparent; border: 2px solid transparent; border-radius: 50%; }

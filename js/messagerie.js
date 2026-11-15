@@ -1136,7 +1136,22 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     box.classList.toggle("multi", state.multi.size > 0);
     renderSelectBar();
-    box.scrollTop = forceBottom || nearBottom ? box.scrollHeight : previousTop;
+    if (forceBottom || nearBottom) {
+      box.scrollTop = box.scrollHeight;
+      settleBottom(box);
+    } else box.scrollTop = previousTop;
+  }
+
+  // Sur iPhone, la hauteur du fil change juste après l'affichage (photos, barres, polices) : on reste collé
+  // en bas pendant un court instant, sauf si la personne fait défiler elle-même.
+  let settleUntil = 0;
+  function settleBottom(box) {
+    settleUntil = Date.now() + 2500;
+    const again = () => {
+      if (Date.now() < settleUntil) box.scrollTop = box.scrollHeight;
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(again);
+    for (const ms of [60, 250, 700, 1500]) setTimeout(again, ms);
   }
 
   // --- Sélection de plusieurs messages (appui long, comme sur WhatsApp) ----------------------
@@ -6203,6 +6218,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         addImages(event.target.files);
         event.target.value = "";
       });
+    }
+    {
+      const box = $("#messages");
+      box.addEventListener("load", () => { if (Date.now() < settleUntil) box.scrollTop = box.scrollHeight; }, true);
+      for (const type of ["touchstart", "wheel", "pointerdown"]) box.addEventListener(type, () => { settleUntil = 0; }, { passive: true });
     }
     on($("#lightbox-close"), "click", () => closeDialog($("#dialog-image")));
     on($("#dialog-image"), "click", () => closeDialog($("#dialog-image")));

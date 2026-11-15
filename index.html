@@ -812,9 +812,10 @@
     </dialog>
 
     <dialog id="dialog-ink" class="ink" aria-label="Note manuscrite">
-      <div class="ink-bar">
-        <button type="button" class="ghost small" id="ink-cancel">Annuler</button>
-        <span class="ink-tools">
+      <canvas id="ink-canvas" aria-label="Page de la note manuscrite"></canvas>
+      <div class="ink-bottom">
+        <div class="ink-bar">
+          <span class="ink-tools">
           <button type="button" data-ink-color="#1b1b1f" class="ink-dot" style="--c:#1b1b1f" aria-label="Noir" aria-pressed="true"></button>
           <button type="button" data-ink-color="#1f4fd8" class="ink-dot" style="--c:#1f4fd8" aria-label="Bleu" aria-pressed="false"></button>
           <button type="button" data-ink-color="#c62828" class="ink-dot" style="--c:#c62828" aria-label="Rouge" aria-pressed="false"></button>
@@ -824,16 +825,19 @@
           <button type="button" data-ink-width="9" class="ink-w" aria-label="Trait épais" aria-pressed="false"><i style="height:8px"></i></button>
           <button type="button" id="ink-eraser" class="ink-act" aria-label="Gomme" title="Gomme" aria-pressed="false">🧽</button>
         </span>
-        <button type="button" class="primary small" id="ink-send" disabled>Envoyer</button>
-      </div>
-      <canvas id="ink-canvas" aria-label="Page de la note manuscrite"></canvas>
-      <div class="ink-bar ink-bar-bottom">
+        </div>
+        <div class="ink-bar ink-bar-actions">
         <button type="button" class="ink-act" id="ink-undo" aria-label="Annuler le dernier trait" title="Annuler" disabled>↶</button>
         <button type="button" class="ink-act" id="ink-redo" aria-label="Rétablir" title="Rétablir" disabled>↷</button>
         <button type="button" class="ink-act" id="ink-zoom-out" aria-label="Dézoomer" title="Dézoomer">−</button>
         <button type="button" class="ink-act" id="ink-fit" aria-label="Tout voir" title="Tout voir">⤢</button>
         <button type="button" class="ink-act" id="ink-zoom-in" aria-label="Zoomer" title="Zoomer">+</button>
         <button type="button" class="ink-act" id="ink-clear" aria-label="Tout effacer" title="Tout effacer" disabled>🗑️</button>
+        </div>
+        <div class="ink-bar ink-bar-main">
+          <button type="button" class="ghost small" id="ink-cancel">Annuler</button>
+          <button type="button" class="primary small" id="ink-send" disabled>Envoyer</button>
+        </div>
       </div>
     </dialog>
 
