@@ -145,6 +145,7 @@
       </button>
 
       <button type="button" class="ghost calendar-open" id="open-calendar">📅 Calendrier</button>
+      <button type="button" class="ghost calendar-open" id="open-todos">☑️ To-Do</button>
       <button type="button" class="ghost current-open" id="open-current" hidden>
         <span class="live-dots" id="current-dots" aria-hidden="true"></span>
         <span id="current-label">Dates en cours</span>
@@ -275,6 +276,7 @@
       <div id="attach-menu" class="attach-menu" hidden>
         <button type="button" id="attach-photo"><span aria-hidden="true">🖼️</span> Photo</button>
         <button type="button" id="attach-postit"><svg class="ic postit-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M4 3h16v12l-5 6H4z"/><path class="pl-fold" d="M20 15l-5 6v-4a2 2 0 0 1 2-2z"/><path class="pl-line" d="M8 8h8M8 12h5"/></svg> Post-it</button>
+        <button type="button" id="attach-todo"><svg class="ic postit-logo todo-logo" viewBox="0 0 24 24" aria-hidden="true"><path class="pl-sheet" d="M5 3h14v18H5z"/><path d="M8 2v3M12 2v3M16 2v3"/><path class="pl-line" d="M8 10h1.5M8 14h1.5M8 18h1.5M12 10h4M12 14h4M12 18h4"/></svg> To-Do</button>
         <button type="button" id="attach-camera"><span aria-hidden="true">📷</span> Prendre une photo</button>
       </div>
       <input type="file" id="file-photo" accept="image/*" multiple hidden>
@@ -496,6 +498,7 @@
           <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
           <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
           <li>Ce qui est en silence est atténué et marqué d'une cloche barrée.</li>
+          <li><strong>To-Do</strong> : touche le <strong>+</strong> de la zone de saisie puis « To-Do » pour écrire une liste de cases à cocher. Elle se colle en haut du fil comme une page de carnet à spirale, pour toutes les personnes qui y ont accès. Touche-la pour l'ouvrir en grand et cocher les cases : elles sont communes à tout le fil. Quand toutes les cases sont cochées, la feuille disparaît du haut du fil ; elle reste consultable dans « Post-it jetés » (menu ⋮). Comme un Post-it, chacun peut la jeter pour soi et l'auteur peut la corriger avec le crayon. Le bouton <strong>☑️ To-Do</strong>, sous « Calendrier », rassemble toutes les To-Do en cours qui te concernent, classées par spectacle.</li>
           <li><strong>Post-it</strong> : touche le <strong>+</strong> de la zone de saisie puis « Post-it » pour écrire un petit mot jaune, collé en haut du fil pour toutes les personnes qui y ont accès. Touche un Post-it pour le décoller et le lire en grand : retouche-le pour le laisser collé (il revient à chaque ouverture du fil), ou touche la poubelle pour le jeter — il se froisse et disparaît <em>pour toi seulement</em>. L'auteur d'un Post-it peut le corriger avec le crayon. Le menu ⋮ propose « Post-it jetés » pour relire les anciens, les remettre ou les jeter définitivement. L'auteur (ou un administrateur) peut aussi le jeter pour tout le monde (poubelle « tous »).</li>
           <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour, avec un filtre par date de tournée (#).</li>
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
@@ -671,13 +674,39 @@
       </form>
     </dialog>
 
+    <dialog id="dialog-todo" class="postit-dialog">
+      <form id="todo-form" method="dialog">
+        <h3 id="todo-form-title">Nouvelle To-Do</h3>
+        <p class="muted" id="todo-form-note">Une feuille de carnet collée en haut du fil pour toutes les personnes qui y ont accès. Chacune peut cocher les cases ; quand tout est coché, la feuille disparaît.</p>
+        <input type="text" id="todo-title" class="todo-title-input" maxlength="60" placeholder="Titre (facultatif)" aria-label="Titre de la To-Do" autocomplete="off">
+        <ol id="todo-items" class="todo-edit-items"></ol>
+        <button type="button" class="ghost small" id="todo-add-item">+ Ajouter une ligne</button>
+        <p id="todo-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close>Annuler</button>
+          <button type="submit" class="primary" id="todo-submit">Coller</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog id="dialog-todos" class="docs">
+      <h3 id="todos-title" tabindex="-1">To-Do</h3>
+      <p class="muted" id="todos-note">Les To-Do en cours qui te concernent, classées par spectacle. Touche un spectacle pour voir ses listes et cocher les cases.</p>
+      <button type="button" class="ghost small" id="todos-back" hidden>← Spectacles</button>
+      <div id="todos-list" class="todos-list"></div>
+      <p id="todos-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
     <dialog id="dialog-postit-read" class="postit-dialog">
-      <div id="postit-read-note" class="postit-read-note" role="button" tabindex="0" aria-label="Post-it : touche-le pour le laisser collé"></div>
+      <div id="postit-read-note" class="postit-read-note" role="button" tabindex="0" aria-label="Touche le papier pour le laisser collé"></div>
       <p id="postit-read-when" class="muted postit-read-when"></p>
-      <p class="muted postit-read-hint">Touche le Post-it pour le laisser collé.</p>
+      <p class="muted postit-read-hint" id="postit-read-hint">Touche le Post-it pour le laisser collé.</p>
       <p id="postit-read-message" class="notice" role="alert" hidden></p>
       <div class="postit-read-actions">
-        <button type="button" class="icon-btn" id="postit-edit" title="Modifier le Post-it" aria-label="Modifier le Post-it" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
+        <button type="button" class="icon-btn" id="postit-edit" title="Modifier le Post-it" aria-label="Modifier" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
         <button type="button" class="icon-btn danger" id="postit-delete-all" title="Jeter pour tout le monde" aria-label="Jeter pour tout le monde" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><small>tous</small></button>
         <button type="button" class="icon-btn danger" id="postit-throw" title="Jeter le Post-it" aria-label="Jeter le Post-it"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
       </div>
@@ -685,7 +714,7 @@
 
     <dialog id="dialog-postit-trash" class="docs">
       <h3 id="postit-trash-title" tabindex="-1">Post-it jetés</h3>
-      <p class="muted">Les Post-it que tu as jetés dans ce fil. « Remettre » les recolle en haut du fil ; « Jeter définitivement » les efface de cette liste (pour toi seulement).</p>
+      <p class="muted">Les Post-it et To-Do que tu as jetés dans ce fil, et les To-Do terminées. « Remettre » les recolle en haut du fil ; « Jeter définitivement » les efface de cette liste (pour toi seulement).</p>
       <div id="postit-trash-list" class="postit-trash-list"></div>
       <p id="postit-trash-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">

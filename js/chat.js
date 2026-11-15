@@ -1802,8 +1802,20 @@ export function createChat({ supabase, user }) {
   let postitFreshId = null; // à coller avec animation au prochain affichage
 
   const postitById = (id) => state.postits.find((p) => p.id === id);
-  const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id));
-  const trashedPostits = () => state.postits.filter((p) => state.postitStates.get(p.id) === "discarded").slice().reverse();
+  // To-Do : une ligne de `postits` avec kind = "todo", body = titre, items = [{ t, done }].
+  const isTodo = (p) => p.kind === "todo";
+  const todoItems = (p) => (Array.isArray(p.items) ? p.items : []);
+  const todoDone = (p) => isTodo(p) && todoItems(p).length > 0 && todoItems(p).every((i) => i.done);
+  const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id) && !todoDone(p));
+  // Jetés par moi, ou To-Do terminées (sauf si je les ai jetées définitivement).
+  const trashedPostits = () =>
+    state.postits
+      .filter((p) => {
+        const mine = state.postitStates.get(p.id);
+        return mine === "discarded" || (!mine && todoDone(p));
+      })
+      .slice()
+      .reverse();
   // Inclinaison stable (-3° à +3°) propre à chaque Post-it.
   const tiltOf = (id) => {
     let h = 0;
@@ -1815,7 +1827,9 @@ export function createChat({ supabase, user }) {
     state.postits = [];
     state.postitStates = new Map();
     renderPostitWall();
-    const posts = await supabase.from("postits").select("id, channel_id, user_id, body, created_at").eq("channel_id", channelId).order("created_at", { ascending: true });
+    let posts = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("channel_id", channelId).order("created_at", { ascending: true });
+    // Sans la migration 022 : seulement les Post-it.
+    if (posts.error) posts = await supabase.from("postits").select("id, channel_id, user_id, body, created_at").eq("channel_id", channelId).order("created_at", { ascending: true });
     if (stopped || token !== state.loadToken) return;
     state.postitsReady = !posts.error;
     if (posts.error) return renderPostitWall();
@@ -1832,7 +1846,40 @@ export function createChat({ supabase, user }) {
   }
 
   // Un Post-it (collé en haut du fil, ou petit dans la liste des jetés).
+  function todoNode(postit, options = {}) {
+    const full = options.button === false && !options.mini;
+    const node = el(options.button === false ? "div" : "button", "postit todo" + (options.mini ? " mini" : ""));
+    if (options.button !== false) node.type = "button";
+    node.dataset.id = postit.id;
+    node.style.setProperty("--tilt", tiltOf(postit.id) + "deg");
+    node.style.setProperty("--delay", (options.delay || 0) + "ms");
+    const items = todoItems(postit);
+    node.append(el("span", "postit-text", postit.body));
+    if (full) {
+      const list = el("ul", "todo-list");
+      items.forEach((item, index) => {
+        const label = el("label", "todo-item");
+        const box = el("input");
+        box.type = "checkbox";
+        box.checked = Boolean(item.done);
+        box.dataset.index = String(index);
+        label.append(box, el("span", "todo-label", item.t));
+        const row = el("li");
+        row.append(label);
+        list.append(row);
+      });
+      node.append(list);
+    } else if (options.mini) {
+      const list = el("ul", "todo-static");
+      for (const item of items) list.append(el("li", item.done ? "is-done" : "", (item.done ? "☑ " : "☐ ") + item.t));
+      node.append(list);
+    }
+    node.append(el("span", "todo-count", `${items.filter((i) => i.done).length} / ${items.length}`), el("span", "postit-from", "— " + authorName(postit.user_id)));
+    return node;
+  }
+
   function postitNode(postit, options = {}) {
+    if (isTodo(postit)) return todoNode(postit, options);
     const node = el(options.button === false ? "div" : "button", "postit" + (options.mini ? " mini" : ""));
     if (options.button !== false) node.type = "button";
     node.dataset.id = postit.id;
@@ -1869,6 +1916,227 @@ export function createChat({ supabase, user }) {
     setNotice("#postit-message", "");
     openDialog("#dialog-postit");
     $("#postit-input").focus();
+  }
+
+  // --- To-Do : écriture ---------------------------------------------------------------------------------
+  const TODO_MAX_ITEMS = 30;
+  const TODO_ITEM_MAX = 100;
+  let todoEditingId = null;
+
+  function addTodoRow(text = "", done = false, focus = false, after = null) {
+    const list = $("#todo-items");
+    if (list.children.length >= TODO_MAX_ITEMS) return null;
+    const row = el("li");
+    row.dataset.done = done ? "1" : "";
+    const input = el("input");
+    input.type = "text";
+    input.maxLength = TODO_ITEM_MAX;
+    input.value = text;
+    input.setAttribute("aria-label", "Ligne de la To-Do");
+    input.autocomplete = "off";
+    const remove = el("button", "", "×");
+    remove.type = "button";
+    remove.title = "Retirer la ligne";
+    remove.setAttribute("aria-label", "Retirer la ligne");
+    row.append(input, remove);
+    if (after && after.nextSibling) list.insertBefore(row, after.nextSibling);
+    else list.append(row);
+    if (focus) input.focus();
+    return row;
+  }
+
+  function openTodoWrite(editId = null) {
+    if (!state.channel) return;
+    const editing = editId && postitById(editId);
+    todoEditingId = editing ? editId : null;
+    $("#todo-form-title").textContent = editing ? "Modifier la To-Do" : "Nouvelle To-Do";
+    $("#todo-form-note").hidden = Boolean(editing);
+    $("#todo-submit").textContent = editing ? "Enregistrer" : "Coller";
+    $("#todo-title").value = editing ? editing.body : "";
+    $("#todo-items").replaceChildren();
+    if (editing) todoItems(editing).forEach((item) => addTodoRow(item.t, item.done));
+    else for (let i = 0; i < 3; i++) addTodoRow();
+    setNotice("#todo-message", "");
+    openDialog("#dialog-todo");
+    ($("#todo-items").querySelector("input") || $("#todo-title")).focus();
+  }
+
+  async function submitTodo(event) {
+    event.preventDefault();
+    if (!state.channel || postitBusy) return;
+    const items = [...$("#todo-items").children]
+      .map((row) => ({ t: row.querySelector("input").value.trim().slice(0, TODO_ITEM_MAX), done: Boolean(row.dataset.done) }))
+      .filter((item) => item.t);
+    if (!items.length) return setNotice("#todo-message", "Écris au moins une ligne dans ta To-Do.");
+    const title = $("#todo-title").value.trim().slice(0, 60) || "À faire";
+    postitBusy = true;
+    const channelId = state.channel.id;
+    const editId = todoEditingId;
+    const query = editId
+      ? supabase.from("postits").update({ body: title, items }).eq("id", editId).select().single()
+      : supabase.from("postits").insert({ channel_id: channelId, kind: "todo", body: title, items }).select().single();
+    const { data, error } = await query;
+    postitBusy = false;
+    if (error) {
+      return setNotice("#todo-message", "To-Do non enregistrée : " + error.message + (/kind|items|schema cache|permission|policy/i.test(error.message) ? " (exécute la migration 022 dans Supabase)." : ""));
+    }
+    closeDialog($("#dialog-todo"));
+    todoEditingId = null;
+    if (!state.channel || state.channel.id !== channelId) return;
+    const known = postitById(data.id);
+    if (known) Object.assign(known, { body: data.body, items: data.items });
+    else state.postits.push(data);
+    postitFreshId = data.id;
+    renderPostitWall();
+  }
+
+  // Cocher / décocher : n'importe qui ayant accès au fil.
+  async function setTodoItem(postit, index, done) {
+    const { error } = await supabase.rpc("set_todo_item", { p_id: postit.id, p_index: index, p_done: done });
+    if (error) return error;
+    const items = todoItems(postit).map((item, i) => (i === index ? { ...item, done } : item));
+    postit.items = items;
+    const mine = postitById(postit.id);
+    if (mine && mine !== postit) mine.items = items;
+    return null;
+  }
+
+  async function onTodoCheck(event) {
+    const box = event.target.closest('input[type="checkbox"]');
+    if (!box) return;
+    const postit = postitById(postitOpenId);
+    if (!postit || !isTodo(postit)) return;
+    const done = box.checked;
+    if (postitBusy) {
+      box.checked = !done;
+      return;
+    }
+    postitBusy = true;
+    const error = await setTodoItem(postit, Number(box.dataset.index), done);
+    postitBusy = false;
+    if (error) {
+      box.checked = !done;
+      return setNotice("#postit-read-message", "Case non enregistrée : " + error.message);
+    }
+    setNotice("#postit-read-message", "");
+    const count = $("#postit-read-note").querySelector(".todo-count");
+    if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
+    if (todoDone(postit)) finishTodo();
+  }
+
+  // Toutes les cases cochées : la feuille se froisse et disparaît du haut du fil.
+  async function finishTodo() {
+    postitBusy = true;
+    const note = $("#postit-read-note").firstChild;
+    if (note) {
+      note.classList.remove("lifted");
+      note.classList.add("crumpling");
+    }
+    await new Promise((resolve) => setTimeout(resolve, CRUMPLE_MS));
+    postitBusy = false;
+    if (stopped) return;
+    postitOpenId = null;
+    closeDialog($("#dialog-postit-read"));
+    renderPostitWall();
+    toast("To-Do terminée ! Elle reste consultable dans « Post-it jetés » (menu ⋮).", "ok");
+  }
+
+  // Vue d'ensemble : toutes les To-Do en cours qui me concernent, classées par spectacle.
+  let todoView = { room: null, list: [] };
+  let todoToken = 0;
+
+  async function openTodos() {
+    if (!state.ws) return;
+    const token = ++todoToken;
+    todoView = { room: null, list: [] };
+    setNotice("#todos-message", "");
+    $("#todos-list").replaceChildren(el("p", "muted", "Chargement…"));
+    $("#todos-back").hidden = true;
+    openDialog("#dialog-todos");
+    closeSidebar();
+    const { data, error } = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("kind", "todo").order("created_at", { ascending: true });
+    if (token !== todoToken || stopped) return;
+    if (error) {
+      $("#todos-list").replaceChildren();
+      return setNotice("#todos-message", "To-Do illisibles : " + error.message + (/kind|schema cache/i.test(error.message) ? " (exécute la migration 022 dans Supabase)." : ""));
+    }
+    const visible = (data || []).filter((p) => state.allChannels.some((c) => c.id === p.channel_id));
+    let gone = new Set();
+    if (visible.length) {
+      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((p) => p.id));
+      if (token !== todoToken || stopped) return;
+      gone = new Set((states.data || []).map((r) => r.postit_id));
+    }
+    todoView.list = visible.filter((p) => !gone.has(p.id) && !todoDone(p));
+    await ensureProfiles(todoView.list.map((p) => p.user_id));
+    if (token !== todoToken || stopped) return;
+    renderTodos();
+  }
+
+  const todoGroupOf = (postit) => {
+    const channel = state.allChannels.find((c) => c.id === postit.channel_id);
+    return channel && channel.kind === "channel" && channel.room_id ? channel.room_id : "dm";
+  };
+
+  function renderTodos() {
+    const box = $("#todos-list");
+    box.replaceChildren();
+    const room = todoView.room;
+    $("#todos-back").hidden = !room;
+    $("#todos-title").textContent = room ? (room === "dm" ? "To-Do · Messages privés" : `To-Do · ${roomById(room)?.name || ""}`) : "To-Do";
+    $("#todos-note").hidden = Boolean(room);
+    if (!room) {
+      const counts = new Map();
+      for (const postit of todoView.list) counts.set(todoGroupOf(postit), (counts.get(todoGroupOf(postit)) || 0) + 1);
+      if (!counts.size) return box.append(el("p", "muted", "Aucune To-Do en cours. 🎉"));
+      const order = [...state.allRooms.map((r) => r.id), "dm"].filter((id) => counts.has(id));
+      for (const id of order) {
+        const button = el("button", "ghost todos-room");
+        button.type = "button";
+        button.dataset.room = id;
+        button.append(el("span", "", id === "dm" ? "Messages privés" : roomById(id).name), el("span", "badge-count", String(counts.get(id))));
+        box.append(button);
+      }
+      return;
+    }
+    const list = todoView.list.filter((p) => todoGroupOf(p) === room);
+    if (!list.length) return box.append(el("p", "muted", "Plus aucune To-Do en cours ici. 🎉"));
+    for (const postit of list) {
+      const sheet = el("div", "todos-sheet");
+      const channel = state.allChannels.find((c) => c.id === postit.channel_id);
+      const where = el("button", "todos-where", channel ? channelTitle(channel) : "Ouvrir le fil");
+      where.type = "button";
+      where.dataset.channel = postit.channel_id;
+      sheet.append(where, postitNode(postit, { button: false }));
+      box.append(sheet);
+    }
+  }
+
+  async function onTodosCheck(event) {
+    const box = event.target.closest('input[type="checkbox"]');
+    const node = box && box.closest(".postit.todo");
+    const postit = node && todoView.list.find((p) => p.id === node.dataset.id);
+    if (!postit) return;
+    const done = box.checked;
+    const error = await setTodoItem(postit, Number(box.dataset.index), done);
+    if (error) {
+      box.checked = !done;
+      return setNotice("#todos-message", "Case non enregistrée : " + error.message);
+    }
+    setNotice("#todos-message", "");
+    const count = node.querySelector(".todo-count");
+    if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
+    if (state.channel && state.channel.id === postit.channel_id) renderPostitWall();
+    if (todoDone(postit)) {
+      node.classList.add("crumpling");
+      setTimeout(() => {
+        if (stopped) return;
+        todoView.list = todoView.list.filter((p) => p.id !== postit.id);
+        if (todoView.room && !todoView.list.some((p) => todoGroupOf(p) === todoView.room)) todoView.room = null;
+        if ($("#dialog-todos").hasAttribute("open")) renderTodos();
+        toast("To-Do terminée !", "ok");
+      }, CRUMPLE_MS);
+    }
   }
 
   async function submitPostit(event) {
@@ -1939,6 +2207,8 @@ export function createChat({ supabase, user }) {
     holder.firstChild.classList.add("lifted");
     const when = new Date(postit.created_at);
     $("#postit-read-when").textContent = `${authorName(postit.user_id)} · ${dayLabel(when)} à ${timeFmt.format(when)}`;
+    $("#postit-read-hint").textContent = isTodo(postit) ? "Coche les cases ; touche la feuille ailleurs pour la laisser collée." : "Touche le Post-it pour le laisser collé.";
+    $("#postit-throw").title = isTodo(postit) ? "Jeter la To-Do" : "Jeter le Post-it";
     $("#postit-edit").hidden = postit.user_id !== user.id;
     $("#postit-delete-all").hidden = !(postit.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel"));
     $("#postit-throw").disabled = false;
@@ -2013,9 +2283,20 @@ export function createChat({ supabase, user }) {
     } else if (payload.eventType === "UPDATE") {
       const postit = payload.new;
       const mine = postit && postitById(postit.id);
-      if (mine && postit.body !== mine.body) {
+      const changed = mine && (postit.body !== mine.body || JSON.stringify(postit.items || null) !== JSON.stringify(mine.items || null));
+      if (changed) {
+        const itemsOnly = postit.body === mine.body && isTodo(mine);
         mine.body = postit.body;
-        postitFreshId = mine.id;
+        if (postit.items) mine.items = postit.items;
+        if (!itemsOnly) postitFreshId = mine.id;
+        if (postitOpenId === mine.id && isTodo(mine) && !postitBusy) {
+          if (todoDone(mine)) {
+            postitOpenId = null;
+            closeDialog($("#dialog-postit-read"));
+          } else {
+            showPostit(mine.id);
+          }
+        }
         renderPostitWall();
       }
     } else if (payload.eventType === "DELETE") {
@@ -2056,7 +2337,8 @@ export function createChat({ supabase, user }) {
       const purge = el("button", "ghost small danger", "Jeter définitivement");
       purge.type = "button";
       purge.dataset.purge = postit.id;
-      side.append(back, purge);
+      if (todoDone(postit)) side.append(el("small", "muted", "Terminée"), purge);
+      else side.append(back, purge);
       row.append(note, side);
       box.append(row);
     }
@@ -4700,6 +4982,49 @@ export function createChat({ supabase, user }) {
       toggleAttachMenu(false);
       openPostitWrite(null);
     });
+    on($("#open-todos"), "click", openTodos);
+    on($("#attach-todo"), "click", () => {
+      toggleAttachMenu(false);
+      openTodoWrite(null);
+    });
+    on($("#todo-form"), "submit", submitTodo);
+    on($("#todo-add-item"), "click", () => addTodoRow("", false, true));
+    on($("#todo-items"), "click", (event) => {
+      const remove = event.target.closest("button");
+      if (!remove) return;
+      const row = remove.closest("li");
+      if ($("#todo-items").children.length > 1) row.remove();
+      else row.querySelector("input").value = "";
+    });
+    on($("#todo-items"), "keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      addTodoRow("", false, true, event.target.closest("li"));
+    });
+    on($("#todo-title"), "keydown", (event) => {
+      if (event.key !== "Enter") return;
+      event.preventDefault();
+      const first = $("#todo-items").querySelector("input");
+      if (first) first.focus();
+    });
+    on($("#postit-read-note"), "change", onTodoCheck);
+    on($("#todos-list"), "change", onTodosCheck);
+    on($("#todos-list"), "click", (event) => {
+      const room = event.target.closest("[data-room]");
+      if (room) {
+        todoView.room = room.dataset.room;
+        return renderTodos();
+      }
+      const where = event.target.closest("[data-channel]");
+      if (where) {
+        closeDialog($("#dialog-todos"));
+        selectChannel(where.dataset.channel);
+      }
+    });
+    on($("#todos-back"), "click", () => {
+      todoView.room = null;
+      renderTodos();
+    });
     on($("#postit-form"), "submit", submitPostit);
     on($("#postit-input"), "input", () => {
       $("#postit-count").textContent = `${$("#postit-input").value.length} / ${POSTIT_MAX}`;
@@ -4710,10 +5035,12 @@ export function createChat({ supabase, user }) {
     });
     on($("#postit-throw"), "click", throwPostit);
     // Retoucher le Post-it ouvert suffit à le laisser collé.
-    on($("#postit-read-note"), "click", () => {
+    on($("#postit-read-note"), "click", (event) => {
+      if (event.target.closest(".todo-item")) return; // cocher une case ne ferme pas la feuille
       if (!postitBusy) closeDialog($("#dialog-postit-read"));
     });
     on($("#postit-read-note"), "keydown", (event) => {
+      if (event.target.closest(".todo-item")) return;
       if ((event.key === "Enter" || event.key === " ") && !postitBusy) {
         event.preventDefault();
         closeDialog($("#dialog-postit-read"));
@@ -4723,7 +5050,9 @@ export function createChat({ supabase, user }) {
       const id = postitOpenId;
       if (!id || postitBusy) return;
       closeDialog($("#dialog-postit-read"));
-      openPostitWrite(id);
+      const target = postitById(id);
+      if (target && isTodo(target)) openTodoWrite(id);
+      else openPostitWrite(id);
     });
     on($("#postit-delete-all"), "click", deletePostitForAll);
     on($("#dialog-postit-read"), "close", stickBack);
