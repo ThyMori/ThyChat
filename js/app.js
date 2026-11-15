@@ -2,6 +2,7 @@ import { supabase, isConfigured } from "./supabase.js";
 import { createChat } from "./messagerie.js";
 import { initInstall } from "./install.js";
 import { VERSION } from "./version.js";
+import { watchUpdates } from "./updates.js";
 
 const $ = (selector) => document.querySelector(selector);
 
@@ -42,6 +43,10 @@ if ("serviceWorker" in navigator) {
       console.warn("Service worker non enregistré :", err);
     });
   });
+  // Nouvelle version prête : un bandeau propose de recharger (jamais de rechargement sans prévenir).
+  watchUpdates({ onUpdate: () => ($("#update-bar").hidden = false) });
+  $("#update-now").addEventListener("click", () => window.location.reload());
+  $("#update-later").addEventListener("click", () => ($("#update-bar").hidden = true));
 }
 
 // --- Lecture du lien d'invitation / de réinitialisation -------------------

@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.44.0 — 2026-11-15
+- Mises à jour : l'application vérifie seule qu'une nouvelle version existe et affiche un bandeau « Nouvelle version disponible » pour recharger
+
 ## 3.43.2 — 2026-11-15
 - Un appui à l'extérieur d'une fenêtre (To-Do, Post-it, etc.) la ferme, comme « Retour »
 

@@ -33,7 +33,7 @@
       // Étape atteinte, puis essai de chaque module de démarrage pour savoir lequel ne se charge pas.
       if (detail) detail.textContent += "\nÉtape : " + (window.__step || "aucun script exécuté");
       try {
-        var probes = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", "./js/config.js", "./js/supabase.js", "./js/messagerie.js", "./js/themes.js", "./js/notify.js", "./js/documents.js", "./js/images.js", "./js/offline.js", "./js/push.js", "./js/install.js", "./js/app.js"];
+        var probes = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", "./js/config.js", "./js/supabase.js", "./js/messagerie.js", "./js/themes.js", "./js/notify.js", "./js/documents.js", "./js/images.js", "./js/offline.js", "./js/push.js", "./js/install.js", "./js/updates.js", "./js/app.js"];
         probes.forEach(function (url) {
           import(url).then(
             function () { if (detail) detail.textContent += "\nModule OK : " + url.replace(/^.*\//, ""); },
@@ -61,6 +61,11 @@
   </script>
 </head>
 <body>
+  <div id="update-bar" class="update-bar" role="status" hidden>
+    <span>Nouvelle version disponible.</span>
+    <button type="button" id="update-now" class="small primary">Mettre à jour</button>
+    <button type="button" id="update-later" class="icon-btn tiny" aria-label="Plus tard" title="Plus tard">×</button>
+  </div>
 
   <main id="screen-loading" class="screen center" aria-live="polite">
     <div class="brand-mark" aria-hidden="true"></div>
@@ -462,6 +467,7 @@
       <details class="help-section">
         <summary>S'y retrouver</summary>
         <ul>
+          <li><strong>Mises à jour</strong> : l'application vérifie toute seule qu'une nouvelle version existe (quand tu reviens dessus, quand le réseau revient, puis toutes les 30 minutes). Un bandeau « Nouvelle version disponible » apparaît alors : touche « Mettre à jour » quand ça t'arrange (rien ne se recharge sans toi). La double flèche en bas de la barre latérale force aussi la vérification.</li>
           <li><strong>Fermer une fenêtre</strong> : touche le fond sombre à l'extérieur, comme la touche « Retour » (ou le bouton Fermer).</li>
           <li><strong>Espace</strong> : une production ou une compagnie, avec sa couleur et sa photo. Tu en changes avec le bouton en haut de la barre latérale.</li>
           <li><strong>Spectacle</strong> : un spectacle en particulier, dans un espace. Il se plie et se déplie ; un cadenas indique qu'il est réservé à certaines personnes.</li>

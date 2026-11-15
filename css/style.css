@@ -1477,3 +1477,13 @@ html, body { overscroll-behavior-y: none; }
   html { font-size: 120%; }
   .composer textarea { font-size: 1rem; }
 }
+
+/* Bandeau « nouvelle version disponible » */
+.update-bar {
+  position: fixed; z-index: 1000; left: 12px; right: 12px; top: calc(env(safe-area-inset-top, 0px) + 8px);
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px 8px 14px; border-radius: 14px;
+  background: var(--bg-elev); border: 1px solid var(--accent); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); font-size: 0.9rem;
+}
+.update-bar[hidden] { display: none; }
+.update-bar span { flex: 1; min-width: 0; }
+.update-bar button.small { width: auto; flex: none; }
