@@ -5193,6 +5193,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     } catch (error) {
       const code = error && error.message;
       if (code === "denied") setNotice("#notif-message", "Autorisation refusée par le navigateur.");
+      else if (/push service not available|registration failed/i.test(String(code || error)))
+        setNotice("#notif-message", "Ce navigateur n'a pas accès à un service de notifications (il en faut un, en général fourni par Google). Essaie avec Firefox, qui a le sien, ou active l'enregistrement « Cloud messaging » dans les réglages de ton téléphone. (" + (code || error) + ")");
       else setNotice("#notif-message", "Activation impossible : " + (code || error));
     }
     await refreshPushStatus();

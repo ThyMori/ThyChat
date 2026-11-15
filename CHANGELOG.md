@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.5 — 2026-11-15
+- Notifications : message clair quand le navigateur n'a pas de service de notifications (téléphone sans services Google)
+
 ## 3.42.4 — 2026-11-15
 - Le fichier principal s'appelle messagerie.js : certains navigateurs (Murena) bloquaient chat.js et l'application ne démarrait pas
 
