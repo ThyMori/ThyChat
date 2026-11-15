@@ -41,7 +41,19 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
   const inRoom = new Set((roomMembers ?? []).map((row: { user_id: string }) => row.user_id));
   const { data: members } = await admin.from("workspace_members").select("user_id, role").eq("workspace_id", room.workspace_id);
   const recipients = new Set<string>();
-  for (const m of members ?? []) if (m.role === "admin" || room.everyone || inRoom.has(m.user_id)) recipients.add(m.user_id);
+  // Fiche technique : seules les personnes qui ont le droit de la lire (fonction Technique, Prod ou RG, ou case « lit la fiche technique »).
+  let sheetReaders: Set<string> | null = null;
+  if (table === "room_sheets") {
+    const { data: staff } = await admin.from("room_staff").select("user_id, functions, sheet_read").eq("room_id", room.id);
+    sheetReaders = new Set(
+      // deno-lint-ignore no-explicit-any
+      (staff ?? []).filter((s: any) => s.sheet_read || (s.functions ?? []).length > 0).map((s: { user_id: string }) => s.user_id),
+    );
+  }
+  for (const m of members ?? []) {
+    if (m.role === "admin") recipients.add(m.user_id);
+    else if ((room.everyone || inRoom.has(m.user_id)) && (!sheetReaders || sheetReaders.has(m.user_id))) recipients.add(m.user_id);
+  }
   const { data: supers } = await admin.from("profiles").select("id").eq("is_super_admin", true);
   for (const s of supers ?? []) recipients.add(s.id);
   if (doc.created_by) recipients.delete(doc.created_by);

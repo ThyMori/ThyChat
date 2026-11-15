@@ -319,6 +319,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
     calendarOpen: false,
     calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    myStaff: new Map(), // mes fonctions par spectacle : roomId -> { functions, sheet_read }
+    staffReady: false,
     notesUsage: null, // consommation de « Mes notes » (my_notes_usage)
     calScope: "all", // « all » (tous mes espaces, vue de base), « ws » (cet espace) ou l'id d'un spectacle
     calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
@@ -425,6 +427,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function isAdmin() {
     return state.ws?.role === "admin";
   }
+
+  // Fonctions dans un spectacle (migration 028) : Technique, Prod, RG. Les administrateurs de l'espace ont tous les droits.
+  const staffOf = (roomId) => state.myStaff.get(roomId) || { functions: [], sheet_read: false };
+  const hasFunction = (roomId, ...names) => staffOf(roomId).functions.some((f) => names.includes(f));
+  const canEditSheet = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
+  const canReadSheet = (roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
+  const canEditRoadmap = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
+  const canAssign = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
 
   // Pastille ronde : photo de la personne si elle en a une, sinon son initiale.
   function avatarFor(userId, extra = "soft") {
@@ -575,6 +585,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       return false;
     }
     state.tags = tagsResult.data || [];
+
+    // Mes fonctions dans chaque spectacle (absent tant que la migration 028 n'est pas exécutée : seuls les administrateurs modifient alors).
+    const staffResult = await supabase.from("room_staff").select("room_id, functions, sheet_read").eq("user_id", user.id);
+    if (stopped) return false;
+    state.myStaff = new Map((staffResult.error ? [] : staffResult.data || []).map((row) => [row.room_id, { functions: row.functions || [], sheet_read: Boolean(row.sheet_read) }]));
+    state.staffReady = !staffResult.error;
     // Documents des dates (migration 012 : sans elle, simplement aucun document).
     // Migration 017 : liens web et images ; sans elle, on relit les anciennes colonnes (PDF seulement).
     let docsResult = await supabase.from("tag_documents").select("id, tag_id, name, path, size_bytes, created_at, kind, url").order("created_at");
@@ -840,6 +856,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     toggle.append(side);
     head.append(toggle);
 
+    if (canAssign(room.id)) {
+      const team = el("button", "icon-btn tiny", "👥");
+      team.type = "button";
+      team.dataset.roomTeam = room.id;
+      team.title = "Équipe du spectacle";
+      team.setAttribute("aria-label", "Équipe du spectacle " + room.name);
+      head.append(team);
+    }
     if (isAdmin()) {
       const edit = el("button", "icon-btn tiny", "⚙");
       edit.type = "button";
@@ -1543,6 +1567,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       .on("postgres_changes", { event: "*", schema: "public", table: "message_pins" }, onPinRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "room_staff" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tag_documents" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_sheets" }, refreshStructureSoon)
@@ -3125,8 +3150,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const tags = roomId ? tagsOfRoom(roomId) : [];
     const manage = Boolean(roomId) && isAdmin() && state.channel.kind === "channel"; // les dates se gèrent depuis le spectacle, pas depuis « Mes notes »
     const sheets = roomId ? sheetsOfRoom(roomId) : [];
-    $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage && !sheets.length);
-    $("#room-sheet").hidden = !roomId || (!sheets.length && !manage);
+    const sheetEditor = canEditSheet(roomId) && state.channel.kind === "channel";
+    const sheetVisible = Boolean(roomId) && (sheets.length > 0 || sheetEditor);
+    $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage && !sheetVisible);
+    $("#room-sheet").hidden = !sheetVisible;
     $("#room-sheet-label").textContent = sheets.length ? `Fiche technique · ${shortDate(sheets[0].version_date)}` : "Fiche technique";
     $("#channel-dates").hidden = !manage || state.calendarOpen;
     const open = datesOpen();
@@ -3143,7 +3170,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const item = el("span", "tag-item");
       item.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
       const count = docsOfTag(tag.id).length;
-      if (count || manage) {
+      if (count || (canEditRoadmap(roomId) && state.channel.kind === "channel")) {
         const badge = el("button", "doc-badge");
         badge.type = "button";
         badge.dataset.docsTag = tag.id;
@@ -3338,10 +3365,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!roomId) return;
     const room = roomById(roomId);
     $("#sheet-title").textContent = room ? `Fiche technique · ${room.name}` : "Fiche technique";
-    $("#sheet-note").textContent = isAdmin()
+    $("#sheet-note").textContent = canEditSheet(roomId)
       ? "Une fiche technique peut réunir plusieurs fichiers (plan son, plan lumière…) : PDF, images (15 Mo au plus) ou liens. Ajoute-les avec la date de la version : la plus récente est mise en avant, les précédentes restent consultables."
       : "La version la plus récente est mise en avant ; les précédentes restent consultables.";
-    $("#sheet-form").hidden = !isAdmin();
+    $("#sheet-form").hidden = !canEditSheet(roomId);
     $("#sheet-date").value = toISO(new Date());
     $("#sheet-label").value = "";
     $("#sheet-url").value = "";
@@ -3355,7 +3382,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const open = docLink(sheet, "doc-open" + (latest ? " latest" : ""));
     open.append(docIcon(sheet), el("span", "doc-name", sheet.name), el("small", "muted", docMeta(sheet)));
     row.append(open);
-    if (isAdmin()) {
+    if (canEditSheet(sheet.room_id)) {
       const del = el("button", "icon-btn tiny", "");
       del.type = "button";
       del.dataset.delSheet = sheet.id;
@@ -3388,7 +3415,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // Ajoute à la fiche des fichiers (PDF, images) ; un intitulé n'est pris en compte que pour un fichier seul.
   async function addSheetFiles(files) {
     const roomId = currentRoomId();
-    if (!roomId || !isAdmin() || !files.length) return;
+    if (!roomId || !canEditSheet(roomId) || !files.length) return;
     const date = $("#sheet-date").value;
     if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
     const label = $("#sheet-label").value.trim().slice(0, 160);
@@ -3424,7 +3451,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   async function addSheetLink() {
     const roomId = currentRoomId();
-    if (!roomId || !isAdmin()) return;
+    if (!roomId || !canEditSheet(roomId)) return;
     const date = $("#sheet-date").value;
     if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
     const url = cleanUrl($("#sheet-url").value);
@@ -3461,7 +3488,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const room = roomById(currentRoomId());
     const only = docsOnlyTag ? tagById(docsOnlyTag) : null;
     $("#docs-title").textContent = only ? `Documents · ${only.label}` : room ? `Documents · ${room.name}` : "Documents du spectacle";
-    $("#docs-note").textContent = isAdmin()
+    $("#docs-note").textContent = canEditRoadmap(currentRoomId())
       ? "Ajoute à chaque date des PDF, des images (15 Mo au plus) ou des liens : feuilles de route, billets, livrets d'accueil… Toutes les personnes ayant accès au spectacle peuvent les ouvrir. Ils sont effacés automatiquement 10 jours après la fin de la date."
       : "Feuilles de route, billets, livrets d'accueil… rangés par date de tournée.";
     setNotice("#docs-message", "");
@@ -3476,10 +3503,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.replaceChildren();
     const roomId = currentRoomId();
     if (!roomId) return;
-    const admin = isAdmin();
+    const admin = canEditRoadmap(roomId);
     const tags = tagsOfRoom(roomId).filter((t) => (admin || docsOfTag(t.id).length) && (!docsOnlyTag || t.id === docsOnlyTag));
     if (!tags.length) {
-      box.append(el("p", "muted", admin ? "Crée d'abord une date de tournée (menu ⋮ > « Gérer les dates de tournée »)." : "Aucun document pour l'instant."));
+      box.append(el("p", "muted", isAdmin() ? "Crée d'abord une date de tournée (menu ⋮ > « Gérer les dates de tournée »)." : "Aucun document pour l'instant."));
       return;
     }
     for (const tag of tags) {
@@ -3523,7 +3550,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   async function addDocumentLink() {
     const tag = linkTarget && tagById(linkTarget);
-    if (!tag || !isAdmin()) return;
+    if (!tag || !canEditRoadmap(tag.room_id)) return;
     const url = cleanUrl($("#docs-link-url").value);
     if (!url) return setNotice("#docs-message", "Cette adresse n'est pas un lien web valable (https://…).");
     const name = $("#docs-link-name").value.trim().slice(0, 160) || new URL(url).hostname.replace(/^www\./, "");
@@ -3542,7 +3569,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function addDocuments(files) {
     const tag = docsTarget && tagById(docsTarget);
     docsTarget = null;
-    if (!tag || !isAdmin()) return;
+    if (!tag || !canEditRoadmap(tag.room_id)) return;
     const list = [...files];
     const problems = [];
     for (const file of list) {
@@ -4562,6 +4589,119 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await refreshStructure();
   }
 
+  // --- Équipe du spectacle : accès et fonctions (Technique, Prod, RG) ---
+
+  let teamRoom = null;
+  let teamStart = null; // état de départ : userId -> { access, functions, sheet_read }
+  const TEAM_FUNCTIONS = [["technique", "Technique"], ["prod", "Prod"], ["rg", "RG"]];
+
+  async function openTeamDialog(room) {
+    if (!room || !state.ws || !canAssign(room.id)) return;
+    if (!state.staffReady) return toast("Fonctions indisponibles : exécute la migration 028 dans Supabase.", "error");
+    teamRoom = room;
+    $("#team-title").textContent = `Équipe · ${room.name}`;
+    $("#team-note").textContent = room.everyone
+      ? "Ce spectacle est ouvert à tous les membres de l'espace. Choisis ici les fonctions de chacun."
+      : "Coche les personnes qui ont accès à ce spectacle et leurs fonctions.";
+    setNotice("#team-message", "");
+    $("#team-list").replaceChildren(el("li", "muted", "Chargement…"));
+    openDialog("#dialog-team");
+
+    const [members, staff, users] = await Promise.all([
+      room.everyone ? Promise.resolve({ data: [] }) : supabase.from("room_members").select("user_id").eq("room_id", room.id),
+      supabase.from("room_staff").select("user_id, functions, sheet_read").eq("room_id", room.id),
+      workspaceUsers(state.ws.id),
+    ]);
+    if (stopped || teamRoom !== room) return;
+    const access = new Set((members.data || []).map((row) => row.user_id));
+    const staffBy = new Map((staff.data || []).map((row) => [row.user_id, row]));
+    teamStart = new Map();
+    const list = $("#team-list");
+    list.replaceChildren();
+    for (const row of users) {
+      const item = el("li", "team-row");
+      item.dataset.user = row.user_id;
+      const who = el("div", "pick-row");
+      who.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
+      item.append(who);
+      if (row.role === "admin") {
+        who.append(el("span", "badge", "Admin"));
+        item.append(el("small", "muted", "Tous les droits"));
+        list.append(item);
+        continue;
+      }
+      const st = staffBy.get(row.user_id);
+      const start = { access: room.everyone || access.has(row.user_id), functions: st ? st.functions : [], sheet_read: Boolean(st && st.sheet_read) };
+      teamStart.set(row.user_id, start);
+      const opts = el("div", "team-opts");
+      const addBox = (key, label, checked) => {
+        const l = el("label", "choice");
+        const box = el("input");
+        box.type = "checkbox";
+        box.dataset.opt = key;
+        box.checked = checked;
+        if (row.user_id === user.id && !isAdmin()) box.disabled = true; // on ne se retire pas ses propres droits
+        l.append(box, document.createTextNode(" " + label));
+        opts.append(l);
+        return box;
+      };
+      if (!room.everyone) addBox("access", "Accès", start.access);
+      for (const [key, label] of TEAM_FUNCTIONS) addBox(key, label, start.functions.includes(key));
+      const read = addBox("sheet_read", "Lit la fiche technique", start.sheet_read || start.functions.length > 0);
+      item.append(opts);
+      list.append(item);
+      const sync = () => {
+        const any = TEAM_FUNCTIONS.some(([key]) => opts.querySelector(`[data-opt="${key}"]`).checked);
+        if (any) read.checked = true;
+        if (row.user_id !== user.id || isAdmin()) read.disabled = any;
+      };
+      opts.addEventListener("change", sync);
+      sync();
+    }
+  }
+
+  async function submitTeam(event) {
+    event.preventDefault();
+    const room = teamRoom;
+    if (!room || !canAssign(room.id)) return;
+    const button = $("#team-submit");
+    button.disabled = true;
+    setNotice("#team-message", "");
+    const want = new Map();
+    for (const item of document.querySelectorAll("#team-list .team-row")) {
+      if (!teamStart.has(item.dataset.user)) continue;
+      const value = (key) => Boolean(item.querySelector(`[data-opt="${key}"]`)?.checked);
+      const functions = TEAM_FUNCTIONS.map(([key]) => key).filter(value);
+      want.set(item.dataset.user, { access: room.everyone || value("access"), functions, sheet_read: value("sheet_read") || functions.length > 0 });
+    }
+    try {
+      if (!room.everyone) {
+        const have = new Set([...teamStart].filter(([, v]) => v.access).map(([id]) => id));
+        const add = [...want].filter(([id, v]) => v.access && !have.has(id)).map(([id]) => ({ room_id: room.id, user_id: id }));
+        const drop = [...want].filter(([id, v]) => !v.access && have.has(id)).map(([id]) => id);
+        if (add.length) { const { error } = await supabase.from("room_members").insert(add); if (error) throw error; }
+        if (drop.length) { const { error } = await supabase.from("room_members").delete().eq("room_id", room.id).in("user_id", drop); if (error) throw error; }
+      }
+      const upsert = [];
+      const remove = [];
+      for (const [id, v] of want) {
+        const before = teamStart.get(id);
+        if (v.functions.join() === before.functions.join() && v.sheet_read === before.sheet_read) continue;
+        if (!v.functions.length && !v.sheet_read) remove.push(id);
+        else upsert.push({ room_id: room.id, user_id: id, functions: v.functions, sheet_read: v.sheet_read });
+      }
+      if (upsert.length) { const { error } = await supabase.from("room_staff").upsert(upsert, { onConflict: "room_id,user_id" }); if (error) throw error; }
+      if (remove.length) { const { error } = await supabase.from("room_staff").delete().eq("room_id", room.id).in("user_id", remove); if (error) throw error; }
+    } catch (error) {
+      button.disabled = false;
+      return setNotice("#team-message", "Enregistrement impossible : " + (error.message || error));
+    }
+    button.disabled = false;
+    teamRoom = null;
+    closeDialog($("#dialog-team"));
+    await refreshStructure();
+  }
+
   // --- Sous-salons ---
 
   async function openChannelDialog(channel, roomId) {
@@ -5494,6 +5634,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#channel-edit"), "click", () => state.channel && openChannelDialog(state.channel));
     on($("#room-delete"), "click", deleteRoom);
     on($("#room-form"), "submit", submitRoom);
+    on($("#team-form"), "submit", submitTeam);
     on($("#channel-delete"), "click", deleteChannel);
     on($("#new-dm"), "click", openDmPicker);
     // Roue crantée du profil : regroupe espace et membres, notifications, installation, déconnexion.
@@ -5609,6 +5750,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#channel-list"), "click", (event) => {
       const edit = event.target.closest("[data-room-edit]");
       if (edit) return openRoomDialog(roomById(edit.dataset.roomEdit));
+      const team = event.target.closest("[data-room-team]");
+      if (team) return openTeamDialog(roomById(team.dataset.roomTeam));
       const add = event.target.closest("[data-new-sub]");
       if (add) return openChannelDialog(null, add.dataset.newSub);
       const toggle = event.target.closest(".room-toggle, .room-chev");

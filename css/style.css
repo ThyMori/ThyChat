@@ -1495,3 +1495,7 @@ html, body { overscroll-behavior-y: none; }
 #access-form ol { margin: 8px 0 4px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.9rem; }
 #access-form .help-section { margin-top: 14px; }
 #access-message[data-kind="ok"] { display: block; }
+.team-list { max-height: 50dvh; overflow-y: auto; }
+.team-row { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+.team-opts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.85rem; padding-left: 38px; }
+.team-opts .choice { padding: 0; }
