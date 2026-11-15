@@ -813,7 +813,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       side.append(flag("bell-off", "mute-ic", label));
     }
     const n = state.unread.get(channel.id) || 0;
-    if (n > 0) side.append(flag(countLabel(n), isMuted ? "unread muted" : "unread"));
+    if (n > 0) side.append(flag(countLabel(n), isMuted ? "unread muted" : channel.kind === "dm" ? "unread dm" : "unread"));
     item.append(side);
     return item;
   }

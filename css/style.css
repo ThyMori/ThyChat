@@ -588,6 +588,9 @@ button.small { padding: 6px 12px; font-size: 0.85rem; width: auto; }
 }
 .unread[hidden] { display: none; }
 .unread.muted { color: var(--muted); background: var(--border); }
+/* Messages privés : pastille rouge, plus visible (rouge d'alerte, indépendant de la teinte de l'espace) */
+:root { --alert: #e5251f; }
+.unread.dm, #dm-unread { color: #fff; background: var(--alert); box-shadow: 0 0 0 2px hsl(var(--h) 30% 20% / 0.25); }
 #ws-unread { margin-right: 4px; }
 
 /* Silence : tout est atténué, avec une icône bien visible */

@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.2 — 2026-11-15
+- Pastilles de messages privés non lus en rouge, plus visibles
+
 ## 5.2.1 — 2026-11-15
 - Note manuscrite : outils en bas de l'écran (iPhone) et marge de sécurité en haut
 - le fil s'ouvre bien sur les derniers messages même quand la mise en page bouge après l'affichage
