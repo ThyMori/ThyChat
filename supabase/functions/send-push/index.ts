@@ -132,6 +132,7 @@ Deno.serve(async (req) => {
       .eq("id", message.channel_id)
       .maybeSingle();
     if (!channel) return json({ ok: true, skipped: true });
+    if (channel.kind === "notes") return json({ ok: true, skipped: true }); // « Mes notes » est privé : jamais de notification
 
     const { data: workspace } = await admin.from("workspaces").select("id, name").eq("id", channel.workspace_id).maybeSingle();
     const { data: sender } = await admin.from("profiles").select("display_name").eq("id", message.user_id).maybeSingle();

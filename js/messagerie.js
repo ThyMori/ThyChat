@@ -319,6 +319,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
     calendarOpen: false,
     calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+    notesUsage: null, // consommation de « Mes notes » (my_notes_usage)
     calScope: "all", // « all » (tous mes espaces, vue de base), « ws » (cet espace) ou l'id d'un spectacle
     calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
     pendingFilter: null, // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
@@ -501,6 +502,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const dmLast = (channel) => state.dmActivity.get(channel.id) || channel.created_at || "";
 
   function channelTitle(channel) {
+    if (channel.kind === "notes") return "Mes notes";
     if (channel.kind !== "dm") return channel.name;
     const partner = dmPartner(channel);
     return partner ? authorName(partner) : "Message privé";
@@ -852,6 +854,17 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const subs = subsOfRoom(room.id).filter((c) => !root || c.id !== root.id);
       for (const channel of subs) group.append(channelItem(channel));
       if (!subs.length && !isAdmin()) group.append(el("p", "muted empty-sub", "Pas d'autre sous-salon pour l'instant."));
+      const mine = state.allChannels.find((c) => c.kind === "notes" && c.room_id === room.id);
+      const notes = el("button", "channel-item my-notes-item");
+      notes.type = "button";
+      notes.dataset.notesRoom = room.id;
+      if (mine) notes.dataset.id = mine.id;
+      if (mine && state.channel && state.channel.id === mine.id) notes.setAttribute("aria-current", "true");
+      notes.append(el("span", "avatar small soft", "📝"));
+      const label = el("span", "channel-text");
+      label.append(el("span", "channel-name", "Mes notes"), el("span", "channel-sub", "Visible par toi seul"));
+      notes.append(label);
+      group.append(notes);
       if (isAdmin()) {
         const add = el("button", "add-sub", "+ Nouveau sous-salon");
         add.type = "button";
@@ -913,6 +926,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const partner = avatarFor(dmPartner(channel), "small soft");
       avatar.className = partner.className;
       avatar.append(...partner.childNodes);
+    } else if (channel && channel.kind === "notes") {
+      avatar.textContent = "📝";
     } else if (channel) {
       avatar.textContent = isRoot(channel) ? ROOT_GLYPH : initials(channel.name, 1);
     }
@@ -923,7 +938,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const parts = [];
     if (channel && state.ws && channel.kind !== "dm") parts.push(state.ws.name);
     if (channel && channel.kind === "dm") parts.push("Message privé");
-    else if (channel) {
+    else if (channel && channel.kind === "notes") {
+      const room = roomById(channel.room_id);
+      if (room) parts.push(room.name);
+      parts.push("Visible par toi seul");
+      const usage = notesUsageLabel();
+      if (usage) parts.push(usage);
+    } else if (channel) {
       const room = roomById(channel.room_id);
       if (room && !rootRoom) parts.push(room.name);
       if (rootRoom) parts.push("Général");
@@ -934,7 +955,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#channel-desc").textContent = parts.join(" · ");
 
     const bell = $("#channel-bell");
-    bell.hidden = !channel;
+    bell.hidden = !channel || channel.kind === "notes"; // jamais de notification pour « Mes notes »
     const bellOff = Boolean(channel && muted(channel));
     bell.querySelector(".ic:first-child").style.display = bellOff ? "none" : "inline";
     bell.querySelector(".ic:last-child").style.display = bellOff ? "inline" : "none";
@@ -1425,7 +1446,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
 
     writeLast({ channel: state.channel.id });
-    if (state.channel.kind !== "dm" && state.ws) writeLast({ chans: { ...(readLast().chans || {}), [state.ws.id]: state.channel.id } });
+    if (state.channel.kind === "channel" && state.ws) writeLast({ chans: { ...(readLast().chans || {}), [state.ws.id]: state.channel.id } });
     if (state.channel.room_id && !isRoot(state.channel)) state.openRooms.add(state.channel.room_id);
     renderChannels();
     guardHistory();
@@ -1999,6 +2020,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       clearPendingImages();
       renderComposerExtra();
       await resolveImages([data]);
+      if (state.channel && state.channel.kind === "notes") loadNotesUsage();
       const hidden = state.tagFilter.size && !(data.tag_ids || []).some((t) => state.tagFilter.has(t));
       if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
       else if (state.channel && state.channel.id === channelId) addMessage(data, true);
@@ -2008,7 +2030,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         return;
       }
       await removeMessageImages(supabase, uploaded.map((u) => u.path));
-      toast("Photo non envoyée : " + (error && error.message ? error.message : "erreur inconnue") + (/bucket|not found/i.test(String(error && error.message)) ? " (exécute la migration 009)" : ""));
+      const inNotes = state.channel && state.channel.id === channelId && state.channel.kind === "notes";
+      if (inNotes && /row-level security|policy|403|Unauthorized/i.test(String(error && error.message))) {
+        loadNotesUsage();
+        toast("Photo refusée : tu as atteint la limite de photos de « Mes notes ». Supprime d'anciennes photos.");
+      } else toast("Photo non envoyée : " + (error && error.message ? error.message : "erreur inconnue") + (/bucket|not found/i.test(String(error && error.message)) ? " (exécute la migration 009)" : ""));
     } finally {
       sending = false;
       $("#composer-send").disabled = false;
@@ -2513,6 +2539,80 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   let todoView = { room: null, list: [] };
   let todoToken = 0;
 
+  // --- Mes notes : un salon personnel par spectacle (migration 026) ---------------------------
+
+  const MB = 1048576;
+  const normalizeText = (text) => String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  function notesUsageLabel() {
+    const u = state.notesUsage;
+    if (!u) return "";
+    const mb = Math.round((Number(u.photo_bytes) / MB) * 10) / 10;
+    return `${u.items} / ${u.item_limit} notes · ${mb} / ${Math.round(Number(u.photo_limit) / MB)} Mo de photos`;
+  }
+
+  async function loadNotesUsage() {
+    const { data, error } = await supabase.rpc("my_notes_usage");
+    if (stopped || error) return;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) state.notesUsage = row;
+    if (state.channel && state.channel.kind === "notes") renderHeader();
+  }
+
+  // Ouvre (et crée au premier passage) mes notes d'un spectacle.
+  async function openNotes(roomId) {
+    const room = roomById(roomId);
+    if (!room) return;
+    closeNotesPicker();
+    let channel = state.allChannels.find((c) => c.kind === "notes" && c.room_id === roomId);
+    if (!channel) {
+      const { data, error } = await supabase.rpc("open_notes", { rm: roomId });
+      if (stopped) return;
+      if (error || !data) {
+        toast("Mes notes indisponibles : " + (error ? error.message : "réponse vide") + (error && /open_notes|schema cache|kind/i.test(error.message) ? " (exécute la migration 026 dans Supabase)." : ""), "error");
+        return;
+      }
+      channel = { id: data, workspace_id: room.workspace_id, room_id: roomId, name: "notes", description: null, kind: "notes", everyone: false, created_at: new Date().toISOString() };
+      state.allChannels.push(channel);
+    }
+    state.openRooms.add(roomId);
+    if (!state.ws || state.ws.id !== room.workspace_id) await selectWorkspace(room.workspace_id, channel.id);
+    else await selectChannel(channel.id);
+    loadNotesUsage();
+  }
+
+  function openNotesPicker() {
+    $("#notes-search").value = "";
+    renderNotesPicker();
+    closeSidebar();
+    openDialog("#dialog-notes");
+    $("#notes-search").focus();
+  }
+
+  function closeNotesPicker() {
+    const dialog = $("#dialog-notes");
+    if (dialog.open) closeDialog(dialog);
+  }
+
+  function renderNotesPicker() {
+    const box = $("#notes-list");
+    box.replaceChildren();
+    const q = normalizeText($("#notes-search").value.trim());
+    const manyWs = state.workspaces.length > 1;
+    let shown = 0;
+    for (const ws of state.workspaces) {
+      for (const room of roomsOfWs(ws.id)) {
+        if (q && !normalizeText(room.name + " " + ws.name).includes(q)) continue;
+        const button = el("button", "ghost todos-room");
+        button.type = "button";
+        button.dataset.notesRoom = room.id;
+        button.append(el("span", "", manyWs ? `${room.name} · ${ws.name}` : room.name));
+        box.append(button);
+        shown++;
+      }
+    }
+    if (!shown) box.append(el("p", "muted", q ? "Aucun spectacle ne correspond." : "Aucun spectacle pour l'instant."));
+  }
+
   async function openTodos() {
     if (!state.ws) return;
     const token = ++todoToken;
@@ -2543,6 +2643,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const todoGroupOf = (postit) => {
     const channel = state.allChannels.find((c) => c.id === postit.channel_id);
+    if (channel && channel.kind === "notes") return "notes";
     return channel && channel.kind === "channel" && channel.room_id ? channel.room_id : "dm";
   };
 
@@ -2551,18 +2652,18 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.replaceChildren();
     const room = todoView.room;
     $("#todos-back").hidden = !room;
-    $("#todos-title").textContent = room ? (room === "dm" ? "To-Do · Messages privés" : `To-Do · ${roomById(room)?.name || ""}`) : "To-Do";
+    $("#todos-title").textContent = room ? (room === "dm" ? "To-Do · Messages privés" : room === "notes" ? "To-Do · Mes notes" : `To-Do · ${roomById(room)?.name || ""}`) : "To-Do";
     $("#todos-note").hidden = Boolean(room);
     if (!room) {
       const counts = new Map();
       for (const postit of todoView.list) counts.set(todoGroupOf(postit), (counts.get(todoGroupOf(postit)) || 0) + 1);
       if (!counts.size) return box.append(el("p", "muted", "Aucune To-Do en cours. 🎉"));
-      const order = [...state.allRooms.map((r) => r.id), "dm"].filter((id) => counts.has(id));
+      const order = [...state.allRooms.map((r) => r.id), "dm", "notes"].filter((id) => counts.has(id));
       for (const id of order) {
         const button = el("button", "ghost todos-room");
         button.type = "button";
         button.dataset.room = id;
-        button.append(el("span", "", id === "dm" ? "Messages privés" : roomById(id).name), el("span", "badge-count", String(counts.get(id))));
+        button.append(el("span", "", id === "dm" ? "Messages privés" : id === "notes" ? "Mes notes" : roomById(id).name), el("span", "badge-count", String(counts.get(id))));
         box.append(button);
       }
       return;
@@ -5488,7 +5589,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     const openFromList = (event) => {
       const button = event.target.closest(".channel-item");
-      if (button) selectChannel(button.dataset.id);
+      if (!button) return;
+      if (button.dataset.notesRoom) return openNotes(button.dataset.notesRoom);
+      selectChannel(button.dataset.id);
     };
     on($("#channel-list"), "click", (event) => {
       const edit = event.target.closest("[data-room-edit]");
@@ -5530,6 +5633,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       openPostitWrite(null);
     });
     on($("#open-todos"), "click", openTodos);
+    on($("#open-notes"), "click", openNotesPicker);
+    on($("#notes-search"), "input", renderNotesPicker);
+    on($("#notes-list"), "click", (event) => {
+      const button = event.target.closest("[data-notes-room]");
+      if (button) openNotes(button.dataset.notesRoom);
+    });
     on($("#attach-todo"), "click", () => {
       toggleAttachMenu(false);
       openTodoWrite(null);
