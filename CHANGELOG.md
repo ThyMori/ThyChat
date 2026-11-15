@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.43.0 — 2026-11-15
+- To-Do : option pour couper la confirmation des coches (seule la case coche alors, pas la ligne)
+- la To-Do terminée ne disparaît qu'à la fermeture de la feuille
+
 ## 3.42.7 — 2026-11-15
 - Téléphone : texte de l'interface agrandi de 20 % au total
 

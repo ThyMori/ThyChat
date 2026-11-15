@@ -1477,3 +1477,9 @@ html, body { overscroll-behavior-y: none; }
   html { font-size: 120%; }
   .composer textarea { font-size: 1rem; }
 }
+
+/* To-Do : réglage de la confirmation des coches */
+.todo-confirm-row { display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; font-size: 0.88rem; cursor: pointer; }
+.todo-confirm-row input { width: 18px; height: 18px; flex: none; accent-color: var(--accent); }
+.todo-confirm-hint { display: block; margin: 0 0 6px 26px; }
+.todo-confirm-hint[hidden] { display: none; }

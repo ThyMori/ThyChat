@@ -2453,7 +2453,36 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Chaque case cochée ou décochée demande une confirmation (la liste est commune à tout le monde).
+  // Réglage de cet appareil : sans confirmation, seule la case elle-même coche ou décoche (pas la ligne).
+  const TODO_CONFIRM_KEY = "thychat:todo-confirm";
+  const todoConfirmOn = () => {
+    try {
+      return localStorage.getItem(TODO_CONFIRM_KEY) !== "off";
+    } catch {
+      return true;
+    }
+  };
+  function syncTodoConfirm() {
+    const on = todoConfirmOn();
+    for (const box of document.querySelectorAll(".todo-confirm-box")) box.checked = on;
+    for (const hint of document.querySelectorAll(".todo-confirm-hint")) hint.hidden = on;
+  }
+  function setTodoConfirm(on) {
+    try {
+      localStorage.setItem(TODO_CONFIRM_KEY, on ? "on" : "off");
+    } catch {
+      /* réglage non gardé : sans conséquence */
+    }
+    syncTodoConfirm();
+  }
+  // Sans confirmation, un appui sur la ligne (hors case) ne fait rien.
+  function guardTodoLine(event) {
+    if (todoConfirmOn()) return;
+    if (event.target.closest(".todo-item") && !event.target.matches('input[type="checkbox"]')) event.preventDefault();
+  }
+
   function confirmTodoCheck(postit, index, done) {
+    if (!todoConfirmOn()) return true;
     const item = todoItems(postit)[index];
     return window.confirm(`${done ? "Cocher" : "Décocher"} « ${item ? item.t : ""} » ?`);
   }
@@ -2475,28 +2504,16 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       box.checked = !done;
       return setNotice("#postit-read-message", "Case non enregistrée : " + error.message);
     }
-    setNotice("#postit-read-message", "");
     signTodoRow(box, postit);
     const count = $("#postit-read-note").querySelector(".todo-count");
     if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
-    if (todoDone(postit)) finishTodo();
+    // Dernière case cochée : la feuille ne disparaît qu'à la fermeture, pour pouvoir rattraper une erreur.
+    setNoticeTodoDone(postit);
   }
 
-  // Toutes les cases cochées : la feuille se froisse et disparaît du haut du fil.
-  async function finishTodo() {
-    postitBusy = true;
-    const note = $("#postit-read-note").firstChild;
-    if (note) {
-      note.classList.remove("lifted");
-      note.classList.add("crumpling");
-    }
-    await new Promise((resolve) => setTimeout(resolve, CRUMPLE_MS));
-    postitBusy = false;
-    if (stopped) return;
-    postitOpenId = null;
-    closeDialog($("#dialog-postit-read"));
-    renderPostitWall();
-    toast("To-Do terminée ! Elle reste consultable dans « Post-it jetés » (menu ⋮).", "ok");
+  function setNoticeTodoDone(postit) {
+    if (todoDone(postit)) setNotice("#postit-read-message", "Toutes les cases sont cochées : la To-Do disparaîtra quand tu fermeras cette feuille. Tu peux encore décocher.", "ok");
+    else setNotice("#postit-read-message", "");
   }
 
   // Vue d'ensemble : toutes les To-Do en cours qui me concernent, classées par spectacle.
@@ -2590,16 +2607,15 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const count = node.querySelector(".todo-count");
     if (count) count.textContent = `${todoItems(postit).filter((i) => i.done).length} / ${todoItems(postit).length}`;
     if (state.channel && state.channel.id === postit.channel_id) renderPostitWall();
-    if (todoDone(postit)) {
-      node.classList.add("crumpling");
-      setTimeout(() => {
-        if (stopped) return;
-        todoView.list = todoView.list.filter((p) => p.id !== postit.id);
-        if (todoView.room && !todoView.list.some((p) => todoGroupOf(p) === todoView.room)) todoView.room = null;
-        if ($("#dialog-todos").hasAttribute("open")) renderTodos();
-        toast("To-Do terminée !", "ok");
-      }, CRUMPLE_MS);
-    }
+    // Dernière case cochée : la feuille reste là jusqu'à la fermeture de cette fenêtre (ou le retour à la liste des spectacles).
+    if (todoDone(postit)) setNotice("#todos-message", "Toutes les cases sont cochées : cette To-Do disparaîtra quand tu fermeras cette fenêtre ou reviendras aux spectacles. Tu peux encore décocher.", "ok");
+  }
+
+  // Retire de la vue d'ensemble les To-Do terminées pendant qu'elle était ouverte.
+  function dropFinishedTodos() {
+    const before = todoView.list.length;
+    todoView.list = todoView.list.filter((p) => !todoDone(p));
+    if (todoView.list.length < before) toast("To-Do terminée !", "ok");
   }
 
   async function submitPostit(event) {
@@ -2675,7 +2691,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#postit-edit").hidden = postit.user_id !== user.id;
     $("#postit-delete-all").hidden = !(postit.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel"));
     $("#postit-throw").disabled = false;
-    setNotice("#postit-read-message", "");
+    $("#postit-confirm-row").hidden = !isTodo(postit);
+    syncTodoConfirm();
+    if (isTodo(postit)) setNoticeTodoDone(postit);
+    else setNotice("#postit-read-message", "");
     openDialog("#dialog-postit-read");
   }
 
@@ -2684,6 +2703,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const id = postitOpenId;
     postitOpenId = null;
     if (!id || !postitById(id) || state.postitStates.has(id)) return renderPostitWall();
+    if (todoDone(postitById(id))) {
+      renderPostitWall(); // To-Do terminée : elle disparaît maintenant que la feuille est refermée
+      return toast("To-Do terminée ! Elle reste consultable dans « Post-it jetés » (menu ⋮).", "ok");
+    }
     postitFreshId = id;
     renderPostitWall();
   }
@@ -2753,14 +2776,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         mine.body = postit.body;
         if (postit.items) mine.items = postit.items;
         if (!itemsOnly) postitFreshId = mine.id;
-        if (postitOpenId === mine.id && isTodo(mine) && !postitBusy) {
-          if (todoDone(mine)) {
-            postitOpenId = null;
-            closeDialog($("#dialog-postit-read"));
-          } else {
-            showPostit(mine.id);
-          }
-        }
+        if (postitOpenId === mine.id && isTodo(mine) && !postitBusy) showPostit(mine.id);
         renderPostitWall();
       }
     } else if (payload.eventType === "DELETE") {
@@ -5566,6 +5582,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       }
     });
     on($("#todos-back"), "click", () => {
+      dropFinishedTodos();
       todoView.room = null;
       renderTodos();
     });
@@ -5579,6 +5596,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
     on($("#postit-throw"), "click", throwPostit);
     // Retoucher le Post-it ouvert suffit à le laisser collé.
+    on($("#postit-read-note"), "click", guardTodoLine);
     on($("#postit-read-note"), "click", (event) => {
       if (event.target.closest(".todo-item")) return; // cocher une case ne ferme pas la feuille
       if (!postitBusy) closeDialog($("#dialog-postit-read"));
@@ -5590,6 +5608,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         closeDialog($("#dialog-postit-read"));
       }
     });
+    on($("#dialog-todos"), "close", dropFinishedTodos);
+    on($("#todos-list"), "click", guardTodoLine);
+    on(document, "change", (event) => {
+      if (event.target.matches && event.target.matches(".todo-confirm-box")) setTodoConfirm(event.target.checked);
+    });
+    syncTodoConfirm();
     on($("#postit-edit"), "click", () => {
       const id = postitOpenId;
       if (!id || postitBusy) return;
