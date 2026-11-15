@@ -1424,3 +1424,11 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .msg.swiping .bubble { outline: 2px solid hsl(var(--h) 60% 50% / 0.45); filter: brightness(1.12); }
 .msg.swiping.armed .bubble { outline-color: hsl(var(--h) 60% 55% / 0.9); }
 .msg.swipe-back { transition: transform 0.2s ease-out; }
+
+/* Aide : rubriques repliées, un › devant chaque titre */
+dialog.help details.help-section { margin-top: 6px; border-bottom: 1px solid hsl(var(--h) 20% 30% / 0.5); padding-bottom: 6px; }
+dialog.help summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 8px; padding: 8px 2px; color: var(--accent); font-weight: 600; font-size: 1rem; }
+dialog.help summary::-webkit-details-marker { display: none; }
+dialog.help summary::before { content: "›"; display: inline-block; width: 1em; text-align: center; font-size: 1.3em; line-height: 1; transition: transform 0.15s; }
+dialog.help details[open] > summary::before { transform: rotate(90deg); }
+dialog.help details > ul { margin-top: 2px; margin-bottom: 6px; }

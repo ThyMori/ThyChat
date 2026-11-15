@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.38.3 — 2026-11-15
+- Aide : rubriques repliées par titre, avec un › pour déplier ou replier
+
 ## 3.38.2 — 2026-11-15
 - Dates en cours : « Veille : début demain » au lieu de « départ demain »
 

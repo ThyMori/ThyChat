@@ -431,10 +431,10 @@
 
     <dialog id="dialog-help" class="help">
       <h3 id="help-title" tabindex="-1">Tout ce que fait ThyChat</h3>
-      <p class="muted">Un tour des fonctions, dans l'ordre où tu en auras besoin.</p>
+      <p class="muted">Un tour des fonctions, dans l'ordre où tu en auras besoin. Touche un titre (›) pour déplier ou replier sa rubrique.</p>
 
-      <section>
-        <h4>S'y retrouver</h4>
+      <details class="help-section">
+        <summary>S'y retrouver</summary>
         <ul>
           <li><strong>Espace</strong> : une production ou une compagnie, avec sa couleur et sa photo. Tu en changes avec le bouton en haut de la barre latérale.</li>
           <li><strong>Spectacle</strong> : un spectacle en particulier, dans un espace. Il se plie et se déplie ; un cadenas indique qu'il est réservé à certaines personnes.</li>
@@ -442,10 +442,10 @@
           <li><strong>Message privé</strong> : une discussion à deux avec quelqu'un d'un de tes espaces (bouton + à côté de « Messages privés »). Elle est la même dans tous les espaces que vous partagez : tu la retrouves quel que soit l'espace ouvert. L'icône de poubelle en haut supprime toute la discussion (messages et photos), pour vous deux. La liste est classée du fil le plus récent au plus ancien ; le bouton + permet de retrouver un fil en tapant un nom, ou d'en commencer un nouveau.</li>
           <li><strong>Recherche</strong> : la loupe (en haut du menu, ou dans l'en-tête d'un sous-salon) cherche un mot ou une phrase dans tous les messages auxquels tu as accès, ou seulement dans le sous-salon ouvert. Touche un résultat pour ouvrir la discussion au bon message, qui clignote un instant. La recherche ignore les majuscules et les accents.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Écrire et répondre</h4>
+      <details class="help-section">
+        <summary>Écrire et répondre</summary>
         <ul>
           <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
           <li><strong>Modifier un message</strong> : touche ton message (ou fais-le glisser vers la gauche) puis « Modifier ». Le texte revient dans la zone de saisie : corrige-le, ajoute ou retire des badges # de dates, puis envoie. Le message porte alors la mention « modifié ». Tu ne peux modifier que tes propres messages, dans n'importe quel fil ; ✕ au-dessus de la zone de saisie annule.</li>
@@ -458,29 +458,29 @@
           <li><strong>Supprimer</strong> : tes messages, et ceux de tout le monde pour les administrateurs.</li>
           <li>Les liens sont cliquables.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Dates de tournée</h4>
+      <details class="help-section">
+        <summary>Dates de tournée</summary>
         <ul>
           <li>Chaque spectacle peut avoir des <strong>dates</strong> (Lausanne, Paris…) avec un début, une fin et des jours de représentation ★. Pour choisir les jours, touche le premier jour puis le dernier dans le mini-calendrier (un troisième appui recommence au début) ou fais-le glisser d'un jour à l'autre ; dans la fenêtre des dates, le bouton <strong>+ Ajouter une date</strong> ouvre le formulaire (modifier une date l'ouvre aussi) ; le bouton <strong>★ Représentations</strong> ouvre un calendrier où chaque appui ajoute une représentation, et un appui sur un jour qui en a déjà te propose d'en ajouter une autre ou d'en retirer une. Les administrateurs les gèrent avec le bouton <strong>« Gérer les dates de tournée »</strong> du menu ⋮ en haut à droite. Dans la barre au-dessus du fil, la flèche <strong>›</strong> devant « Dates » déplie la liste des dates ; chacune porte un badge 📄 qui ouvre ses documents (PDF). Seule la fiche technique reste affichée en permanence. Les dates sont classées par ordre chronologique : les dates passées sont <s>rayées</s> et rangées à la fin (le lendemain du dernier jour compte encore, pour le trajet retour ; les dates ne comprennent pas les jours de transport), et la liste indique la <strong>première représentation</strong>.</li>
           <li>Dans un message, tape <strong>#</strong> puis le nom d'une date pour l'y rattacher (plusieurs possibles, facultatif).</li>
           <li>Les pastilles « Dates » au-dessus de la conversation <strong>filtrent</strong> les messages ; « Toutes » efface le filtre.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Documents des dates</h4>
+      <details class="help-section">
+        <summary>Documents des dates</summary>
         <ul>
           <li><strong>Fiche technique</strong> : le bouton « Fiche technique » de la barre des dates ouvre la fiche technique du spectacle, avec la <strong>date de sa version</strong>. Les administrateurs ajoutent une nouvelle version quand elle change (en indiquant sa date) : la plus récente est mise en avant et les anciennes restent consultables. Toutes les personnes concernées par le spectacle peuvent la lire, y compris depuis « Dates en cours ». Une fiche peut réunir <strong>plusieurs documents</strong> (plan son, plan lumière…) : des PDF, des images ou des liens web ; tous ceux de la version la plus récente sont affichés ensemble.</li>
           <li><strong>Dates en cours</strong> : quand une date de tournée est en cours (de la veille du début au lendemain de la fin, pour tenir compte des trajets), un bouton « Dates en cours » apparaît dans le menu et en haut de chaque écran. Il ouvre la liste de ces dates dans tous tes spectacles, avec leurs documents (un toucher pour ouvrir le PDF) et un accès direct au spectacle.</li>
           <li>Le bouton <strong>Documents</strong> de la barre des dates (sous l'en-tête d'un spectacle) liste, date par date, les documents utiles (PDF, images ou liens web) : feuilles de route, billets de train, livrets d'accueil… Touche un document pour l'ouvrir.</li>
           <li>Les <strong>administrateurs</strong> ajoutent des fichiers PDF ou images (15 Mo au plus chacun) avec « + Fichier », ou un lien web avec « + Lien », et les retirent avec la croix. Toutes les personnes qui ont accès au spectacle peuvent les ouvrir ; les fichiers ne sont pas publics. <strong>Nettoyage automatique</strong> : les documents d'une date (fichiers et liens) sont effacés 10 jours après que la date est passée (le lendemain de son dernier jour) ; la date reste, et la fiche technique du spectacle n'est jamais effacée. Pense à récupérer ce dont tu as besoin avant.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Calendrier</h4>
+      <details class="help-section">
+        <summary>Calendrier</summary>
         <ul>
           <li>Le bouton <strong>📅 Calendrier</strong> montre un mois avec une frise colorée par date de tournée et une ★ sur chaque représentation. Le menu choisit tous les spectacles de l'espace, tous tes espaces ou un seul spectacle.</li>
           <li><strong>Déplacer un message</strong> (administrateurs) : touche un message puis « Déplacer », et choisis le sous-salon ou le spectacle d'arrivée (utile en cas d'erreur). Les photos suivent ; les dates # sont retirées si le spectacle change.</li>
@@ -492,19 +492,19 @@
           <li>Touche un jour pour voir ce qu'il contient, ou une frise pour ouvrir le spectacle filtré sur cette date.</li>
           <li>Sous l'en-tête d'un spectacle, une <strong>frise de la semaine</strong> (la veille et les 6 jours suivants) ; la toucher ouvre le calendrier.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Sans réseau</h4>
+      <details class="help-section">
+        <summary>Sans réseau</summary>
         <ul>
           <li>L'application s'ouvre même sans connexion et affiche les <strong>derniers messages déjà vus</strong> sur cet appareil (Post-it et To-Do compris), avec un bandeau « Pas de réseau ». Un fil que tu n'as jamais ouvert avec du réseau reste vide, et les photos n'apparaissent qu'avec du réseau.</li>
           <li>Un <strong>message écrit sans réseau</strong> (texte, réponse, dates # et photos) apparaît dans le fil avec « ⏳ En attente d'envoi » et part tout seul, dans l'ordre, dès que la connexion revient. Tu peux l'annuler tant qu'il n'est pas parti. S'il est refusé, il reste marqué « Non envoyé » avec « Réessayer » ou « Supprimer ».</li>
           <li>Les autres actions (modifier, supprimer, cocher une To-Do, créer un Post-it…) demandent du réseau. Pour que l'application démarre sans connexion, ouvre-la au moins une fois avec du réseau après chaque mise à jour.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Notifications et non lus</h4>
+      <details class="help-section">
+        <summary>Notifications et non lus</summary>
         <ul>
           <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
           <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
@@ -515,31 +515,31 @@
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
           <li><strong>Sourdine d'un fil</strong> : dans le menu ⋮ d'un fil, « Mettre ce fil en sourdine » coupe les notifications de ce fil seulement (8 heures, 1 semaine ou toujours) ; les autres fils continuent de notifier. Le même bouton la réactive.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Ton profil</h4>
+      <details class="help-section">
+        <summary>Ton profil</summary>
         <ul>
           <li>Touche ton nom en bas de la barre latérale : photo, nom affiché et adresse e-mail.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Pour les administrateurs</h4>
+      <details class="help-section">
+        <summary>Pour les administrateurs</summary>
         <ul>
           <li><strong>Espace et membres</strong> : couleur et photo de l'espace, liste des membres, rôles (administrateur ou utilisateur), retrait d'une personne.</li>
           <li><strong>Inviter</strong> : choisis une personne déjà présente dans tes espaces dans la liste, ou invite une nouvelle personne par e-mail. Coche les espaces, le rôle, et les spectacles ou sous-salons réservés qu'elle peut voir.</li>
           <li><strong>+</strong> à côté de « Spectacles » crée un spectacle ; son ⚙ règle son nom et qui y a accès ; « + Nouveau sous-salon » en ajoute un, que tu peux ouvrir à tous ceux du spectacle ou réserver à certains.</li>
           <li>L'administrateur général crée les espaces. Les administrateurs voient tout dans leur espace.</li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h4>Installer l'application</h4>
+      <details class="help-section">
+        <summary>Installer l'application</summary>
         <ul>
           <li>Le bouton <strong>Installer l'application</strong> (barre latérale) ajoute ThyChat à ton écran d'accueil ou à ton ordinateur : plein écran, notifications et pastille sur l'icône. Il disparaît une fois l'application installée.</li>
         </ul>
-      </section>
+      </details>
 
       <p class="version app-version help-version"></p>
       <div class="dialog-actions">
