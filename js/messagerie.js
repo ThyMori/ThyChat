@@ -6026,6 +6026,26 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       on(button, "click", () => closeDialog(button.closest("dialog")));
     }
 
+    // Un appui à l'extérieur d'une fenêtre la ferme (comme « Retour »). Le geste doit commencer ET finir sur le fond :
+    // sélectionner du texte en sortant de la fenêtre ne la ferme pas.
+    let backdropDown = null;
+    const backdropHit = (event) => {
+      const dialog = event.target;
+      if (!dialog || dialog.tagName !== "DIALOG" || !dialog.hasAttribute("open")) return null;
+      const r = dialog.getBoundingClientRect();
+      const inside = event.clientX >= r.left && event.clientX <= r.right && event.clientY >= r.top && event.clientY <= r.bottom;
+      return inside ? null : dialog;
+    };
+    on(document, "pointerdown", (event) => {
+      backdropDown = backdropHit(event);
+    });
+    on(document, "click", (event) => {
+      const dialog = backdropHit(event);
+      const started = backdropDown;
+      backdropDown = null;
+      if (dialog && started === dialog) closeDialog(dialog);
+    });
+
     on($("#open-sidebar"), "click", () => {
       guardHistory();
       $("#screen-app").classList.add("sidebar-open");

@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.43.2 — 2026-11-15
+- Un appui à l'extérieur d'une fenêtre (To-Do, Post-it, etc.) la ferme, comme « Retour »
+
 ## 3.43.1 — 2026-11-15
 - To-Do : plus aucune confirmation des coches (option retirée)
 - seule la case coche ou décoche, pas la ligne
