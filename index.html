@@ -636,6 +636,7 @@
           <li><strong>Demandes d'inscription</strong> : une personne sans compte peut en faire la demande depuis l'écran de connexion ; tu reçois ses nom, e-mail et spectacle par e-mail, puis tu l'invites avec le bouton « Inviter » et Supabase lui envoie son lien d'activation.</li>
           <li><strong>Inviter</strong> : choisis une personne déjà présente dans tes espaces dans la liste, ou invite une nouvelle personne par e-mail. Coche les espaces, le rôle, et les spectacles ou sous-salons réservés qu'elle peut voir.</li>
           <li><strong>+</strong> à côté de « Spectacles » crée un spectacle ; son ⚙ règle son nom et qui y a accès ; « + Nouveau sous-salon » en ajoute un, que tu peux ouvrir à tous ceux du spectacle ou réserver à certains.</li>
+          <li><strong>Supprimer un espace</strong> : dans l'espace (touche son nom), bouton « Supprimer cet espace… » en bas, réservé à ses administrateurs : tape le nom de l'espace pour confirmer. Tout est effacé définitivement, fichiers compris (l'administrateur général doit d'abord « Rejoindre » l'espace).</li>
           <li>L'administrateur général crée les espaces et gère la structure de la plateforme : il ne lit pas le contenu des espaces dont il n'est pas membre. « Mes espaces > Plateforme » liste les autres espaces (avec les espaces sans administrateur) et « Rejoindre » l'ajoute comme administrateur pour dépanner ; les membres de l'espace voient alors sa pastille « Support ». Les administrateurs voient tout dans leur espace.</li>
         </ul>
       </details>
@@ -1016,9 +1017,28 @@
       <ul id="members-list" class="members"></ul>
       <button type="button" class="primary small" id="open-invite" hidden>Inviter quelqu'un…</button>
       <p id="members-message" class="notice" role="alert" hidden></p>
+      <section id="space-danger-section" hidden>
+        <h4>Supprimer l'espace</h4>
+        <p class="muted">Efface l'espace, ses spectacles, sous-salons, messages, documents et photos. C'est définitif.</p>
+        <button type="button" class="danger small" id="space-delete-open">Supprimer cet espace…</button>
+      </section>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
       </div>
+    </dialog>
+
+    <dialog id="dialog-delete-space">
+      <form id="delete-space-form" novalidate>
+        <h3>Supprimer l'espace ?</h3>
+        <p>Tout sera effacé définitivement : spectacles, sous-salons, messages, fiches techniques, documents et photos, pour tous les membres. Les messages privés échangés dans cet espace sont effacés aussi.</p>
+        <label for="delete-space-name">Pour confirmer, tape le nom de l'espace : <strong id="delete-space-expected"></strong></label>
+        <input id="delete-space-name" type="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+        <p id="delete-space-message" class="notice" role="alert" hidden></p>
+        <div class="dialog-actions">
+          <button type="button" class="ghost" data-close>Annuler</button>
+          <button type="submit" class="danger" id="delete-space-submit" disabled>Supprimer définitivement</button>
+        </div>
+      </form>
     </dialog>
   </main>
 

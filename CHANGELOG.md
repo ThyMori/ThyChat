@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.1.0 — 2026-11-15
+- Suppression d'un espace (administrateurs) avec confirmation par le nom, fichiers compris
+
 ## 5.0.0 — 2026-11-15
 - L'administrateur général n'a plus accès d'office au contenu de tous les espaces : liste Plateforme, Rejoindre un espace comme Support (visible), plus de notifications hors de ses espaces
 

@@ -26,7 +26,7 @@ manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
 supabase/schema.sql     tables, sécurité (RLS), temps réel
 supabase/migrations/    mises à jour de la base, à exécuter une fois dans l'ordre
-supabase/functions/     fonctions serveur : invite-member (invitations), request-access (demandes d'inscription), send-push (notifications) et purge-documents (nettoyage nocturne)
+supabase/functions/     fonctions serveur : invite-member (invitations), delete-workspace (suppression d'un espace et de ses fichiers), request-access (demandes d'inscription), send-push (notifications) et purge-documents (nettoyage nocturne)
 ```
 
 ## Mise en route
@@ -76,6 +76,8 @@ Le numéro de téléphone n'est pas encore géré pour les invitations : cela de
 Deux petites fonctions serveur sont nécessaires : `invite-member` (inviter par e-mail depuis l'application) et `send-push` (envoyer les notifications). Elles se déploient depuis le tableau de bord, sans rien installer.
 
 **1. Les fonctions.** Supabase > **Edge Functions** > **Deploy a new function** > **Via Editor**. Pour chacune : donne le nom exact (`invite-member`, puis `send-push`), colle le contenu du fichier `supabase/functions/<nom>/index.ts`, **Deploy**. Dans les réglages de la fonction, désactive **Enforce JWT Verification** (les fonctions vérifient elles-mêmes qui les appelle).
+
+**Suppression d'un espace (`delete-workspace`).** Dans la fenêtre d'un espace, « Supprimer cet espace… » (administrateurs) efface l'espace et tous ses fichiers (photos, PDF, fiches techniques, photo de l'espace). Déploiement comme les autres fonctions : nom exact `delete-workspace`, contenu de `supabase/functions/delete-workspace/index.ts`, **Enforce JWT Verification désactivé** (elle vérifie elle-même que l'appelant est administrateur de l'espace et que le nom est retapé). Aucun secret à ajouter.
 
 **Demandes d'inscription (`request-access`).** Sur l'écran de connexion, « Demander à s'inscrire » ouvre un formulaire (nom, e-mail, spectacle / production / compagnie). La fonction `request-access` enregistre la demande (table `access_requests`, migration 027) puis envoie un e-mail à `contact@thierry-morin.com` via [Resend](https://resend.com) (offre gratuite suffisante). Déploiement comme les autres fonctions (nom exact `request-access`, **Enforce JWT Verification désactivé** : la personne n'a pas de compte). Secrets à ajouter dans **Edge Functions > Secrets** :
 

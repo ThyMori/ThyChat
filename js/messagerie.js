@@ -5093,11 +5093,51 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!state.ws) return;
     $("#members-title").textContent = state.ws.name;
     $("#open-invite").hidden = !isAdmin();
+    $("#space-danger-section").hidden = !isAdmin();
     setNotice("#members-message", "");
     renderThemeSettings();
     openDialog("#dialog-members");
     $("#members-title").focus(); // évite que la première pastille de couleur prenne le focus
     await refreshMembers();
+  }
+
+  // --- Suppression d'un espace (fonction serveur « delete-workspace » : efface aussi les fichiers) ---
+
+  function openDeleteSpace() {
+    if (!state.ws || !isAdmin()) return;
+    $("#delete-space-expected").textContent = state.ws.name;
+    $("#delete-space-name").value = "";
+    $("#delete-space-submit").disabled = true;
+    setNotice("#delete-space-message", "");
+    openDialog("#dialog-delete-space");
+    $("#delete-space-name").focus();
+  }
+
+  async function submitDeleteSpace(event) {
+    event.preventDefault();
+    const ws = state.ws;
+    if (!ws || !isAdmin() || $("#delete-space-name").value.trim() !== ws.name) return;
+    const button = $("#delete-space-submit");
+    button.disabled = true;
+    button.textContent = "Suppression…";
+    setNotice("#delete-space-message", "");
+    const { data, error } = await supabase.functions.invoke("delete-workspace", { body: { workspace_id: ws.id, confirm_name: ws.name } });
+    button.textContent = "Supprimer définitivement";
+    let detail = error ? "" : data && data.error;
+    if (error) {
+      try { detail = (await error.context.json()).error; } catch { /* réponse illisible */ }
+    }
+    if (error || (data && data.error)) {
+      button.disabled = false;
+      const missing = error && /not found|404|Failed to send|fetch/i.test(String(error.message));
+      return setNotice("#delete-space-message", detail || (missing ? "La fonction « delete-workspace » n'est pas déployée dans Supabase (voir README)." : "Suppression impossible."));
+    }
+    closeDialog($("#dialog-delete-space"));
+    closeDialog($("#dialog-members"));
+    writeLast({ ws: null, chans: {} });
+    state.channel = null;
+    toast(`Espace « ${ws.name} » supprimé.`, "ok");
+    await loadWorkspaces();
   }
 
   async function refreshMembers() {
@@ -5647,6 +5687,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     on($("#workspace-button"), "click", openSwitch);
     on($("#switch-new"), "click", openWorkspaceDialog);
+    on($("#space-delete-open"), "click", openDeleteSpace);
+    on($("#delete-space-form"), "submit", submitDeleteSpace);
+    on($("#delete-space-name"), "input", () => {
+      $("#delete-space-submit").disabled = !state.ws || $("#delete-space-name").value.trim() !== state.ws.name;
+    });
     on($("#platform-list"), "click", (event) => {
       const join = event.target.closest("[data-join-support]");
       if (join) joinSupport(join.dataset.joinSupport);
