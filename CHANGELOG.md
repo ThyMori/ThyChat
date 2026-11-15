@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.1 — 2026-11-15
+- Le partage de l'application ne se déclenche plus par un appui parasite après l'ouverture de l'aide
+
 ## 3.42.0 — 2026-11-15
 - Épingler un message ou une photo en haut du fil (24 h, 7 jours ou 30 jours, 3 au plus) avec bandeau d'accès au message
 

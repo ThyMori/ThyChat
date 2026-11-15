@@ -5475,6 +5475,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
     on($("#open-profile"), "click", openProfile);
     on($("#open-help"), "click", () => {
+      helpOpenedAt = Date.now();
       openDialog("#dialog-help");
       $("#help-title").focus();
     });
@@ -6186,7 +6187,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Partage l'adresse de l'application (feuille de partage du téléphone, sinon copie dans le presse-papiers).
   const APP_URL = "https://thychat.thierry-morin.com";
+  let helpOpenedAt = 0;
   async function shareApp() {
+    // Un toucher qui « traverse » (double appui sur « i », clic fantôme) ne doit pas ouvrir le partage.
+    if (Date.now() - helpOpenedAt < 700) return;
+    if (!$("#dialog-help").open && !$("#dialog-help").hasAttribute("open")) return;
     const data = { title: "ThyChat", text: "ThyChat : la messagerie des équipes de spectacle vivant.", url: APP_URL };
     if (navigator.share) {
       try {
