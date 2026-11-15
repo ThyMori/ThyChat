@@ -1329,3 +1329,13 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .postit-wall .postit .postit-text { -webkit-line-clamp: 2; }
 .postit-wall .postit .postit-from { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .postit-wall { flex: none; }
+
+/* actions d'un Post-it ouvert : icônes */
+.postit-read-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 10px; }
+.postit-read-actions .icon-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 2px; }
+.postit-read-actions .icon-btn.danger { color: var(--danger); }
+.postit-read-actions .icon-btn small { font-size: 0.65rem; }
+.postit-read-actions #postit-edit { margin-right: auto; }
+.postit-read-hint { text-align: center; margin: 2px 0 0; font-size: 0.8rem; }
+.postit-read-note { cursor: pointer; }
+.postit-form-note[hidden] { display: none; }

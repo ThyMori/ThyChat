@@ -496,7 +496,7 @@
           <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
           <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
           <li>Ce qui est en silence est atténué et marqué d'une cloche barrée.</li>
-          <li><strong>Post-it</strong> : touche le <strong>+</strong> de la zone de saisie puis « Post-it » pour écrire un petit mot jaune, collé en haut du fil pour toutes les personnes qui y ont accès. Touche un Post-it pour le décoller et le lire en grand : « Garder » le recolle (il revient à chaque ouverture du fil), « Jeter le Post-it » le froisse et le retire <em>pour toi seulement</em>. Le menu ⋮ propose « Post-it jetés » pour relire les anciens, les remettre ou les jeter définitivement. L'auteur (ou un administrateur) peut aussi retirer un Post-it pour tout le monde.</li>
+          <li><strong>Post-it</strong> : touche le <strong>+</strong> de la zone de saisie puis « Post-it » pour écrire un petit mot jaune, collé en haut du fil pour toutes les personnes qui y ont accès. Touche un Post-it pour le décoller et le lire en grand : retouche-le pour le laisser collé (il revient à chaque ouverture du fil), ou touche la poubelle pour le jeter — il se froisse et disparaît <em>pour toi seulement</em>. L'auteur d'un Post-it peut le corriger avec le crayon. Le menu ⋮ propose « Post-it jetés » pour relire les anciens, les remettre ou les jeter définitivement. L'auteur (ou un administrateur) peut aussi le jeter pour tout le monde (poubelle « tous »).</li>
           <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour, avec un filtre par date de tournée (#).</li>
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
           <li><strong>Sourdine d'un fil</strong> : dans le menu ⋮ d'un fil, « Mettre ce fil en sourdine » coupe les notifications de ce fil seulement (8 heures, 1 semaine ou toujours) ; les autres fils continuent de notifier. Le même bouton la réactive.</li>
@@ -659,26 +659,27 @@
 
     <dialog id="dialog-postit" class="postit-dialog">
       <form id="postit-form" method="dialog">
-        <h3>Nouveau Post-it</h3>
-        <p class="muted">Il sera collé en haut du fil pour toutes les personnes qui y ont accès, jusqu'à ce que chacune le jette.</p>
+        <h3 id="postit-form-title">Nouveau Post-it</h3>
+        <p class="muted" id="postit-form-note">Il sera collé en haut du fil pour toutes les personnes qui y ont accès, jusqu'à ce que chacune le jette.</p>
         <textarea id="postit-input" class="postit-input" rows="5" maxlength="300" placeholder="Écris ton mot ici…" aria-label="Texte du Post-it"></textarea>
         <small id="postit-count" class="muted">0 / 300</small>
         <p id="postit-message" class="notice" role="alert" hidden></p>
         <div class="dialog-actions">
           <button type="button" class="ghost" data-close>Annuler</button>
-          <button type="submit" class="primary">Coller</button>
+          <button type="submit" class="primary" id="postit-submit">Coller</button>
         </div>
       </form>
     </dialog>
 
     <dialog id="dialog-postit-read" class="postit-dialog">
-      <div id="postit-read-note" class="postit-read-note"></div>
+      <div id="postit-read-note" class="postit-read-note" role="button" tabindex="0" aria-label="Post-it : touche-le pour le laisser collé"></div>
       <p id="postit-read-when" class="muted postit-read-when"></p>
+      <p class="muted postit-read-hint">Touche le Post-it pour le laisser collé.</p>
       <p id="postit-read-message" class="notice" role="alert" hidden></p>
-      <div class="dialog-actions">
-        <button type="button" class="ghost small danger" id="postit-delete-all" hidden>Retirer pour tous</button>
-        <button type="button" class="ghost" id="postit-keep">Garder</button>
-        <button type="button" class="primary" id="postit-throw">Jeter le Post-it</button>
+      <div class="postit-read-actions">
+        <button type="button" class="icon-btn" id="postit-edit" title="Modifier le Post-it" aria-label="Modifier le Post-it" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m13.5 6.5 4 4"/></svg></button>
+        <button type="button" class="icon-btn danger" id="postit-delete-all" title="Jeter pour tout le monde" aria-label="Jeter pour tout le monde" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg><small>tous</small></button>
+        <button type="button" class="icon-btn danger" id="postit-throw" title="Jeter le Post-it" aria-label="Jeter le Post-it"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg></button>
       </div>
     </dialog>
 

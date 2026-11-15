@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.33.0 — 2026-11-15
+- Post-it : retoucher un Post-it ouvert le laisse collé (plus de bouton Garder), jeter avec une icône poubelle, l'auteur peut le modifier avec le crayon
+
 ## 3.32.1 — 2026-11-15
 - Post-it du haut du fil beaucoup plus petits (ils s'agrandissent toujours au toucher)
 

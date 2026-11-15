@@ -1855,10 +1855,17 @@ export function createChat({ supabase, user }) {
     postitFreshId = null;
   }
 
-  function openPostitWrite() {
+  let postitEditingId = null;
+
+  function openPostitWrite(editId = null) {
     if (!state.channel) return;
-    $("#postit-input").value = "";
-    $("#postit-count").textContent = `0 / ${POSTIT_MAX}`;
+    const editing = editId && postitById(editId);
+    postitEditingId = editing ? editId : null;
+    $("#postit-form-title").textContent = editing ? "Modifier le Post-it" : "Nouveau Post-it";
+    $("#postit-form-note").hidden = Boolean(editing);
+    $("#postit-submit").textContent = editing ? "Enregistrer" : "Coller";
+    $("#postit-input").value = editing ? editing.body : "";
+    $("#postit-count").textContent = `${$("#postit-input").value.length} / ${POSTIT_MAX}`;
     setNotice("#postit-message", "");
     openDialog("#dialog-postit");
     $("#postit-input").focus();
@@ -1869,6 +1876,7 @@ export function createChat({ supabase, user }) {
     if (!state.channel || postitBusy) return;
     const body = $("#postit-input").value.trim();
     if (!body) return setNotice("#postit-message", "Écris quelque chose sur ton Post-it.");
+    if (postitEditingId) return savePostitEdit(body);
     postitBusy = true;
     const channelId = state.channel.id;
     const { data, error } = await supabase.from("postits").insert({ channel_id: channelId, body: body.slice(0, POSTIT_MAX) }).select().single();
@@ -1882,6 +1890,27 @@ export function createChat({ supabase, user }) {
       postitFreshId = data.id;
       renderPostitWall();
     }
+  }
+
+  async function savePostitEdit(body) {
+    const id = postitEditingId;
+    const postit = id && postitById(id);
+    if (!postit) return closeDialog($("#dialog-postit"));
+    if (body === postit.body) {
+      postitEditingId = null;
+      return closeDialog($("#dialog-postit"));
+    }
+    postitBusy = true;
+    const { data, error } = await supabase.from("postits").update({ body: body.slice(0, POSTIT_MAX) }).eq("id", id).select().single();
+    postitBusy = false;
+    if (error) {
+      return setNotice("#postit-message", "Modification impossible : " + error.message + (/permission|policy|row-level/i.test(error.message) ? " (exécute la migration 021 dans Supabase)." : ""));
+    }
+    Object.assign(postit, { body: data ? data.body : body });
+    postitEditingId = null;
+    postitFreshId = id;
+    closeDialog($("#dialog-postit"));
+    renderPostitWall();
   }
 
   // Toucher un Post-it : il se décolle de l'écran, puis s'ouvre en grand.
@@ -1910,6 +1939,7 @@ export function createChat({ supabase, user }) {
     holder.firstChild.classList.add("lifted");
     const when = new Date(postit.created_at);
     $("#postit-read-when").textContent = `${authorName(postit.user_id)} · ${dayLabel(when)} à ${timeFmt.format(when)}`;
+    $("#postit-edit").hidden = postit.user_id !== user.id;
     $("#postit-delete-all").hidden = !(postit.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel"));
     $("#postit-throw").disabled = false;
     setNotice("#postit-read-message", "");
@@ -1980,6 +2010,14 @@ export function createChat({ supabase, user }) {
       state.postits.push(postit);
       postitFreshId = postit.id;
       renderPostitWall();
+    } else if (payload.eventType === "UPDATE") {
+      const postit = payload.new;
+      const mine = postit && postitById(postit.id);
+      if (mine && postit.body !== mine.body) {
+        mine.body = postit.body;
+        postitFreshId = mine.id;
+        renderPostitWall();
+      }
     } else if (payload.eventType === "DELETE") {
       const id = payload.old && payload.old.id;
       if (id && postitById(id)) {
@@ -4660,7 +4698,7 @@ export function createChat({ supabase, user }) {
     on($("#channel-postits"), "click", openPostitTrash);
     on($("#attach-postit"), "click", () => {
       toggleAttachMenu(false);
-      openPostitWrite();
+      openPostitWrite(null);
     });
     on($("#postit-form"), "submit", submitPostit);
     on($("#postit-input"), "input", () => {
@@ -4671,7 +4709,22 @@ export function createChat({ supabase, user }) {
       if (note) peelPostit(note.dataset.id);
     });
     on($("#postit-throw"), "click", throwPostit);
-    on($("#postit-keep"), "click", () => closeDialog($("#dialog-postit-read")));
+    // Retoucher le Post-it ouvert suffit à le laisser collé.
+    on($("#postit-read-note"), "click", () => {
+      if (!postitBusy) closeDialog($("#dialog-postit-read"));
+    });
+    on($("#postit-read-note"), "keydown", (event) => {
+      if ((event.key === "Enter" || event.key === " ") && !postitBusy) {
+        event.preventDefault();
+        closeDialog($("#dialog-postit-read"));
+      }
+    });
+    on($("#postit-edit"), "click", () => {
+      const id = postitOpenId;
+      if (!id || postitBusy) return;
+      closeDialog($("#dialog-postit-read"));
+      openPostitWrite(id);
+    });
     on($("#postit-delete-all"), "click", deletePostitForAll);
     on($("#dialog-postit-read"), "close", stickBack);
     on($("#postit-trash-list"), "click", (event) => {
