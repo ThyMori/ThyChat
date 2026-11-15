@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.36.0 — 2026-11-15
+- Post-it : une personne qui arrive dans un fil ne voit que les Post-it posés après son arrivée
+- bouton « Vider la poubelle » dans Post-it jetés
+
 ## 3.35.0 — 2026-11-15
 - To-Do : la personne qui coche une case la signe de son nom (visible aussi dans les To-Do terminées)
 

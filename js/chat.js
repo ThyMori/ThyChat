@@ -2355,6 +2355,7 @@ export function createChat({ supabase, user }) {
     box.replaceChildren();
     const list = trashedPostits();
     $("#postit-trash-title").textContent = state.channel ? `Post-it jetés · ${channelTitle(state.channel)}` : "Post-it jetés";
+    $("#postit-empty").hidden = !list.length;
     if (!list.length) return box.append(el("p", "muted", "Aucun Post-it jeté dans ce fil."));
     for (const postit of list) {
       const row = el("div", "postit-trash-row");
@@ -2383,6 +2384,19 @@ export function createChat({ supabase, user }) {
     renderPostitWall();
     renderPostitTrash();
     toast("Post-it remis en haut du fil.", "ok");
+  }
+
+  // Vider la poubelle : tout jeter définitivement (pour moi seulement).
+  async function purgeAllPostits() {
+    const list = trashedPostits();
+    if (!list.length) return;
+    if (!window.confirm(`Jeter définitivement ${list.length > 1 ? "ces " + list.length + " éléments" : "cet élément"} ? Ils disparaîtront de cette liste (pour toi seulement).`)) return;
+    const rows = list.map((p) => ({ postit_id: p.id, user_id: user.id, state: "purged" }));
+    const { error } = await supabase.from("postit_states").upsert(rows, { onConflict: "postit_id,user_id" });
+    if (error) return setNotice("#postit-trash-message", "Impossible de vider la poubelle : " + error.message);
+    for (const row of rows) state.postitStates.set(row.postit_id, "purged");
+    renderPostitTrash();
+    toast("Poubelle vidée.", "ok");
   }
 
   async function purgePostit(id) {
@@ -5087,6 +5101,7 @@ export function createChat({ supabase, user }) {
     });
     on($("#postit-delete-all"), "click", deletePostitForAll);
     on($("#dialog-postit-read"), "close", stickBack);
+    on($("#postit-empty"), "click", purgeAllPostits);
     on($("#postit-trash-list"), "click", (event) => {
       const restore = event.target.closest("[data-restore]");
       if (restore) return restorePostit(restore.dataset.restore);
