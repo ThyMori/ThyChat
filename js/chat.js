@@ -3557,13 +3557,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Touche une frise : ouvre le spectacle sur cette date (en changeant d'espace si besoin).
-  async function openTagFromCalendar(tagId) {
+  async function openTagFromCalendar(tagId, { filtered = true } = {}) {
     const tag = tagById(tagId);
     const room = tag && roomById(tag.room_id);
     if (!room) return;
     const sub = subsOfRoom(room.id)[0];
     if (!sub) return toast("Aucun sous-salon accessible dans ce spectacle.");
-    state.pendingFilter = tagId;
+    state.pendingFilter = filtered ? tagId : null;
+    if (!filtered) state.tagFilter = new Set(); // un filtre déjà posé dans ce spectacle est retiré aussi
     if (state.ws && room.workspace_id !== state.ws.id) await selectWorkspace(room.workspace_id, sub.id);
     else await selectChannel(sub.id);
   }
@@ -5701,7 +5702,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (go) {
         closeDialog($("#dialog-current"));
         closeSidebar();
-        await openTagFromCalendar(go.dataset.goTag);
+        await openTagFromCalendar(go.dataset.goTag, { filtered: false }); // « Ouvrir le spectacle » : le fil, sans filtre de date
       }
     });
     on($("#docs-list"), "click", (event) => {

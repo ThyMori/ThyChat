@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.41.1 — 2026-11-15
+- Dates en cours : « Ouvrir le spectacle » ouvre le fil sans filtre de date
+
 ## 3.41.0 — 2026-11-15
 - Info : bouton Partager en haut de la fenêtre (adresse thychat.thierry-morin.com)
 
