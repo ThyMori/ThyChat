@@ -137,6 +137,7 @@ function storedSession() {
 
 // --- Démarrage ------------------------------------------------------------
 async function main() {
+  window.__step = "démarrage (main)";
   if (!isConfigured) {
     $("#config-warning").hidden = false;
     $("#login-submit").disabled = true;
@@ -157,7 +158,9 @@ async function main() {
     }, 0);
   });
 
+  window.__step = "lecture de la session (getSession)";
   const { data, error: sessionError } = await supabase.auth.getSession();
+  window.__step = "session lue, routage";
   let session = data.session;
   // Sans réseau, le jeton expiré ne peut pas être renouvelé : on rouvre quand même la session gardée sur l'appareil.
   if (!session && (navigator.onLine === false || (sessionError && /fetch|network/i.test(sessionError.message || "")))) {

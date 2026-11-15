@@ -30,13 +30,17 @@
       var more = "\nNavigateur : " + navigator.userAgent;
       if (detail) detail.textContent = (window.__lastError || "Aucune erreur signalée") + more;
       if (box) box.hidden = false;
-      // Le démarrage dépend d'un module chargé depuis jsDelivr : on vérifie qu'il est joignable.
+      // Étape atteinte, puis essai de chaque module de démarrage pour savoir lequel ne se charge pas.
+      if (detail) detail.textContent += "\nÉtape : " + (window.__step || "aucun script exécuté");
       try {
-        fetch("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", { mode: "no-cors" }).then(
-          function () { if (detail) detail.textContent += "\njsDelivr : joignable"; },
-          function () { if (detail) detail.textContent += "\njsDelivr : injoignable (bloqué par le navigateur ou le réseau ?)"; }
-        );
-      } catch (e) { /* ancien navigateur */ }
+        var probes = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", "./js/config.js", "./js/supabase.js", "./js/chat.js", "./js/install.js", "./js/app.js"];
+        probes.forEach(function (url) {
+          import(url).then(
+            function () { if (detail) detail.textContent += "\nModule OK : " + url.replace(/^.*\//, ""); },
+            function (err) { if (detail) detail.textContent += "\nModule en échec : " + url.replace(/^.*\//, "") + " (" + ((err && err.message) || err) + ")"; }
+          );
+        });
+      } catch (e) { if (detail) detail.textContent += "\nimport() indisponible"; }
     };
     setTimeout(function () { if (!window.__booted) window.__showLoadingError(); }, 8000);
     // Supprime le service worker et les caches (la session de connexion est conservée), puis recharge.
@@ -929,6 +933,6 @@
     </dialog>
   </main>
 
-  <script type="module" src="js/app.js"></script>
+  <script type="module" src="js/app.js" onerror="window.__lastError='js/app.js (ou un module qu\u2019il charge) n\u2019a pas pu être chargé'"></script>
 </body>
 </html>

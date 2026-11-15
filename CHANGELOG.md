@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.3 — 2026-11-15
+- Écran d'erreur au démarrage : indique l'étape atteinte et le module qui ne se charge pas
+
 ## 3.42.2 — 2026-11-15
 - Écran d'erreur au démarrage : affiche le navigateur et indique si le serveur jsDelivr est joignable
 
