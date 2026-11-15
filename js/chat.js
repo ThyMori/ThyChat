@@ -2001,13 +2001,19 @@ export function createChat({ supabase, user }) {
     return null;
   }
 
+  // Chaque case cochée ou décochée demande une confirmation (la liste est commune à tout le monde).
+  function confirmTodoCheck(postit, index, done) {
+    const item = todoItems(postit)[index];
+    return window.confirm(`${done ? "Cocher" : "Décocher"} « ${item ? item.t : ""} » ?`);
+  }
+
   async function onTodoCheck(event) {
     const box = event.target.closest('input[type="checkbox"]');
     if (!box) return;
     const postit = postitById(postitOpenId);
     if (!postit || !isTodo(postit)) return;
     const done = box.checked;
-    if (postitBusy) {
+    if (postitBusy || !confirmTodoCheck(postit, Number(box.dataset.index), done)) {
       box.checked = !done;
       return;
     }
@@ -2118,6 +2124,10 @@ export function createChat({ supabase, user }) {
     const postit = node && todoView.list.find((p) => p.id === node.dataset.id);
     if (!postit) return;
     const done = box.checked;
+    if (!confirmTodoCheck(postit, Number(box.dataset.index), done)) {
+      box.checked = !done;
+      return;
+    }
     const error = await setTodoItem(postit, Number(box.dataset.index), done);
     if (error) {
       box.checked = !done;

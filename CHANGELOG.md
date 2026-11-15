@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.34.1 — 2026-11-15
+- To-Do : confirmation à chaque case cochée ou décochée
+
 ## 3.34.0 — 2026-11-15
 - To-Do : feuille de carnet à spirale avec cases à cocher partagées, qui disparaît quand tout est coché (consultable dans Post-it jetés)
 - bouton To-Do sous Calendrier, classé par spectacle
