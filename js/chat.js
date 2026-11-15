@@ -5227,6 +5227,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (dir < 0) {
         // Glisser un message vers la gauche : ses options (répondre, citer, transférer, rayer, déplacer, supprimer).
         if (row && !row.dataset.pending && !state.multi.size) {
+          guardHistory(); // « Retour » désélectionne
           state.selectedId = row.dataset.id;
           renderMessages();
         }
@@ -5582,6 +5583,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (row && row.dataset.pending) return;
       const next = row && state.selectedId !== row.dataset.id ? row.dataset.id : null;
       if (next === state.selectedId) return;
+      if (next) guardHistory(); // « Retour » désélectionne
       state.selectedId = next;
       renderMessages();
     });
@@ -5838,6 +5840,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       }
       if (state.multi.size) {
         clearMulti(); // « Retour » quitte la sélection de messages
+        guardHistory();
+        return;
+      }
+      if (state.selectedId) {
+        state.selectedId = null; // « Retour » désélectionne le message (et masque ses actions)
+        renderMessages();
         guardHistory();
         return;
       }
