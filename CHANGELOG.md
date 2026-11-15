@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.46.1 — 2026-11-15
+- Calendrier, To-Do et Mes notes réduits sur une seule ligne pour laisser plus de place aux spectacles
+
 ## 3.46.0 — 2026-11-15
 - Mes notes : un salon personnel par spectacle (messages, photos, Post-it, To-Do), visible par toi seul même des administrateurs, limité à 25 Mo de photos et 2 000 notes, sans notification
 - bouton Mes notes avec recherche de spectacle
