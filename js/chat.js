@@ -21,6 +21,14 @@ import {
 
 const LAST_KEY = "thychat:last";
 const OPEN_KEY = "thychat:open";
+const DM_OPEN_KEY = "thychat:dm-open";
+const readDmOpen = () => {
+  try {
+    return localStorage.getItem(DM_OPEN_KEY) === "1"; // repliés par défaut
+  } catch {
+    return false;
+  }
+};
 const PAGE_SIZE = 100;
 const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const URL_RE = /(https?:\/\/[^\s<>"']+)/g;
@@ -292,6 +300,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   });
   const fallbackName = user.user_metadata?.display_name || user.email || "Moi";
   const state = {
+    dmOpen: readDmOpen(), // messages privés dépliés dans le menu ?
     outbox: [], // messages écrits sans réseau, en attente d'envoi : { id, channel_id, body, reply_to, tag_ids, images, attachments, created_at, status, error }
     workspaces: [], // { id, name, role, theme }
     ws: null,
@@ -856,7 +865,22 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     dmList.replaceChildren();
     const privates = dms();
     for (const channel of privates) dmList.append(channelItem(channel));
-    dmList.hidden = !privates.length;
+    renderDmToggle();
+  }
+
+  // Titre « Messages privés » repliable ; replié, il garde le total des non lus (hors silence).
+  function renderDmToggle() {
+    const privates = state.ws ? dms() : [];
+    const list = $("#dm-list");
+    list.hidden = !privates.length || !state.dmOpen;
+    const toggle = $("#dm-toggle");
+    toggle.setAttribute("aria-expanded", String(state.dmOpen));
+    toggle.classList.toggle("open", state.dmOpen);
+    const badge = $("#dm-unread");
+    let total = 0;
+    for (const channel of privates) if (!muted(channel)) total += state.unread.get(channel.id) || 0;
+    badge.hidden = state.dmOpen || total <= 0;
+    badge.textContent = total > 0 ? countLabel(total) : "";
   }
 
   function renderHeader() {
@@ -1334,6 +1358,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const previousRoom = state.channel ? state.channel.room_id : null;
     state.calendarOpen = false;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
+    if (state.channel && state.channel.kind === "dm") state.dmOpen = true; // le message privé affiché reste visible dans le menu
     state.selectedId = null;
     state.multi = new Set();
     if (!state.channel || state.channel.room_id !== previousRoom || state.focus) state.tagFilter = new Set();
@@ -5304,6 +5329,15 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       openFromList(event);
     });
     on($("#dm-list"), "click", openFromList);
+    on($("#dm-toggle"), "click", () => {
+      state.dmOpen = !state.dmOpen;
+      try {
+        localStorage.setItem(DM_OPEN_KEY, state.dmOpen ? "1" : "0");
+      } catch {
+        /* préférence non gardée : sans conséquence */
+      }
+      renderDmToggle();
+    });
 
     on($("#dm-search"), "input", renderDmPick);
     on($("#open-search"), "click", () => openSearch("all"));

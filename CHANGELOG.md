@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.39.0 — 2026-11-15
+- Menu : « Messages privés » repliable (›), replié par défaut, avec le total des non lus
+
 ## 3.38.5 — 2026-11-15
 - Menu (téléphone) : la liste des spectacles s'adapte à leur nombre, plus de vide avant les messages privés
 
