@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.38.5 — 2026-11-15
+- Menu (téléphone) : la liste des spectacles s'adapte à leur nombre, plus de vide avant les messages privés
+
 ## 3.38.4 — 2026-11-15
 - Menu : l'en-tête (logo, boutons, espace courant) reste toujours visible quand la liste défile
 

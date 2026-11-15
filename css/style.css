@@ -1074,12 +1074,11 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 /* Mobile : listes plus compactes pour que le pied de la liste tienne à l'écran. */
 @media (max-width: 760px) {
   .dm-list { max-height: 16dvh; }
-  #channel-list { min-height: 64px; }
 }
 
 /* Mobile : les spectacles prennent la place ; messages privés et pied de liste en dessous (la colonne défile). */
 @media (max-width: 760px) {
-  #channel-list { flex: 1 0 auto; min-height: 42dvh; overflow: visible; }
+  #channel-list { flex: none; min-height: 0; overflow: visible; } /* s'adapte au nombre de spectacles : pas de vide avant les messages privés */
   .dm-list { flex: none; max-height: none; overflow: visible; }
 }
 
