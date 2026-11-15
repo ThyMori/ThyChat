@@ -1471,3 +1471,9 @@ html, body { overscroll-behavior-y: none; }
 .msg-pinmark .ic { width: 12px; height: 12px; }
 .pin-bar .ic { width: 16px; height: 16px; }
 #loading-error-detail { white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Téléphone : texte un peu plus grand, proche de WhatsApp (tout l'interface est en rem). */
+@media (max-width: 760px) and (pointer: coarse) {
+  html { font-size: 110%; }
+  .composer textarea { font-size: 1rem; }
+}

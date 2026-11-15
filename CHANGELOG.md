@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.6 — 2026-11-15
+- Téléphone : texte de l'interface agrandi de 10 % (proche de WhatsApp)
+
 ## 3.42.5 — 2026-11-15
 - Notifications : message clair quand le navigateur n'a pas de service de notifications (téléphone sans services Google)
 
