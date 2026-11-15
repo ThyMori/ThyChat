@@ -16,7 +16,8 @@
   --ok: #6ec08a;
   --radius: 12px;
   --font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-top-min: 0px; /* relevé par app.js quand iOS oublie de donner la marge de l'encoche */
+  --safe-top: max(env(safe-area-inset-top, 0px), var(--safe-top-min));
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 

@@ -9,6 +9,26 @@ const $ = (selector) => document.querySelector(selector);
 // Numéro de version, affiché en petit en bas de la connexion et de la barre latérale.
 for (const node of document.querySelectorAll(".app-version")) node.textContent = `v${VERSION}`;
 
+// iPhone, application installée : iOS donne parfois une marge de sécurité nulle au démarrage, et l'en-tête
+// passe alors sous l'encoche / l'heure. On mesure la marge réelle et, si elle est nulle, on en impose une.
+function fixSafeTop() {
+  const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  const ios = /iPhone|iPad|iPod/.test(window.navigator.userAgent);
+  const root = document.documentElement;
+  if (!standalone || !ios) return;
+  const probe = document.createElement("div");
+  probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;visibility:hidden;padding-top:env(safe-area-inset-top, 0px)";
+  document.body.append(probe);
+  const real = parseFloat(getComputedStyle(probe).paddingTop) || 0;
+  probe.remove();
+  const portrait = window.innerHeight > window.innerWidth;
+  root.style.setProperty("--safe-top-min", real > 0 || !portrait ? "0px" : "54px");
+}
+fixSafeTop();
+window.addEventListener("resize", fixSafeTop);
+window.addEventListener("orientationchange", fixSafeTop);
+document.addEventListener("visibilitychange", () => !document.hidden && fixSafeTop());
+
 // Rappel et guide d'installation (écoute dès le départ : le navigateur n'envoie son invitation qu'une fois).
 initInstall();
 const SCREENS = ["loading", "login", "set-password", "app"];

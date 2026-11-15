@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.3 — 2026-11-15
+- iPhone : marge de sécurité en haut garantie quand iOS ne la fournit pas (en-tête sous l'encoche)
+
 ## 5.2.2 — 2026-11-15
 - Pastilles de messages privés non lus en rouge, plus visibles
 
