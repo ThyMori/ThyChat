@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.2 — 2026-11-15
+- Écran d'erreur au démarrage : affiche le navigateur et indique si le serveur jsDelivr est joignable
+
 ## 3.42.1 — 2026-11-15
 - Le partage de l'application ne se déclenche plus par un appui parasite après l'ouverture de l'aide
 

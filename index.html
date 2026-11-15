@@ -27,8 +27,16 @@
     window.__showLoadingError = function () {
       var box = document.getElementById("loading-error");
       var detail = document.getElementById("loading-error-detail");
-      if (detail && window.__lastError) detail.textContent = window.__lastError;
+      var more = "\nNavigateur : " + navigator.userAgent;
+      if (detail) detail.textContent = (window.__lastError || "Aucune erreur signalée") + more;
       if (box) box.hidden = false;
+      // Le démarrage dépend d'un module chargé depuis jsDelivr : on vérifie qu'il est joignable.
+      try {
+        fetch("https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", { mode: "no-cors" }).then(
+          function () { if (detail) detail.textContent += "\njsDelivr : joignable"; },
+          function () { if (detail) detail.textContent += "\njsDelivr : injoignable (bloqué par le navigateur ou le réseau ?)"; }
+        );
+      } catch (e) { /* ancien navigateur */ }
     };
     setTimeout(function () { if (!window.__booted) window.__showLoadingError(); }, 8000);
     // Supprime le service worker et les caches (la session de connexion est conservée), puis recharge.
