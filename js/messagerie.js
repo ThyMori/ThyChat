@@ -475,13 +475,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function ensureProfiles(ids) {
     const missing = [...new Set(ids)].filter((id) => id && !state.profiles.has(id));
     if (!missing.length) return;
-    const { data, error } = await supabase.from("profiles").select("id, display_name, avatar_url, is_super_admin").in("id", missing);
+    const { data, error } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", missing);
     if (error) {
       console.warn("Profils illisibles :", error.message);
       return;
     }
     for (const profile of data || []) {
-      state.profiles.set(profile.id, { name: profile.display_name || "Membre", avatar: profile.avatar_url || "", support: Boolean(profile.is_super_admin) });
+      state.profiles.set(profile.id, { name: profile.display_name || "Membre", avatar: profile.avatar_url || "" });
     }
   }
 
@@ -749,7 +749,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Un administrateur général entré dans l'espace pour dépanner est signalé « Support » (visible de tous les membres).
-  const adminBadge = (userId) => el("span", "badge", state.profiles.get(userId)?.support ? "Support" : "Admin");
+  const adminBadge = (row) => el("span", "badge", row.support ? "Support" : "Admin");
 
   function roleLabel(role) {
     return role === "admin" ? "Administrateur" : "Utilisateur";
@@ -4484,7 +4484,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Utilisateurs (non administrateurs) de l'espace courant, pour choisir qui a accès à un salon.
   async function workspaceUsers(wsId) {
-    const { data, error } = await supabase.from("workspace_members").select("user_id, role").eq("workspace_id", wsId);
+    let { data, error } = await supabase.from("workspace_members").select("user_id, role, support").eq("workspace_id", wsId);
+    // Colonne « support » absente tant que la migration 031 n'est pas exécutée : on relit sans elle.
+    if (error) ({ data, error } = await supabase.from("workspace_members").select("user_id, role").eq("workspace_id", wsId));
     if (error) return [];
     await ensureProfiles((data || []).map((row) => row.user_id));
     return (data || []).slice().sort((a, b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
@@ -4500,7 +4502,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       box.value = row.user_id;
       box.checked = checkedIds.has(row.user_id);
       label.append(box, avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
-      if (row.role === "admin") label.append(adminBadge(row.user_id));
+      if (row.role === "admin") label.append(adminBadge(row));
       item.append(label);
       container.append(item);
     }
@@ -4658,7 +4660,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       who.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
       item.append(who);
       if (row.role === "admin") {
-        who.append(adminBadge(row.user_id));
+        who.append(adminBadge(row));
         item.append(el("small", "muted", "Tous les droits"));
         list.append(item);
         continue;
@@ -5066,7 +5068,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       button.disabled = me;
       button.dataset.user = row.user_id;
       button.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id) + (me ? " (toi)" : "")));
-      if (row.role === "admin") button.append(adminBadge(row.user_id));
+      if (row.role === "admin") button.append(adminBadge(row));
       item.append(button);
       list.append(item);
     }
@@ -5148,6 +5150,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const item = el("li", "member");
       const who = el("span", "member-who");
       who.append(avatarFor(row.user_id, "small soft"), el("span", "member-name", authorName(row.user_id)));
+      if (row.support) who.append(el("span", "badge", "Support"));
       item.append(who);
 
       const others = row.user_id !== user.id;

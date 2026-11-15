@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.1.1 — 2026-11-15
+- Pastille Support seulement pour les espaces rejoints par l'administrateur général, pas ceux qu'il a créés
+
 ## 5.1.0 — 2026-11-15
 - Suppression d'un espace (administrateurs) avec confirmation par le nom, fichiers compris
 
