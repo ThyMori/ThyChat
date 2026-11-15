@@ -1492,3 +1492,6 @@ html, body { overscroll-behavior-y: none; }
 .update-bar span { flex: 1; min-width: 0; }
 .update-bar button.small { width: auto; flex: none; }
 .notes-when { display: block; font-weight: normal; }
+#access-form ol { margin: 8px 0 4px; padding-left: 20px; display: grid; gap: 6px; font-size: 0.9rem; }
+#access-form .help-section { margin-top: 14px; }
+#access-message[data-kind="ok"] { display: block; }

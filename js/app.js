@@ -223,6 +223,52 @@ $("#forgot-password").addEventListener("click", async () => {
   }
 });
 
+// --- Demande d'inscription (personne sans compte) -------------------------
+const accessDialog = $("#dialog-access");
+$("#request-access-open").addEventListener("click", () => {
+  setMessage($("#access-message"), "");
+  $("#access-email").value = $("#email").value.trim();
+  accessDialog.showModal();
+  $("#access-name").focus();
+});
+$("#access-cancel").addEventListener("click", () => accessDialog.close());
+accessDialog.addEventListener("click", (event) => {
+  if (event.target === accessDialog) accessDialog.close(); // appui à l'extérieur de la fenêtre
+});
+
+$("#access-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = $("#access-message");
+  const button = $("#access-submit");
+  const name = $("#access-name").value.trim();
+  const email = $("#access-email").value.trim();
+  const production = $("#access-production").value.trim();
+
+  if (!name || !email || !production) return setMessage(message, "Renseigne ton nom, ton e-mail et le spectacle ou la production.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setMessage(message, "Cette adresse e-mail n'a pas l'air valide.");
+  if (!isConfigured) return setMessage(message, "Supabase n'est pas configuré.");
+
+  setMessage(message, "");
+  setBusy(button, true, "Envoi…");
+  const { data, error } = await supabase.functions.invoke("request-access", {
+    body: { name, email, production, website: $("#access-website").value },
+  });
+  setBusy(button, false);
+
+  let detail = error ? "" : data && data.error;
+  if (error) {
+    try { detail = (await error.context.json()).error; } catch { /* réponse illisible */ }
+  }
+  if (error || (data && data.error)) {
+    return setMessage(message, detail || "La demande n'a pas pu être envoyée. Vérifie ta connexion et réessaie.");
+  }
+  $("#access-form").reset();
+  accessDialog.close();
+  setMessage($("#login-message"), data && data.mail_sent === false
+    ? "Ta demande est enregistrée. Thierry la verra dans les meilleurs délais ; si tu n'as pas de nouvelles, écris-lui à contact@thierry-morin.com."
+    : "Ta demande est envoyée à Thierry. Si elle est acceptée, tu recevras un e-mail de Supabase avec ton lien d'activation (regarde aussi dans tes courriers indésirables).", "ok");
+});
+
 // --- Définition du mot de passe (invitation / réinitialisation) -----------
 $("#set-password-form").addEventListener("submit", async (event) => {
   event.preventDefault();

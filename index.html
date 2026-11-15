@@ -103,9 +103,45 @@
       </form>
 
       <p class="fineprint">Accès sur invitation uniquement.</p>
+      <p class="fineprint"><button type="button" class="link" id="request-access-open">Pas encore de compte ? Demander à s'inscrire</button></p>
       <p class="fineprint version app-version"></p>
     </section>
   </main>
+
+  <dialog id="dialog-access">
+    <form id="access-form" novalidate>
+      <h3>Demander à s'inscrire</h3>
+      <p class="muted">ThyChat est réservée aux équipes de Thierry. Dis-nous qui tu es : ta demande lui est envoyée.</p>
+
+      <label for="access-name">Nom</label>
+      <input id="access-name" name="name" type="text" autocomplete="name" maxlength="80" required>
+
+      <label for="access-email">E-mail</label>
+      <input id="access-email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" maxlength="160" required>
+
+      <label for="access-production">Nom du spectacle, de la production ou de la compagnie</label>
+      <input id="access-production" name="production" type="text" maxlength="160" required>
+
+      <input id="access-website" name="website" type="text" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0">
+
+      <details class="help-section" open>
+        <summary>Comment ça se passe ?</summary>
+        <ol>
+          <li>Tu remplis ce formulaire : ta demande est envoyée à Thierry par e-mail.</li>
+          <li>Si elle est acceptée, Thierry t'invite dans ThyChat avec l'adresse e-mail que tu donnes ici.</li>
+          <li>Tu reçois alors un e-mail envoyé par <strong>Supabase</strong> (le service qui héberge les comptes et les messages de ThyChat), avec un lien d'activation. Regarde aussi dans tes courriers indésirables.</li>
+          <li>Tu cliques sur ce lien : il ouvre ThyChat, tu choisis ton mot de passe, et tu es dans ton équipe.</li>
+        </ol>
+        <p class="muted">Ton nom et ton e-mail ne servent qu'à traiter ta demande.</p>
+      </details>
+
+      <p id="access-message" class="notice" role="alert" hidden></p>
+      <div class="dialog-actions">
+        <button type="button" class="ghost" id="access-cancel">Annuler</button>
+        <button type="submit" class="primary" id="access-submit">Envoyer ma demande</button>
+      </div>
+    </form>
+  </dialog>
 
   <main id="screen-set-password" class="screen center" hidden>
     <section class="card">
@@ -568,6 +604,7 @@
         <summary>Pour les administrateurs</summary>
         <ul>
           <li><strong>Espace et membres</strong> : couleur et photo de l'espace, liste des membres, rôles (administrateur ou utilisateur), retrait d'une personne.</li>
+          <li><strong>Demandes d'inscription</strong> : une personne sans compte peut en faire la demande depuis l'écran de connexion ; tu reçois ses nom, e-mail et spectacle par e-mail, puis tu l'invites avec le bouton « Inviter » et Supabase lui envoie son lien d'activation.</li>
           <li><strong>Inviter</strong> : choisis une personne déjà présente dans tes espaces dans la liste, ou invite une nouvelle personne par e-mail. Coche les espaces, le rôle, et les spectacles ou sous-salons réservés qu'elle peut voir.</li>
           <li><strong>+</strong> à côté de « Spectacles » crée un spectacle ; son ⚙ règle son nom et qui y a accès ; « + Nouveau sous-salon » en ajoute un, que tu peux ouvrir à tous ceux du spectacle ou réserver à certains.</li>
           <li>L'administrateur général crée les espaces. Les administrateurs voient tout dans leur espace.</li>

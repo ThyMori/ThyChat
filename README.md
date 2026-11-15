@@ -26,7 +26,7 @@ manifest.webmanifest    installation sur mobile / ordinateur
 icons/                  icônes de l'application
 supabase/schema.sql     tables, sécurité (RLS), temps réel
 supabase/migrations/    mises à jour de la base, à exécuter une fois dans l'ordre
-supabase/functions/     fonctions serveur : invite-member (invitations), send-push (notifications) et purge-documents (nettoyage nocturne)
+supabase/functions/     fonctions serveur : invite-member (invitations), request-access (demandes d'inscription), send-push (notifications) et purge-documents (nettoyage nocturne)
 ```
 
 ## Mise en route
@@ -77,6 +77,16 @@ Deux petites fonctions serveur sont nécessaires : `invite-member` (inviter par 
 
 **1. Les fonctions.** Supabase > **Edge Functions** > **Deploy a new function** > **Via Editor**. Pour chacune : donne le nom exact (`invite-member`, puis `send-push`), colle le contenu du fichier `supabase/functions/<nom>/index.ts`, **Deploy**. Dans les réglages de la fonction, désactive **Enforce JWT Verification** (les fonctions vérifient elles-mêmes qui les appelle).
 
+**Demandes d'inscription (`request-access`).** Sur l'écran de connexion, « Demander à s'inscrire » ouvre un formulaire (nom, e-mail, spectacle / production / compagnie). La fonction `request-access` enregistre la demande (table `access_requests`, migration 027) puis envoie un e-mail à `contact@thierry-morin.com` via [Resend](https://resend.com) (offre gratuite suffisante). Déploiement comme les autres fonctions (nom exact `request-access`, **Enforce JWT Verification désactivé** : la personne n'a pas de compte). Secrets à ajouter dans **Edge Functions > Secrets** :
+
+| Secret | Valeur |
+| --- | --- |
+| `RESEND_API_KEY` | la clé d'API créée dans Resend (obligatoire pour que l'e-mail parte ; sans elle, la demande reste seulement enregistrée) |
+| `ACCESS_REQUEST_TO` | facultatif : destinataire (par défaut `contact@thierry-morin.com`) |
+| `ACCESS_REQUEST_FROM` | facultatif : expéditeur. Par défaut `ThyChat <onboarding@resend.dev>`, qui ne peut écrire qu'à l'adresse du compte Resend ; pour écrire à n'importe qui, vérifie ton domaine dans Resend et mets par exemple `ThyChat <no-reply@thierry-morin.com>` |
+
+Le mail t'arrive avec « Répondre » pointant vers la personne ; pour l'accepter, utilise « Inviter » dans l'application (Supabase lui envoie alors son lien d'activation).
+
 **2. Les clés des notifications.** Une paire de clés VAPID identifie ton serveur auprès des téléphones. La clé **publique** est déjà dans `js/config.js` ; la clé **privée** va dans **Edge Functions > Secrets** (jamais dans le dépôt), avec :
 
 | Secret | Valeur |
@@ -115,6 +125,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `027_access_requests.sql` | demandes d'inscription depuis l'écran de connexion (table `access_requests`) ; déployer aussi la fonction `request-access` (après la 026) |
 | `026_my_notes.sql` | « Mes notes » : un salon personnel par spectacle, visible par son seul propriétaire (pas même les administrateurs), limité à 25 Mo de photos et 2 000 notes par personne, sans notification (après la 025) |
 | `025_message_pins.sql` | épingler un message ou une photo en haut du fil, 24 h / 7 jours / 30 jours, 3 au plus (après la 003) |
 | `024_postit_arrival.sql` | une personne qui arrive dans un fil ne voit que les Post-it posés après son arrivée (après la 022) |
