@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.32.1 — 2026-11-15
+- Post-it du haut du fil beaucoup plus petits (ils s'agrandissent toujours au toucher)
+
 ## 3.32.0 — 2026-11-15
 - Post-it : petits mots jaunes manuscrits collés en haut d'un fil (animations coller, décoller, froisser), à jeter par chacun
 - menu ⋮ « Post-it jetés » pour les relire ou les jeter définitivement

@@ -1320,3 +1320,12 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 @media (prefers-reduced-motion: reduce) {
   .postit.stick-in, .postit.lifted { animation-duration: 1ms; }
 }
+
+/* Post-it du haut du fil : petits (ils s'agrandissent au toucher). */
+.postit-wall { gap: 10px; padding: 8px 14px 8px; }
+.postit-wall .postit { width: 84px; min-height: 56px; padding: 11px 7px 5px; gap: 2px; font-size: 0.95rem; line-height: 1.05; }
+.postit-wall .postit::before { height: 6px; }
+.postit-wall .postit::after { width: 10px; height: 10px; }
+.postit-wall .postit .postit-text { -webkit-line-clamp: 2; }
+.postit-wall .postit .postit-from { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.postit-wall { flex: none; }
