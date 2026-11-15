@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.4 — 2026-11-16
+- Interne : chaîne de construction (esbuild + TypeScript), tests dans le dépôt et publication automatique par GitHub Actions
+- aucun changement visible
+
 ## 5.2.3 — 2026-11-15
 - iPhone : marge de sécurité en haut garantie quand iOS ne la fournit pas (en-tête sous l'encoche)
 

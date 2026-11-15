@@ -2,7 +2,7 @@
 
 Messagerie professionnelle pour les équipes de spectacle vivant : espaces (une production, une compagnie), spectacles et sous-salons (par métier), messages privés, notifications push. Accès sur invitation uniquement.
 
-**Stack** : PWA statique (HTML / CSS / JavaScript, sans étape de build) hébergée sur GitHub Pages, avec [Supabase](https://supabase.com) pour l'authentification, la base Postgres et le temps réel.
+**Stack** : PWA (HTML / CSS / JavaScript, en cours de passage à TypeScript) construite par `scripts/build.mjs` (esbuild, sans regroupement des fichiers) et publiée sur GitHub Pages par GitHub Actions, avec [Supabase](https://supabase.com) pour l'authentification, la base Postgres et le temps réel.
 
 ## Structure
 
@@ -19,6 +19,10 @@ js/profile.js           photo, nom et e-mail du profil
 js/themes.js            palette de couleurs : une couleur par espace
 js/install.js           rappel et guide d'installation de l'application
 js/version.js           numéro de version affiché en bas de l'application
+scripts/build.mjs       construit le site dans dist/ (js/*.js ou *.ts → JavaScript, le reste copié)
+tests/                  tests automatiques (jsdom + faux Supabase) ; `npm test` les lance sur dist/
+.github/workflows/deploy.yml  vérifie, teste, construit puis publie sur GitHub Pages
+tsconfig.json           vérification des types (`npm run typecheck`)
 scripts/bump-version.mjs  incrémente la version (version.js, sw.js, CHANGELOG.md)
 CHANGELOG.md            journal des versions
 sw.js                   service worker (coquille hors ligne)
@@ -45,7 +49,7 @@ supabase/functions/     fonctions serveur : invite-member (invitations), delete-
 L'application est servie sur `https://thychat.thierry-morin.com/` (le fichier `CNAME` à la racine déclare le domaine).
 
 1. **DNS** (chez l'hébergeur du domaine `thierry-morin.com`) : ajouter un enregistrement **CNAME** `thychat` pointant vers `thymori.github.io`.
-2. **Settings > Pages > Build and deployment** : *Deploy from a branch*, branche `main`, dossier `/ (root)`.
+2. **Settings > Pages > Build and deployment > Source** : **GitHub Actions** (lien direct : `https://github.com/ThyMori/ThyChat/settings/pages`). À chaque envoi sur `main`, le workflow *Publier ThyChat* vérifie la version, les types, lance les tests, construit le site (`dist/`) puis le publie ; si une étape échoue, l'ancienne version reste en ligne. Onglet **Actions** pour suivre ou relancer (*Run workflow*).
 3. **Settings > Pages > Custom domain** : vérifier que `thychat.thierry-morin.com` est renseigné, attendre la validation du DNS, puis cocher **Enforce HTTPS**.
 
 ### 3. Inviter les équipes
@@ -213,6 +217,18 @@ Chaque espace (une production, une compagnie…) a sa couleur, qui teinte toute 
 ## Versions
 
 Le numéro (`MAJEUR.FONCTION.ESTHÉTIQUE`) est affiché en petit en bas de l'application. À chaque livraison : `node scripts/bump-version.mjs <major|feature|fix> "description"`, puis commit. `--check` vérifie la cohérence. Détails dans `CLAUDE.md` et `CHANGELOG.md`.
+
+## Développer et tester
+
+```
+npm install        # une fois : installe esbuild, TypeScript, jsdom
+npm run typecheck  # vérification des types
+npm test           # construit dist/ puis lance tous les tests (34 fichiers)
+npm run check      # les deux
+npm run serve      # construit puis sert dist/ en local
+```
+
+Les tests s'exécutent sur `dist/`, c'est-à-dire sur ce qui sera réellement publié.
 
 ## Installer l'application
 

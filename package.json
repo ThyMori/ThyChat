@@ -1,0 +1,19 @@
+{
+  "name": "thychat",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "ThyChat : messagerie professionnelle pour les équipes de spectacle vivant (PWA)",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "node scripts/build.mjs && node tests/run.mjs",
+    "check": "npm run typecheck && npm test",
+    "serve": "node scripts/build.mjs && npx --yes serve dist"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0",
+    "jsdom": "^31.0.1",
+    "typescript": "^5.7.0"
+  }
+}
