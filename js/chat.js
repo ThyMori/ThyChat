@@ -2988,7 +2988,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       go.dataset.goTag = tag.id;
       head.append(go);
       section.append(head);
-      if (today < tag.start_date) section.append(el("p", "travel-note", "Veille : départ demain"));
+      if (today < tag.start_date) section.append(el("p", "travel-note", "Veille : début demain"));
       else if (today > (tag.end_date || tag.start_date)) section.append(el("p", "travel-note", "Lendemain : retour"));
       if ((tag.shows || []).includes(today)) section.append(el("p", "show-today", "★ Représentation aujourd'hui"));
       for (const sheet of latestSheets(tag.room_id)) {

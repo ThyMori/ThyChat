@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.38.2 — 2026-11-15
+- Dates en cours : « Veille : début demain » au lieu de « départ demain »
+
 ## 3.38.1 — 2026-11-15
 - Retour désélectionne le message sélectionné
 
