@@ -174,6 +174,8 @@ const ACTION_ICONS = {
   strike: '<path d="M5 12h14"/><path d="M16 7.5C15 6 13.7 5.5 12 5.5c-2.2 0-4 1-4 3 0 4 8 2.5 8 7 0 2-1.8 3.5-4 3.5-1.9 0-3.4-.7-4.4-2"/>',
   unstrike: '<path d="M9 14 4 9l5-5"/><path d="M4 9h9a6 6 0 0 1 0 12h-3"/>',
   move: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 13h6m-2-2 2 2-2 2"/>',
+  pin: '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 15v5"/>',
+  unpin: '<path d="M9 4h6l-1 6 3 3v2H7v-2l3-3z"/><path d="M12 15v5M4 4l16 16"/>',
   delete: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/>',
 };
 function actionIcon(name) {
@@ -326,6 +328,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
     editing: null, // { id, head } : message de moi en cours de modification
     postits: [], // Post-it du fil ouvert
+    pins: [], // messages épinglés du fil ouvert : { message_id, pinned_by, pinned_at, expires_at }, du plus récent au plus ancien
+    pinMsgs: new Map(), // contenu des messages épinglés : id → { id, user_id, body, attachments, created_at }
+    pinIndex: 0, // épingle montrée dans le bandeau
+    pinTarget: null, // message en cours d'épinglage (choix de la durée)
     postitStates: new Map(), // id -> « discarded » | « purged » (mon état)
     postitsReady: true, // false tant que la migration 020 n'est pas passée
     replyTo: null, // message auquel on répond
@@ -1002,6 +1008,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (message.id === state.selectedId && !state.multi.size) classes.push("selected");
       if (state.multi.has(message.id)) classes.push("picked");
       if (message.struck_at) classes.push("struck");
+      const pinned = isPinned(message.id);
+      if (pinned) classes.push("pinned");
       const item = el("article", classes.join(" "));
       item.dataset.id = message.id;
       if (deletable) item.dataset.deletable = "true";
@@ -1037,6 +1045,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (message.edited_at) body.append(el("span", "msg-edited", "modifié"));
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
+      if (pinned) {
+        const mark = el("span", "msg-pinmark");
+        mark.title = "Message épinglé";
+        mark.append(actionIcon("pin"));
+        body.append(mark);
+      }
       body.append(time);
       bubble.append(body);
       const messageTags = (message.tag_ids || []).map(tagById).filter(Boolean);
@@ -1049,7 +1063,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
       if (message.id === state.selectedId && !state.multi.size) {
         const actions = el("div", "msg-actions");
-        const actionList = [["reply", "Répondre", "reply"], ["quote", "Citer", "quote"], ["copy", "Copier", "copy"], ["forward", "Transférer", "forward"]];
+        const actionList = [["reply", "Répondre", "reply"], ["quote", "Citer", "quote"], ["copy", "Copier", "copy"], ["forward", "Transférer", "forward"], pinned ? ["unpin", "Détacher", "unpin"] : ["pin", "Épingler", "pin"]];
         if (mine) actionList.push(["edit", "Modifier", "edit"], ["strike", message.struck_at ? "Rétablir" : "Rayer", message.struck_at ? "unstrike" : "strike"]);
         if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer", "move"]);
         if (deletable) actionList.push(["delete", "Supprimer", "delete"]);
@@ -1377,7 +1391,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!state.channel) {
       state.messages = [];
       state.postits = [];
+      state.pins = [];
       renderPostitWall();
+      renderPinBar();
       setView("empty", {
         title: "Aucun spectacle",
         text: isAdmin()
@@ -1405,7 +1421,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     closeSidebar();
     markRead(state.channel.id);
 
+    state.pins = [];
+    state.pinIndex = 0;
+    renderPinBar();
     loadPostits(state.channel.id, token);
+    loadPins(state.channel.id, token);
     await loadMessages(state.channel.id, token);
   }
 
@@ -1483,6 +1503,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       .channel("thychat:live")
       .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, onRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "postits" }, onPostitRealtime)
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_pins" }, onPinRealtime)
       .on("postgres_changes", { event: "*", schema: "public", table: "rooms" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "room_members" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "tour_tags" }, refreshStructureSoon)
@@ -2118,6 +2139,146 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await ensureProfiles([...state.postits.map((p) => p.user_id), ...todoSigners(state.postits)]);
     if (stopped || token !== state.loadToken) return;
     renderPostitWall(true);
+  }
+
+  // --- Messages épinglés (comme sur WhatsApp) ---------------------------------------------------
+  // Toute personne du fil peut épingler un message ou une photo, pour tout le monde : 24 h, 7 jours ou 30 jours, trois au plus.
+
+  const PIN_CHOICES = [[24, "24 heures"], [168, "7 jours"], [720, "30 jours"]];
+  const activePins = () => state.pins.filter((pin) => new Date(pin.expires_at).getTime() > Date.now());
+  const isPinned = (id) => activePins().some((pin) => pin.message_id === id);
+
+  async function loadPins(channelId, token, { newest = false } = {}) {
+    const { data, error } = await supabase
+      .from("message_pins")
+      .select("message_id, pinned_by, pinned_at, expires_at")
+      .eq("channel_id", channelId)
+      .gt("expires_at", new Date().toISOString())
+      .order("pinned_at", { ascending: false });
+    if (stopped || !state.channel || state.channel.id !== channelId || (token && token !== state.loadToken)) return;
+    if (error) return; // sans la migration 025 : pas d'épingles
+    const previous = newest ? null : activePins()[state.pinIndex];
+    state.pins = data || [];
+    const kept = previous ? state.pins.findIndex((pin) => pin.message_id === previous.message_id) : -1;
+    state.pinIndex = kept === -1 ? 0 : kept;
+    const missing = state.pins.map((pin) => pin.message_id).filter((id) => !state.messages.some((m) => m.id === id) && !state.pinMsgs.has(id));
+    if (missing.length) {
+      const rows = await supabase.from("messages").select("id, user_id, body, attachments, created_at").in("id", missing);
+      if (stopped || !state.channel || state.channel.id !== channelId) return;
+      for (const row of rows.data || []) state.pinMsgs.set(row.id, row);
+      await ensureProfiles((rows.data || []).map((row) => row.user_id));
+      await resolveImages(rows.data || []);
+    }
+    renderPinBar();
+    renderMessages();
+  }
+
+  const pinnedMessage = (id) => state.messages.find((m) => m.id === id) || state.pinMsgs.get(id) || null;
+
+  function renderPinBar() {
+    const bar = $("#pin-bar");
+    const list = state.calendarOpen || !state.channel ? [] : activePins();
+    bar.hidden = !list.length;
+    bar.replaceChildren();
+    if (!list.length) return;
+    if (state.pinIndex >= list.length) state.pinIndex = 0;
+    const pin = list[state.pinIndex];
+    const message = pinnedMessage(pin.message_id);
+    const dots = el("span", "pin-dots");
+    dots.setAttribute("aria-hidden", "true");
+    list.forEach((_, index) => dots.append(el("i", index === state.pinIndex ? "on" : "")));
+    const text = el("span", "pin-text");
+    text.append(
+      el("strong", "", list.length > 1 ? `Message épinglé · ${state.pinIndex + 1}/${list.length}` : "Message épinglé"),
+      el("span", "pin-excerpt", message ? `${authorName(message.user_id)} : ${messageExcerpt(message, 80) || "Message"}` : "Message")
+    );
+    bar.append(dots);
+    const photo = message && message.attachments && message.attachments[0];
+    const url = photo && state.imageUrls.get(photo.path);
+    if (url) {
+      const thumb = document.createElement("img");
+      thumb.className = "pin-thumb";
+      thumb.alt = "";
+      thumb.src = url;
+      bar.append(thumb);
+    }
+    bar.append(text, actionIcon("pin"));
+    bar.setAttribute("aria-label", "Aller au message épinglé");
+  }
+
+  // Toucher le bandeau mène au message épinglé, puis passe à l'épingle suivante.
+  async function jumpToPin() {
+    const list = activePins();
+    if (!list.length || !state.channel) return;
+    const pin = list[Math.min(state.pinIndex, list.length - 1)];
+    state.pinIndex = (state.pinIndex + 1) % list.length;
+    renderPinBar();
+    if (state.messages.some((m) => m.id === pin.message_id)) return jumpToMessage(pin.message_id);
+    const message = pinnedMessage(pin.message_id);
+    if (!message) return toast("Ce message n'est plus disponible.");
+    state.focus = { id: pin.message_id, at: message.created_at };
+    state.tagFilter = new Set(); // le message épinglé peut ne pas porter la date filtrée
+    renderTagBar();
+    await loadMessages(state.channel.id, state.loadToken);
+  }
+
+  function openPin(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message || !state.channel) return;
+    state.pinTarget = id;
+    const full = activePins().length >= 3;
+    $("#pin-note").textContent = full
+      ? "Ce fil a déjà 3 messages épinglés : le plus ancien sera détaché."
+      : "Le message reste en haut du fil, pour tout le monde, jusqu'à la fin de la durée choisie.";
+    const box = $("#pin-choices");
+    box.replaceChildren();
+    for (const [hours, label] of PIN_CHOICES) {
+      const item = el("li");
+      const button = el("button", "pick-button");
+      button.type = "button";
+      button.dataset.hours = String(hours);
+      button.append(el("span", "pick-name", label));
+      item.append(button);
+      box.append(item);
+    }
+    openDialog("#dialog-pin");
+  }
+
+  async function pinMessage(hours) {
+    const id = state.pinTarget;
+    state.pinTarget = null;
+    closeDialog($("#dialog-pin"));
+    if (!id) return;
+    state.selectedId = null;
+    const { error } = await supabase.rpc("pin_message", { msg: id, hours });
+    if (error) {
+      renderMessages();
+      return toast(isNetworkError(error, 0) ? "Pas de réseau : le message n'est pas épinglé." : "Épinglage impossible : " + error.message + (/pin_message/.test(error.message) ? " (exécute la migration 025)" : ""));
+    }
+    await loadPins(state.channel.id, null, { newest: true });
+    toast("Message épinglé.", "ok");
+  }
+
+  async function unpinMessage(id) {
+    state.selectedId = null;
+    const { error } = await supabase.rpc("unpin_message", { msg: id });
+    if (error) {
+      renderMessages();
+      return toast(isNetworkError(error, 0) ? "Pas de réseau : le message reste épinglé." : "Impossible de détacher : " + error.message);
+    }
+    state.pins = state.pins.filter((pin) => pin.message_id !== id);
+    renderPinBar();
+    renderMessages();
+    toast("Message détaché.", "ok");
+  }
+
+  let pinReload = null;
+  function onPinRealtime() {
+    if (stopped) return;
+    clearTimeout(pinReload);
+    pinReload = setTimeout(() => {
+      if (!stopped && state.channel) loadPins(state.channel.id);
+    }, 150);
   }
 
   // Un Post-it (collé en haut du fil, ou petit dans la liste des jetés).
@@ -3470,6 +3631,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     state.selectedId = null;
     state.multi = new Set();
     renderPostitWall();
+    renderPinBar();
     if (roomId && roomById(roomId)) state.calScope = roomId;
     else if (state.calScope !== "all" && !roomById(state.calScope)) state.calScope = "ws";
     const now = new Date();
@@ -5162,6 +5324,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     expiryTimer = setInterval(() => {
       if (stopped) return;
       const now = Date.now();
+      if (state.pins.some((pin) => new Date(pin.expires_at).getTime() <= now)) {
+        state.pins = state.pins.filter((pin) => new Date(pin.expires_at).getTime() > now);
+        renderPinBar();
+        renderMessages();
+      }
       let changed = false;
       for (const [key, row] of state.mutes) {
         if (!row.forever && row.muted_until && new Date(row.muted_until).getTime() <= now) {
@@ -5228,6 +5395,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#mute-all-settings"), "click", () => {
       closeDialog($("#dialog-mute"));
       openNotifications();
+    });
+    on($("#pin-bar"), "click", () => jumpToPin());
+    on($("#pin-choices"), "click", (event) => {
+      const button = event.target.closest("[data-hours]");
+      if (button) pinMessage(Number(button.dataset.hours));
     });
     on($("#mute-choices"), "click", async (event) => {
       const button = event.target.closest("[data-choice]");
@@ -5608,6 +5780,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (edit) return startEdit(edit.dataset.id);
       const copy = event.target.closest("[data-action='copy']");
       if (copy) return copyMessages([copy.dataset.id]);
+      const pin = event.target.closest("[data-action='pin']");
+      if (pin) return openPin(pin.dataset.id);
+      const unpin = event.target.closest("[data-action='unpin']");
+      if (unpin) return unpinMessage(unpin.dataset.id);
       const forward = event.target.closest("[data-action='forward']");
       if (forward) return openForward([forward.dataset.id]);
       const pill = event.target.closest(".hash-pill");

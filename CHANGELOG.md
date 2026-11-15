@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.42.0 — 2026-11-15
+- Épingler un message ou une photo en haut du fil (24 h, 7 jours ou 30 jours, 3 au plus) avec bandeau d'accès au message
+
 ## 3.41.1 — 2026-11-15
 - Dates en cours : « Ouvrir le spectacle » ouvre le fil sans filtre de date
 

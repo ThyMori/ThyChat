@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `025_message_pins.sql` | épingler un message ou une photo en haut du fil, 24 h / 7 jours / 30 jours, 3 au plus (après la 003) |
 | `024_postit_arrival.sql` | une personne qui arrive dans un fil ne voit que les Post-it posés après son arrivée (après la 022) |
 | `023_todo_signature.sql` | la personne qui coche une case d'une To-Do la signe (après la 022) |
 | `022_todos.sql` | les To-Do : feuilles de carnet à cases à cocher (colonnes `kind` et `items` de `postits`, fonction `set_todo_item`) ; après la 021 |

@@ -1450,3 +1450,23 @@ html, body { overscroll-behavior-y: none; }
 
 .help-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .help-head h3 { margin: 0; }
+
+
+/* Messages épinglés : bandeau sous la barre du fil, repère sur le message. Couleurs dérivées de --h. */
+.pin-bar {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 14px; border: 0; border-bottom: 1px solid var(--border);
+  background: hsl(var(--h) 30% 16%); color: inherit; font: inherit; text-align: left; cursor: pointer;
+}
+.pin-bar[hidden] { display: none; }
+.pin-bar:hover { background: hsl(var(--h) 30% 19%); }
+.pin-dots { display: flex; flex-direction: column; gap: 2px; flex: none; }
+.pin-dots i { display: block; width: 3px; height: 8px; border-radius: 2px; background: hsl(var(--h) 20% 40%); }
+.pin-dots i.on { background: hsl(var(--h) 80% 70%); }
+.pin-thumb { flex: none; width: 34px; height: 34px; border-radius: 6px; object-fit: cover; }
+.pin-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.pin-text strong { font-size: 0.78rem; color: hsl(var(--h) 80% 72%); }
+.pin-excerpt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.9rem; opacity: 0.9; }
+.pin-bar > .act-ic { flex: none; opacity: 0.7; }
+.msg-pinmark { display: inline-flex; vertical-align: middle; margin-right: 4px; opacity: 0.65; }
+.msg-pinmark .ic { width: 12px; height: 12px; }
+.pin-bar .ic { width: 16px; height: 16px; }
