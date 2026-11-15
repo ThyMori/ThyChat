@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.47.0 — 2026-11-15
+- Mes notes reprend les dates du spectacle (barre de dates, filtre, # et date en cours proposée à la rédaction), comme les sous-salons
+
 ## 3.46.2 — 2026-11-15
 - Mes notes : spectacles classés par date la plus proche (en cours, à venir, puis passés), avec la date affichée
 

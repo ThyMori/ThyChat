@@ -2998,7 +2998,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!channel) return;
     // Dates de tournée du spectacle : seules celles qui ont au moins une photo.
     const used = new Set(mediaItems.flatMap((i) => i.tag_ids));
-    const tags = channel.kind === "channel" ? tagsOfRoom(channel.room_id).filter((t) => used.has(t.id)) : [];
+    const tags = channel.kind === "channel" || channel.kind === "notes" ? tagsOfRoom(channel.room_id).filter((t) => used.has(t.id)) : [];
     const bar = $("#media-filter");
     bar.replaceChildren();
     bar.hidden = !tags.length;
@@ -3056,7 +3056,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Dates de tournée, réponses et citations -------------------------------------
 
-  const currentRoomId = () => (state.channel && state.channel.kind === "channel" ? state.channel.room_id : null);
+  // Les sous-salons et « Mes notes » héritent des dates (#) du spectacle.
+  const currentRoomId = () => (state.channel && (state.channel.kind === "channel" || state.channel.kind === "notes") ? state.channel.room_id : null);
   const tagById = (id) => state.tags.find((t) => t.id === id);
   // « 9–13 nov. », « 29 nov. → 2 déc. », « 13 nov. » (sans l'année : lisible en badge).
   function shortRange(tag) {
@@ -3122,7 +3123,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function renderTagBar() {
     const roomId = currentRoomId();
     const tags = roomId ? tagsOfRoom(roomId) : [];
-    const manage = Boolean(roomId) && isAdmin();
+    const manage = Boolean(roomId) && isAdmin() && state.channel.kind === "channel"; // les dates se gèrent depuis le spectacle, pas depuis « Mes notes »
     const sheets = roomId ? sheetsOfRoom(roomId) : [];
     $("#tag-bar").hidden = state.calendarOpen || !roomId || (!tags.length && !manage && !sheets.length);
     $("#room-sheet").hidden = !roomId || (!sheets.length && !manage);
