@@ -1346,10 +1346,26 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     state.pendingDeepLink = null;
     const wanted = preferredId || deep?.w || readLast().ws;
     const target = state.workspaces.find((ws) => ws.id === wanted) || state.workspaces[0];
-    // Au démarrage on rouvre exactement ce qui était affiché (même un message privé) ; en changeant d'espace, non.
-    const last = readLast();
-    const reopen = deep?.c || (!preferredId && last.ws === target.id ? last.channel : undefined);
-    await selectWorkspace(target.id, reopen);
+    // Au lancement (ou après une mise à jour) on arrive sur le calendrier de tous mes espaces, sans ouvrir de fil
+    // (rien n'est marqué « lu » à ton insu). Une notification touchée ouvre, elle, le fil concerné.
+    const hasSalons = state.allChannels.some((c) => c.workspace_id === target.id && c.kind === "channel");
+    if (!preferredId && !deep?.c && hasSalons) {
+      state.ws = target;
+      writeLast({ ws: target.id });
+      state.channel = null;
+      state.messages = [];
+      state.postits = [];
+      state.pins = [];
+      state.selectedId = null;
+      const lastOpen = state.allChannels.find((c) => c.id === readLast().channel);
+      if (lastOpen && lastOpen.room_id && lastOpen.workspace_id === target.id) state.openRooms.add(lastOpen.room_id); // le spectacle du dernier fil reste déplié
+      renderPostitWall();
+      openCalendar(null);
+      renderAll();
+      closeSidebar();
+      return;
+    }
+    await selectWorkspace(target.id, deep?.c);
   }
 
   async function selectWorkspace(id, channelId) {
