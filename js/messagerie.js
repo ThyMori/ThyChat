@@ -475,13 +475,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function ensureProfiles(ids) {
     const missing = [...new Set(ids)].filter((id) => id && !state.profiles.has(id));
     if (!missing.length) return;
-    const { data, error } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", missing);
+    const { data, error } = await supabase.from("profiles").select("id, display_name, avatar_url, is_super_admin").in("id", missing);
     if (error) {
       console.warn("Profils illisibles :", error.message);
       return;
     }
     for (const profile of data || []) {
-      state.profiles.set(profile.id, { name: profile.display_name || "Membre", avatar: profile.avatar_url || "" });
+      state.profiles.set(profile.id, { name: profile.display_name || "Membre", avatar: profile.avatar_url || "", support: Boolean(profile.is_super_admin) });
     }
   }
 
@@ -747,6 +747,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderBadges();
     applyTheme();
   }
+
+  // Un administrateur général entré dans l'espace pour dépanner est signalé « Support » (visible de tous les membres).
+  const adminBadge = (userId) => el("span", "badge", state.profiles.get(userId)?.support ? "Support" : "Admin");
 
   function roleLabel(role) {
     return role === "admin" ? "Administrateur" : "Utilisateur";
@@ -1360,13 +1363,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         role: row.role,
       });
     }
-    if (state.isSuper) {
-      // L'administrateur général voit et administre tous les espaces.
-      const all = await supabase.from("workspaces").select(wsColumns());
-      for (const ws of all.data || []) {
-        if (!byId.has(ws.id)) byId.set(ws.id, { id: ws.id, name: ws.name, theme: ws.theme ?? null, avatar: ws.avatar_url || "", role: "admin" });
-      }
-    }
+    // L'administrateur général n'a plus accès d'office à tous les espaces : il n'est que dans ceux où il a été ajouté
+    // (« Plateforme » dans « Mes espaces » liste les autres et permet de les rejoindre).
     state.workspaces = [...byId.values()].sort(byName);
 
     if (!(await loadStructure())) return;
@@ -1379,10 +1377,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       setView("empty", {
         title: "Bienvenue",
         text: state.isSuper
-          ? "Crée ton premier espace pour commencer."
+          ? "Crée un espace, ou rejoins-en un existant (Plateforme) pour commencer."
           : "Tu n'es dans aucun espace pour l'instant : attends qu'un administrateur t'invite.",
-        action: state.isSuper ? "Créer mon premier espace" : "",
-        onAction: () => openWorkspaceDialog(),
+        action: state.isSuper ? "Mes espaces" : "",
+        onAction: () => openSwitch(),
       });
       return;
     }
@@ -4324,9 +4322,44 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- Boîtes de dialogue : espaces ----------------------------------------------
 
   function openSwitch() {
-    if (!state.workspaces.length) return state.isSuper ? openWorkspaceDialog() : undefined;
+    if (!state.workspaces.length && !state.isSuper) return;
     renderSwitchList();
+    $("#platform-section").hidden = !state.isSuper;
+    if (state.isSuper) loadPlatform();
     openDialog("#dialog-switch");
+  }
+
+  // --- Plateforme (administrateur général) : tous les espaces, avec de simples comptes ---
+
+  async function loadPlatform() {
+    const list = $("#platform-list");
+    list.replaceChildren(el("li", "muted", "Chargement…"));
+    const { data, error } = await supabase.rpc("platform_workspaces");
+    if (stopped) return;
+    list.replaceChildren();
+    if (error) return list.append(el("li", "muted", "Liste indisponible : " + error.message + (/platform_workspaces|schema cache/i.test(error.message) ? " (exécute la migration 030)." : "")));
+    const others = (data || []).filter((w) => !w.joined);
+    if (!others.length) return list.append(el("li", "muted", "Aucun autre espace."));
+    for (const w of others) {
+      const item = el("li", "platform-row");
+      const text = el("span", "ws-text");
+      const orphan = Number(w.admins) === 0;
+      text.append(el("strong", "", w.name), el("small", "", `${w.members} membre${Number(w.members) > 1 ? "s" : ""} · ${orphan ? "aucun administrateur" : w.admins + " administrateur" + (Number(w.admins) > 1 ? "s" : "")}`));
+      if (orphan) item.classList.add("orphan");
+      const join = el("button", "ghost small", "Rejoindre");
+      join.type = "button";
+      join.dataset.joinSupport = w.id;
+      join.title = "Te rajouter comme administrateur de cet espace (visible des membres, pastille « Support »)";
+      item.append(text, join);
+      list.append(item);
+    }
+  }
+
+  async function joinSupport(wsId) {
+    const { error } = await supabase.rpc("join_workspace_as_support", { ws: wsId });
+    if (error) return toast("Impossible de rejoindre cet espace : " + error.message, "error");
+    closeDialog($("#dialog-switch"));
+    await loadWorkspaces(wsId);
   }
 
   function refreshWorkspaceSwatches() {
@@ -4467,7 +4500,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       box.value = row.user_id;
       box.checked = checkedIds.has(row.user_id);
       label.append(box, avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
-      if (row.role === "admin") label.append(el("span", "badge", "Admin"));
+      if (row.role === "admin") label.append(adminBadge(row.user_id));
       item.append(label);
       container.append(item);
     }
@@ -4625,7 +4658,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       who.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id)));
       item.append(who);
       if (row.role === "admin") {
-        who.append(el("span", "badge", "Admin"));
+        who.append(adminBadge(row.user_id));
         item.append(el("small", "muted", "Tous les droits"));
         list.append(item);
         continue;
@@ -5033,7 +5066,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       button.disabled = me;
       button.dataset.user = row.user_id;
       button.append(avatarFor(row.user_id, "small soft"), el("span", "pick-name", authorName(row.user_id) + (me ? " (toi)" : "")));
-      if (row.role === "admin") button.append(el("span", "badge", "Admin"));
+      if (row.role === "admin") button.append(adminBadge(row.user_id));
       item.append(button);
       list.append(item);
     }
@@ -5614,6 +5647,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     on($("#workspace-button"), "click", openSwitch);
     on($("#switch-new"), "click", openWorkspaceDialog);
+    on($("#platform-list"), "click", (event) => {
+      const join = event.target.closest("[data-join-support]");
+      if (join) joinSupport(join.dataset.joinSupport);
+    });
     on($("#ws-list"), "click", (event) => {
       const row = event.target.closest(".ws-row");
       if (!row) return;

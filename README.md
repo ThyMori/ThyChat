@@ -125,6 +125,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `030_platform_admin.sql` | l'administrateur général n'est plus d'office dans tous les espaces : il ne lit plus les contenus ; liste « Plateforme » (comptes seulement) et « Rejoindre » un espace comme administrateur (pastille « Support ») ; **redéployer `send-push`** (après la 029) |
 | `029_member_channels.sql` | tout membre d'un spectacle crée des sous-salons et y invite les membres du spectacle (créateur mémorisé, `created_by`) (après la 028) |
 | `028_room_staff.sql` | fonctions par spectacle (Technique, Prod, RG) et droits sur fiche technique, feuilles de route et assignation, dans la base ; reprend l'existant (tout le monde garde la lecture de la fiche technique) ; **redéployer `send-push`** (après la 027) |
 | `027_access_requests.sql` | demandes d'inscription depuis l'écran de connexion (table `access_requests`) ; déployer aussi la fonction `request-access` (après la 026) |

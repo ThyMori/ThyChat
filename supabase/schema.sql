@@ -2510,3 +2510,70 @@ create policy channel_members_insert on public.channel_members for insert to aut
 drop policy if exists channel_members_delete on public.channel_members;
 create policy channel_members_delete on public.channel_members for delete to authenticated
   using (public.can_manage_channel(channel_id));
+
+-- ---- 030 : administrateur général limité à la structure ----
+create or replace function public.ws_member_as(uid uuid, ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.workspace_members m where m.workspace_id = ws and m.user_id = uid);
+$$;
+
+create or replace function public.ws_admin_as(uid uuid, ws uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.workspace_members m
+    where m.workspace_id = ws and m.user_id = uid and m.role = 'admin'
+  );
+$$;
+
+create or replace function public.shares_workspace_with(other uuid)
+returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1
+    from public.workspace_members a
+    join public.workspace_members b on a.workspace_id = b.workspace_id
+    where a.user_id = auth.uid() and b.user_id = other
+  );
+$$;
+
+-- 2. Pouvoirs de structure de l'administrateur général.
+drop policy if exists workspaces_select_super on public.workspaces;
+create policy workspaces_select_super on public.workspaces for select to authenticated
+  using (public.is_super_admin());
+
+-- La liste de tous les espaces, avec de simples comptes (jamais de contenu).
+create or replace function public.platform_workspaces()
+returns table (id uuid, name text, theme text, avatar_url text, members bigint, admins bigint, joined boolean)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then raise exception 'Réservé à l''administrateur général'; end if;
+  return query
+    select w.id, w.name, w.theme, w.avatar_url,
+      (select count(*) from public.workspace_members m where m.workspace_id = w.id),
+      (select count(*) from public.workspace_members m where m.workspace_id = w.id and m.role = 'admin'),
+      exists (select 1 from public.workspace_members m where m.workspace_id = w.id and m.user_id = auth.uid())
+    from public.workspaces w
+    order by w.name;
+end;
+$$;
+revoke all on function public.platform_workspaces() from public, anon;
+grant execute on function public.platform_workspaces() to authenticated;
+
+-- Se rajouter comme administrateur d'un espace (support, espace sans administrateur).
+create or replace function public.join_workspace_as_support(ws uuid)
+returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_super_admin() then raise exception 'Réservé à l''administrateur général'; end if;
+  if not exists (select 1 from public.workspaces w where w.id = ws) then raise exception 'Espace introuvable'; end if;
+  insert into public.workspace_members (workspace_id, user_id, role)
+  values (ws, auth.uid(), 'admin')
+  on conflict (workspace_id, user_id) do update set role = 'admin';
+end;
+$$;
+revoke all on function public.join_workspace_as_support(uuid) from public, anon;
+grant execute on function public.join_workspace_as_support(uuid) to authenticated;
+
+-- (La reprise « un administrateur général reste membre des espaces qu'il a créés » n'est que dans la migration 030.)

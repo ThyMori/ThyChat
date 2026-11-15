@@ -1499,3 +1499,7 @@ html, body { overscroll-behavior-y: none; }
 .team-row { display: grid; gap: 4px; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .team-opts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.85rem; padding-left: 38px; }
 .team-opts .choice { padding: 0; }
+#platform-section { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 10px; }
+#platform-section h4 { margin: 0 0 4px; }
+.platform-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 0; }
+.platform-row.orphan strong::after { content: " ⚠"; }

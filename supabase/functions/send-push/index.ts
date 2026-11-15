@@ -54,8 +54,7 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
     if (m.role === "admin") recipients.add(m.user_id);
     else if ((room.everyone || inRoom.has(m.user_id)) && (!sheetReaders || sheetReaders.has(m.user_id))) recipients.add(m.user_id);
   }
-  const { data: supers } = await admin.from("profiles").select("id").eq("is_super_admin", true);
-  for (const s of supers ?? []) recipients.add(s.id);
+  // L'administrateur général ne reçoit plus les notifications des espaces où il n'est pas membre (migration 030).
   if (doc.created_by) recipients.delete(doc.created_by);
 
   const now = Date.now();
@@ -170,8 +169,6 @@ Deno.serve(async (req) => {
         const roomOk = room?.everyone || inRoom.has(m.user_id);
         if (m.role === "admin" || (roomOk && (channel.everyone || inChannel.has(m.user_id)))) recipients.add(m.user_id);
       }
-      const { data: supers } = await admin.from("profiles").select("id").eq("is_super_admin", true);
-      for (const s of supers ?? []) recipients.add(s.id);
     }
     recipients.delete(message.user_id);
     if (!recipients.size) return json({ ok: true, sent: 0 });
