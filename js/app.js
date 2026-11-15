@@ -121,6 +121,20 @@ function stopChat() {
   }
 }
 
+// Session gardée par Supabase dans le stockage local (utilisée seulement quand le réseau manque).
+function storedSession() {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if (!/^sb-.+-auth-token$/.test(key)) continue;
+      const value = JSON.parse(localStorage.getItem(key));
+      if (value && value.user && value.user.id) return value;
+    }
+  } catch {
+    /* stockage indisponible */
+  }
+  return null;
+}
+
 // --- Démarrage ------------------------------------------------------------
 async function main() {
   if (!isConfigured) {
@@ -143,10 +157,15 @@ async function main() {
     }, 0);
   });
 
-  const { data } = await supabase.auth.getSession();
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  let session = data.session;
+  // Sans réseau, le jeton expiré ne peut pas être renouvelé : on rouvre quand même la session gardée sur l'appareil.
+  if (!session && (navigator.onLine === false || (sessionError && /fetch|network/i.test(sessionError.message || "")))) {
+    session = storedSession();
+  }
   // Le client a consommé le fragment d'URL : on le retire de la barre d'adresse.
   if (location.hash) history.replaceState(null, "", location.pathname + location.search);
-  await route(data.session);
+  await route(session);
 }
 
 // --- Connexion ------------------------------------------------------------
@@ -246,6 +265,10 @@ $("#set-password-form").addEventListener("submit", async (event) => {
 
 // --- Déconnexion ----------------------------------------------------------
 $("#logout").addEventListener("click", async () => {
+  const waiting = chat ? chat.pendingCount() : 0;
+  if (waiting && !window.confirm(`${waiting} message${waiting > 1 ? "s" : ""} ne ${waiting > 1 ? "sont" : "est"} pas encore envoyé${waiting > 1 ? "s" : ""} : se déconnecter ${waiting > 1 ? "les" : "le"} supprimera. Continuer ?`)) return;
+  // Les messages gardés sur l'appareil sont effacés à la déconnexion.
+  if (chat) await chat.wipeOffline();
   await supabase.auth.signOut();
 });
 

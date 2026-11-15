@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.37.0 — 2026-11-15
+- Hors-ligne : derniers messages, Post-it et To-Do gardés sur l'appareil et lisibles sans réseau, démarrage sans connexion, messages écrits sans réseau mis en file d'attente et envoyés dans l'ordre au retour du réseau
+
 ## 3.36.0 — 2026-11-15
 - Post-it : une personne qui arrive dans un fil ne voit que les Post-it posés après son arrivée
 - bouton « Vider la poubelle » dans Post-it jetés

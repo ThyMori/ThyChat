@@ -1403,3 +1403,11 @@ a.doc-open[aria-busy="true"] { opacity: 0.6; }
 .todos-sheet .postit { width: min(300px, 80vw); min-height: 120px; cursor: default; font-size: 1.4rem; }
 .todos-where { background: none; border: 0; padding: 0; color: inherit; text-decoration: underline; cursor: pointer; font-size: 0.85rem; }
 .todo-by { margin-left: auto; padding-left: 8px; flex: none; font-size: 0.95rem; color: var(--todo-done); white-space: nowrap; transform: rotate(-3deg); }
+
+/* ---- Hors-ligne ---- */
+.offline-bar { padding: 7px 14px; font-size: 0.85rem; background: hsl(40 70% 30% / 0.35); border-bottom: 1px solid hsl(40 70% 45% / 0.5); color: inherit; }
+.offline-bar[hidden] { display: none; }
+.msg.pending .bubble { opacity: 0.75; border: 1px dashed hsl(var(--h) 30% 60% / 0.7); }
+.msg.pending.failed .bubble { opacity: 1; border-color: var(--danger); }
+.msg-pending-note { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; font-size: 0.8rem; }
+.msg-pending-note .danger { color: var(--danger); }

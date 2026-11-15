@@ -7,6 +7,7 @@ import { PALETTE, DEFAULT_THEME, themeFor, themeByKey, pickUnusedTheme, authorHu
 import { MUTE_CHOICES, muteFromChoice, muteKey, isMuted, channelMuted, choiceOf, muteLabel, badgeTotal, countLabel } from "./notify.js";
 import { MAX_PDF_BYTES, cleanUrl, fileType, sizeLabel, uploadRoomSheet, uploadTagDocument, removeTagDocuments, signDocuments } from "./documents.js";
 import { MAX_IMAGES, resizedJpeg, uploadMessageImage, removeMessageImages, removeChannelImages, signPaths, moveMessageImages, moveBack, copyMessageImages } from "./images.js";
+import { createStore, withReadCache, isNetworkError } from "./offline.js";
 import { pushStatus, enablePush, disablePush, syncPush, setBadge } from "./push.js";
 import {
   safeAvatarUrl,
@@ -260,9 +261,19 @@ function renderSwatches(container, selectedKey, onPick) {
   }
 }
 
-export function createChat({ supabase, user }) {
+export function createChat({ supabase: rawSupabase, user, store = createStore() }) {
+  // Lectures gardées sur l'appareil : sans réseau, on retrouve les derniers messages vus.
+  const supabase = withReadCache(rawSupabase, {
+    userId: user.id,
+    store,
+    onServed: () => setOffline(true),
+    onLive: () => {
+      if (navigator.onLine !== false) setOffline(false);
+    },
+  });
   const fallbackName = user.user_metadata?.display_name || user.email || "Moi";
   const state = {
+    outbox: [], // messages écrits sans réseau, en attente d'envoi : { id, channel_id, body, reply_to, tag_ids, images, attachments, created_at, status, error }
     workspaces: [], // { id, name, role, theme }
     ws: null,
     allRooms: [], // salons (spectacles) visibles : { id, workspace_id, name, description, everyone }
@@ -923,7 +934,7 @@ export function createChat({ supabase, user }) {
     const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
     box.replaceChildren();
 
-    if (!state.messages.length) {
+    if (!state.messages.length && !pendingOfChannel().length) {
       box.append(
         el("p", "muted empty-note", state.tagFilter.size ? "Aucun message pour ces dates." : "Aucun message pour l'instant. Écris le premier !")
       );
@@ -1019,6 +1030,7 @@ export function createChat({ supabase, user }) {
       box.append(item);
       previous = message;
     }
+    for (const entry of pendingOfChannel()) box.append(pendingNode(entry));
 
     box.classList.toggle("multi", state.multi.size > 0);
     renderSelectBar();
@@ -1367,6 +1379,13 @@ export function createChat({ supabase, user }) {
     const { data, error } = await query.order("created_at", { ascending: false }).limit(PAGE_SIZE);
     if (stopped || token !== state.loadToken) return;
     if (error) {
+      if (isNetworkError(error, 0) || navigator.onLine === false) {
+        state.messages = [];
+        renderMessages(true);
+        setOffline(true);
+        toast("Pas de réseau : ce fil n'est pas encore enregistré sur l'appareil.");
+        return;
+      }
       toast("Messages illisibles : " + error.message + (/struck_at|reply_to|tag_ids/.test(error.message) ? " (exécute les migrations 006 et 007)" : ""));
       return;
     }
@@ -1657,6 +1676,179 @@ export function createChat({ supabase, user }) {
     }
   }
 
+  // --- Hors-ligne : bandeau et file d'attente des messages -------------------------------------------
+
+  let offline = false;
+  const isOnline = () => navigator.onLine !== false;
+  const looksOffline = (error) => !isOnline() || isNetworkError(error && { message: error.message, code: error.code }, undefined);
+  const pendingOfChannel = () => (state.channel ? state.outbox.filter((e) => e.channel_id === state.channel.id) : []);
+  const pendingUrls = new Map(); // id d'une photo en attente -> adresse locale
+
+  function setOffline(value) {
+    offline = Boolean(value);
+    renderOfflineBar();
+  }
+
+  function renderOfflineBar() {
+    const bar = $("#offline-bar");
+    if (!bar) return;
+    const waiting = state.outbox.filter((e) => e.status === "pending").length;
+    bar.hidden = !offline && !waiting;
+    if (bar.hidden) return;
+    const parts = [];
+    if (offline) parts.push("Pas de réseau : tu vois les derniers messages enregistrés sur cet appareil.");
+    if (waiting) parts.push(`${waiting} message${waiting > 1 ? "s" : ""} en attente d'envoi${offline ? ", ils partiront au retour du réseau." : "…"}`);
+    bar.textContent = parts.join(" ");
+  }
+
+  function pendingNode(entry) {
+    const failed = entry.status === "failed";
+    const item = el("article", "msg mine pending" + (failed ? " failed" : ""));
+    item.dataset.pending = entry.id;
+    const bubble = el("div", "bubble");
+    if (entry.reply_to) {
+      const quoted = state.messages.find((m) => m.id === entry.reply_to) || state.quoted.get(entry.reply_to) || null;
+      const quote = el("div", "msg-quote");
+      quote.append(el("strong", "", quoted ? authorName(quoted.user_id) : "Message"), el("span", "", quoted ? messageExcerpt(quoted) : "Message"));
+      bubble.append(quote);
+    }
+    if (entry.images.length) {
+      const box = el("div", "msg-images");
+      box.dataset.count = String(Math.min(entry.images.length, 4));
+      entry.images.forEach((image, index) => {
+        const img = document.createElement("img");
+        img.alt = "Photo en attente";
+        if (image.width && image.height) img.style.aspectRatio = `${image.width} / ${image.height}`;
+        const keyed = `${entry.id}:${index}`;
+        if (!pendingUrls.has(keyed) && image.blob && typeof URL.createObjectURL === "function") pendingUrls.set(keyed, URL.createObjectURL(image.blob));
+        if (pendingUrls.get(keyed)) img.src = pendingUrls.get(keyed);
+        box.append(img);
+      });
+      bubble.append(box);
+    }
+    const body = el("div", "msg-body");
+    const bodyTags = (entry.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
+    renderMessageBody(body, entry.body, bodyTags);
+    bubble.append(body);
+    const note = el("div", "msg-pending-note");
+    note.append(el("span", "", failed ? "⚠ Non envoyé" + (entry.error ? " : " + entry.error : "") : "⏳ En attente d'envoi"));
+    if (failed) {
+      const retry = el("button", "ghost small", "Réessayer");
+      retry.type = "button";
+      retry.dataset.pendingAction = "retry";
+      retry.dataset.id = entry.id;
+      note.append(retry);
+    }
+    const cancel = el("button", "ghost small danger", failed ? "Supprimer" : "Annuler");
+    cancel.type = "button";
+    cancel.dataset.pendingAction = "cancel";
+    cancel.dataset.id = entry.id;
+    note.append(cancel);
+    bubble.append(note);
+    item.append(bubble);
+    return item;
+  }
+
+  function forgetPendingUrls(entry) {
+    for (const key of [...pendingUrls.keys()]) {
+      if (key.startsWith(entry.id + ":")) {
+        if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(pendingUrls.get(key));
+        pendingUrls.delete(key);
+      }
+    }
+  }
+
+  async function dropPending(entry) {
+    state.outbox = state.outbox.filter((e) => e.id !== entry.id);
+    forgetPendingUrls(entry);
+    await store.outboxDelete(entry.id);
+    renderOfflineBar();
+  }
+
+  async function queueMessage(entry) {
+    state.outbox.push(entry);
+    await store.outboxPut(entry);
+    renderMessages(true);
+    renderOfflineBar();
+  }
+
+  async function pendingAction(action, id) {
+    const entry = state.outbox.find((e) => e.id === id);
+    if (!entry) return;
+    if (action === "cancel") {
+      if (!window.confirm("Supprimer ce message qui n'est pas encore parti ?")) return;
+      await dropPending(entry);
+      renderMessages();
+      return;
+    }
+    entry.status = "pending";
+    entry.error = "";
+    await store.outboxPut(entry);
+    renderMessages();
+    renderOfflineBar();
+    flushOutbox();
+  }
+
+  // Envoie un message de la file ; rend « sent », « network » (on réessaiera) ou « failed ».
+  async function sendQueued(entry) {
+    try {
+      while (entry.images.length) {
+        entry.attachments.push(await uploadMessageImage(supabase, entry.channel_id, entry.images[0]));
+        entry.images.shift();
+        await store.outboxPut(entry);
+      }
+    } catch (error) {
+      if (looksOffline(error)) return "network";
+      return fail(entry, error && error.message ? error.message : "photo refusée");
+    }
+    const row = { id: entry.id, channel_id: entry.channel_id, body: entry.body };
+    if (entry.reply_to) row.reply_to = entry.reply_to;
+    if (entry.tag_ids && entry.tag_ids.length) row.tag_ids = entry.tag_ids;
+    if (entry.attachments.length) row.attachments = entry.attachments;
+    const { data, error, status } = await supabase.from("messages").insert(row).select().single();
+    if (error) {
+      if (isNetworkError(error, status) || !isOnline()) return "network";
+      if (error.code === "23505") {
+        await dropPending(entry); // déjà arrivé (la réponse s'était perdue) : rien à refaire
+        return "sent";
+      }
+      return fail(entry, error.message);
+    }
+    await dropPending(entry);
+    if (state.channel && state.channel.id === entry.channel_id && data) {
+      await resolveImages([data]);
+      addMessage(data, true);
+    }
+    return "sent";
+  }
+
+  async function fail(entry, message) {
+    entry.status = "failed";
+    entry.error = message;
+    await store.outboxPut(entry);
+    return "failed";
+  }
+
+  let flushing = false;
+  async function flushOutbox() {
+    if (flushing || stopped || !isOnline()) return;
+    flushing = true;
+    try {
+      for (const entry of state.outbox.slice()) {
+        if (stopped) break;
+        if (entry.status !== "pending") continue;
+        const result = await sendQueued(entry); // dans l'ordre d'écriture ; on s'arrête au premier échec de réseau
+        if (result === "network") break;
+      }
+    } finally {
+      flushing = false;
+      if (!stopped) {
+        renderOfflineBar();
+        if (state.channel) renderMessages();
+      }
+    }
+  }
+
   async function sendMessage() {
     if (state.editing) return saveEdit();
     if (sending || !state.channel) return;
@@ -1670,18 +1862,54 @@ export function createChat({ supabase, user }) {
     if (state.replyTo) row.reply_to = state.replyTo.id;
     if (state.composerTags.size) row.tag_ids = [...state.composerTags];
     const replied = state.replyTo;
+    const entry = (extra) => ({
+      id: newId(),
+      user_id: user.id,
+      channel_id: channelId,
+      body,
+      reply_to: row.reply_to || null,
+      tag_ids: row.tag_ids || [],
+      images: [],
+      attachments: [],
+      created_at: new Date().toISOString(),
+      status: "pending",
+      error: "",
+      ...extra,
+    });
+    // Le message part dans la file (au lieu d'une erreur) quand le réseau manque, ou derrière ceux qui attendent déjà.
+    const toQueue = async (extra) => {
+      input.value = "";
+      autosize();
+      hideSuggest();
+      if (replied) state.quoted.set(replied.id, { user_id: replied.user_id, body: replied.body, attachments: replied.attachments });
+      state.replyTo = null;
+      state.composerTags = defaultComposerTags();
+      clearPendingImages();
+      renderComposerExtra();
+      await queueMessage(entry(extra));
+      toast("Pas de réseau : ton message est en attente, il partira dès que la connexion revient.", "ok");
+    };
 
     sending = true;
     $("#composer-send").disabled = true;
     const uploaded = [];
     try {
+      if (!isOnline() || state.outbox.some((e) => e.status === "pending")) {
+        await toQueue({ images: images.map(({ blob, width, height }) => ({ blob, width, height })) });
+        flushOutbox();
+        return;
+      }
       for (const image of images) uploaded.push(await uploadMessageImage(supabase, channelId, image));
       if (uploaded.length) row.attachments = uploaded;
       input.value = "";
       autosize();
       hideSuggest();
-      const { data, error } = await supabase.from("messages").insert(row).select().single();
+      const { data, error, status } = await supabase.from("messages").insert(row).select().single();
       if (error) {
+        if (isNetworkError(error, status)) {
+          await toQueue({ attachments: uploaded });
+          return;
+        }
         input.value = body;
         autosize();
         await removeMessageImages(supabase, uploaded.map((u) => u.path));
@@ -1698,6 +1926,10 @@ export function createChat({ supabase, user }) {
       if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
       else if (state.channel && state.channel.id === channelId) addMessage(data, true);
     } catch (error) {
+      if (looksOffline(error)) {
+        await toQueue({ attachments: uploaded, images: images.slice(uploaded.length).map(({ blob, width, height }) => ({ blob, width, height })) });
+        return;
+      }
       await removeMessageImages(supabase, uploaded.map((u) => u.path));
       toast("Photo non envoyée : " + (error && error.message ? error.message : "erreur inconnue") + (/bucket|not found/i.test(String(error && error.message)) ? " (exécute la migration 009)" : ""));
     } finally {
@@ -4979,7 +5211,7 @@ export function createChat({ supabase, user }) {
       const row = origin && origin.closest ? origin.closest(".msg") : null;
       if (dir < 0) {
         // Glisser un message vers la gauche : ses options (répondre, citer, transférer, rayer, déplacer, supprimer).
-        if (row && !state.multi.size) {
+        if (row && !row.dataset.pending && !state.multi.size) {
           state.selectedId = row.dataset.id;
           renderMessages();
         }
@@ -5186,7 +5418,7 @@ export function createChat({ supabase, user }) {
     on($("#messages"), "pointerdown", (event) => {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const row = event.target.closest && event.target.closest(".msg");
-      if (!row || event.target.closest("a, button, .msg-actions")) return;
+      if (!row || row.dataset.pending || event.target.closest("a, button, .msg-actions")) return;
       cancelPress();
       const id = row.dataset.id;
       press = {
@@ -5265,9 +5497,11 @@ export function createChat({ supabase, user }) {
       if (state.multi.size) {
         const picked = event.target.closest(".msg");
         if (event.target.closest("a")) event.preventDefault();
-        if (picked) toggleMulti(picked.dataset.id);
+        if (picked && !picked.dataset.pending) toggleMulti(picked.dataset.id);
         return;
       }
+      const pend = event.target.closest("[data-pending-action]");
+      if (pend) return pendingAction(pend.dataset.pendingAction, pend.dataset.id);
       const remove = event.target.closest("[data-action='delete']");
       if (remove) return deleteMessage(remove.dataset.id);
       const reply = event.target.closest("[data-action='reply']");
@@ -5291,6 +5525,7 @@ export function createChat({ supabase, user }) {
       if (event.target.closest("a")) return; // un lien s'ouvre, sans sélectionner le message
       // Toucher un message le sélectionne (affiche Répondre, Citer, Supprimer) ; toucher ailleurs désélectionne.
       const row = event.target.closest(".msg");
+      if (row && row.dataset.pending) return;
       const next = row && state.selectedId !== row.dataset.id ? row.dataset.id : null;
       if (next === state.selectedId) return;
       state.selectedId = next;
@@ -5590,7 +5825,11 @@ export function createChat({ supabase, user }) {
         renderCurrentButtons(); // le jour a pu changer
       }
     });
-    on(window, "online", refresh);
+    on(window, "online", () => {
+      refresh();
+      flushOutbox();
+    });
+    on(window, "offline", () => setOffline(true));
 
     // Clic sur une notification : le service worker demande d'ouvrir le bon salon.
     if (typeof navigator !== "undefined" && navigator.serviceWorker && navigator.serviceWorker.addEventListener) {
@@ -5645,6 +5884,12 @@ export function createChat({ supabase, user }) {
     state.pendingDeepLink = readDeepLink();
 
     state.profiles.set(user.id, { name: fallbackName, avatar: "" });
+    // Messages écrits sans réseau lors d'une session précédente : ils attendent toujours leur envoi.
+    state.outbox = await store.outboxAll(user.id);
+    store.prune(user.id + "|");
+    setOffline(!isOnline());
+    clearInterval(outboxTimer);
+    outboxTimer = setInterval(flushOutbox, 15000);
     let profile = await supabase.from("profiles").select("display_name, avatar_url, is_super_admin").eq("id", user.id).maybeSingle();
     if (profile.error) {
       // Colonne is_super_admin absente : la migration 003 n'a pas été exécutée.
@@ -5659,10 +5904,14 @@ export function createChat({ supabase, user }) {
     watchExpiry();
     syncPush(supabase).then(refreshPushStatus);
     await loadWorkspaces();
+    flushOutbox();
   }
+
+  let outboxTimer = null;
 
   function stop() {
     stopped = true;
+    clearInterval(outboxTimer);
     state.loadToken++;
     unsubscribe();
     clearTimeout(structureTimer);
@@ -5674,5 +5923,11 @@ export function createChat({ supabase, user }) {
     }
   }
 
-  return { userId: user.id, start, stop };
+  return {
+    userId: user.id,
+    start,
+    stop,
+    pendingCount: () => state.outbox.length,
+    wipeOffline: () => store.wipe(user.id),
+  };
 }

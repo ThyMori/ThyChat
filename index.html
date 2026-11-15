@@ -245,6 +245,8 @@
         <p class="muted hint">★ représentation · toucher une frise ouvre le spectacle filtré sur cette date.</p>
       </section>
 
+      <div id="offline-bar" class="offline-bar" role="status" hidden></div>
+
       <div id="tag-bar" class="tag-bar" hidden>
         <button type="button" class="tag-bar-toggle" id="tags-toggle" aria-expanded="false" aria-controls="tag-filter"><span class="tag-bar-chev" aria-hidden="true">›</span> <span class="tag-bar-title">Dates</span></button>
         <button type="button" class="ghost small" id="room-sheet" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="m9 15 2 2 4-4"/></svg> <span id="room-sheet-label">Fiche technique</span></button>
@@ -489,6 +491,15 @@
           <li><strong>Glisser du doigt</strong> (téléphone) : vers la droite dans un fil de discussion pour ouvrir le menu ; vers la gauche sur le menu pour le fermer ; vers la gauche ou la droite sur le calendrier pour passer au mois suivant ou précédent.</li>
           <li>Touche un jour pour voir ce qu'il contient, ou une frise pour ouvrir le spectacle filtré sur cette date.</li>
           <li>Sous l'en-tête d'un spectacle, une <strong>frise de la semaine</strong> (la veille et les 6 jours suivants) ; la toucher ouvre le calendrier.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h4>Sans réseau</h4>
+        <ul>
+          <li>L'application s'ouvre même sans connexion et affiche les <strong>derniers messages déjà vus</strong> sur cet appareil (Post-it et To-Do compris), avec un bandeau « Pas de réseau ». Un fil que tu n'as jamais ouvert avec du réseau reste vide, et les photos n'apparaissent qu'avec du réseau.</li>
+          <li>Un <strong>message écrit sans réseau</strong> (texte, réponse, dates # et photos) apparaît dans le fil avec « ⏳ En attente d'envoi » et part tout seul, dans l'ordre, dès que la connexion revient. Tu peux l'annuler tant qu'il n'est pas parti. S'il est refusé, il reste marqué « Non envoyé » avec « Réessayer » ou « Supprimer ».</li>
+          <li>Les autres actions (modifier, supprimer, cocher une To-Do, créer un Post-it…) demandent du réseau. Pour que l'application démarre sans connexion, ouvre-la au moins une fois avec du réseau après chaque mise à jour.</li>
         </ul>
       </section>
 
