@@ -1,10 +1,19 @@
 // Mises à jour : vérifie qu'une nouvelle version existe (au retour sur l'application, en ligne, toutes les 30 minutes)
 // et prévient quand le service worker de la nouvelle version a pris la main. Rien ne se recharge tout seul.
 
-export function watchUpdates({ sw = typeof navigator !== "undefined" ? navigator.serviceWorker : null, onUpdate, intervalMs = 30 * 60 * 1000, doc = globalThis.document, win = globalThis.window } = {}) {
+interface WatchOptions {
+  sw?: ServiceWorkerContainer | null;
+  onUpdate: () => void;
+  intervalMs?: number;
+  doc?: Document;
+  win?: Window;
+}
+
+// Renvoie une fonction qui arrête la surveillance.
+export function watchUpdates({ sw = typeof navigator !== "undefined" ? navigator.serviceWorker : null, onUpdate, intervalMs = 30 * 60 * 1000, doc = globalThis.document, win = globalThis.window }: WatchOptions = { onUpdate: () => {} }): () => void {
   if (!sw) return () => {};
   let hadController = Boolean(sw.controller);
-  let registration = null;
+  let registration: ServiceWorkerRegistration | null = null;
 
   const check = () => {
     if (!registration) return;
