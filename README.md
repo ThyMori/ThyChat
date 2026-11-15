@@ -115,6 +115,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `019_edit_own_messages.sql` | seul l'auteur modifie son message (la date « modifié » est posée par la base) ; **recommandée avec la version 3.31** |
 | `018_purge_old_documents.sql` | nettoyage automatique (chaque nuit, pg_cron) des documents des dates passées depuis plus de 10 jours ; nécessite 004 et 012 ; **déployer la fonction `purge-documents`** (même secret que `send-push`) |
 | `017_document_links_images.sql` | documents et fiches techniques : images et liens web en plus des PDF (**indispensable à la version 3.25**) |
 | `016_move_message_photos.sql` | correctif du déplacement des photos : l'application les déplace dans le stockage ; autorisation de déplacement pour les administrateurs (**à exécuter après la 015**) |

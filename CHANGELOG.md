@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.31.0 — 2026-11-15
+- Galerie médias filtrable par date de tournée (#)
+- modifier un message déjà écrit (texte et dates #) dans n'importe quel fil, avec la mention « modifié »
+
 ## 3.30.0 — 2026-11-15
 - Menu ⋮ : Médias du fil (toutes les photos du fil, la plus récente d'abord)
 - la date en cours du spectacle est proposée d'office en badge # dans chaque nouveau message

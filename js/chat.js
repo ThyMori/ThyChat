@@ -285,6 +285,7 @@ export function createChat({ supabase, user }) {
     pendingImages: [], // photos en attente d'envoi : { id, blob, width, height, url }
     imageUrls: new Map(), // chemin -> lien temporaire d'une photo
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
+    editing: null, // { id, head } : message de moi en cours de modification
     replyTo: null, // message auquel on répond
     quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
     selectedId: null, // message touché (affiche « Supprimer »)
@@ -974,6 +975,7 @@ export function createChat({ supabase, user }) {
       const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
       if (message.attachments && message.attachments.length) bubble.append(imagesBlock(message));
       renderMessageBody(body, text, bodyTags);
+      if (message.edited_at) body.append(el("span", "msg-edited", "modifié"));
       const time = el("time", "msg-time", timeFmt.format(date));
       time.dateTime = date.toISOString();
       body.append(time);
@@ -989,7 +991,7 @@ export function createChat({ supabase, user }) {
       if (message.id === state.selectedId && !state.multi.size) {
         const actions = el("div", "msg-actions");
         const actionList = [["reply", "Répondre"], ["quote", "Citer"], ["copy", "Copier"], ["forward", "Transférer"]];
-        if (mine) actionList.push(["strike", message.struck_at ? "Rétablir" : "Rayer"]);
+        if (mine) actionList.push(["edit", "Modifier"], ["strike", message.struck_at ? "Rétablir" : "Rayer"]);
         if (isAdmin() && state.channel && state.channel.kind === "channel") actionList.push(["move", "Déplacer"]);
         for (const [action, label] of actionList) {
           const button = el("button", "", label);
@@ -1307,6 +1309,8 @@ export function createChat({ supabase, user }) {
       if (state.channel && tagById(state.pendingFilter)) state.tagFilter = new Set([state.pendingFilter]);
       state.pendingFilter = null;
     }
+    if (state.editing) $("#composer-input").value = "";
+    state.editing = null;
     state.composerTags = defaultComposerTags();
     clearPendingImages();
     state.replyTo = null;
@@ -1581,7 +1585,71 @@ export function createChat({ supabase, user }) {
 
   let sending = false;
 
+  // --- Modifier un message (le sien, dans n'importe quel fil) ----------------------------------
+
+  function startEdit(id) {
+    const message = state.messages.find((m) => m.id === id);
+    if (!message || message.user_id !== user.id) return;
+    const head = (/^↪ [^\n]*\n/.exec(message.body || "") || [""])[0]; // la mention « Transféré » est conservée telle quelle
+    state.editing = { id, head };
+    state.replyTo = null;
+    state.selectedId = null;
+    clearPendingImages();
+    state.composerTags = new Set(message.tag_ids || []);
+    const input = $("#composer-input");
+    input.value = String(message.body || "").slice(head.length);
+    autosize();
+    renderComposerExtra();
+    renderMessages();
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
+
+  function cancelEdit() {
+    if (!state.editing) return;
+    state.editing = null;
+    $("#composer-input").value = "";
+    autosize();
+    hideSuggest();
+    state.composerTags = defaultComposerTags();
+    renderComposerExtra();
+  }
+
+  async function saveEdit() {
+    const editing = state.editing;
+    const message = editing && state.messages.find((m) => m.id === editing.id);
+    if (!message) return cancelEdit();
+    const text = $("#composer-input").value.trim();
+    if (!text && !(message.attachments || []).length) return toast("Un message ne peut pas être vide.");
+    const body = (editing.head + text).slice(0, 8000);
+    const tag_ids = [...state.composerTags].filter(tagById);
+    const sameTags = tag_ids.length === (message.tag_ids || []).length && tag_ids.every((t) => (message.tag_ids || []).includes(t));
+    if (body === message.body && sameTags) return cancelEdit();
+    sending = true;
+    $("#composer-send").disabled = true;
+    try {
+      const edited_at = new Date().toISOString();
+      const { error } = await supabase.from("messages").update({ body, tag_ids, edited_at }).eq("id", message.id);
+      if (error) return toast("Modification impossible : " + error.message);
+      Object.assign(message, { body, tag_ids, edited_at });
+      const cached = state.quoted.get(message.id);
+      if (cached) cached.body = body;
+      state.editing = null;
+      $("#composer-input").value = "";
+      autosize();
+      hideSuggest();
+      state.composerTags = defaultComposerTags();
+      renderComposerExtra();
+      renderMessages();
+      toast("Message modifié.", "ok");
+    } finally {
+      sending = false;
+      $("#composer-send").disabled = false;
+    }
+  }
+
   async function sendMessage() {
+    if (state.editing) return saveEdit();
     if (sending || !state.channel) return;
     const input = $("#composer-input");
     const body = input.value.trim();
@@ -1714,37 +1782,68 @@ export function createChat({ supabase, user }) {
     return box;
   }
 
-  // Médias du fil : toutes les photos envoyées dans ce fil, la plus récente d'abord.
+  // Médias du fil : toutes les photos envoyées dans ce fil, la plus récente d'abord, filtrables par date de tournée (#).
   let mediaToken = 0;
+  let mediaItems = [];
+  let mediaTags = new Set();
 
   async function openMedia() {
     const channel = state.channel;
     if (!channel) return;
     const token = ++mediaToken;
+    mediaItems = [];
+    mediaTags = new Set();
     $("#media-title").textContent = `Médias · ${channelTitle(channel)}`;
+    $("#media-filter").replaceChildren();
     const grid = $("#media-grid");
     grid.replaceChildren(el("p", "muted", "Chargement…"));
     openDialog("#dialog-media");
     const { data, error } = await supabase
       .from("messages")
-      .select("id, user_id, created_at, attachments")
+      .select("id, user_id, created_at, attachments, tag_ids")
       .eq("channel_id", channel.id)
       .is("parent_id", null)
       .order("created_at", { ascending: false })
       .limit(1000);
     if (token !== mediaToken || stopped) return;
     if (error) return grid.replaceChildren(el("p", "notice", "Médias illisibles : " + error.message));
-    const items = [];
     for (const message of data || []) {
-      for (const attachment of message.attachments || []) if (attachment.path) items.push({ ...attachment, at: message.created_at, user_id: message.user_id });
+      for (const attachment of message.attachments || []) {
+        if (attachment.path) mediaItems.push({ ...attachment, at: message.created_at, user_id: message.user_id, tag_ids: message.tag_ids || [] });
+      }
     }
-    items.sort((a, b) => new Date(b.at) - new Date(a.at));
-    await ensureProfiles(items.map((i) => i.user_id));
-    await resolveImages([{ attachments: items }]);
+    mediaItems.sort((a, b) => new Date(b.at) - new Date(a.at));
+    await ensureProfiles(mediaItems.map((i) => i.user_id));
+    await resolveImages([{ attachments: mediaItems }]);
     if (token !== mediaToken || stopped) return;
+    renderMedia();
+  }
+
+  function renderMedia() {
+    const channel = state.channel;
+    if (!channel) return;
+    // Dates de tournée du spectacle : seules celles qui ont au moins une photo.
+    const used = new Set(mediaItems.flatMap((i) => i.tag_ids));
+    const tags = channel.kind === "channel" ? tagsOfRoom(channel.room_id).filter((t) => used.has(t.id)) : [];
+    const bar = $("#media-filter");
+    bar.replaceChildren();
+    bar.hidden = !tags.length;
+    for (const tag of tags) {
+      bar.append(
+        tagChip(tag, mediaTags.has(tag.id), () => {
+          if (mediaTags.has(tag.id)) mediaTags.delete(tag.id);
+          else mediaTags.add(tag.id);
+          renderMedia();
+        })
+      );
+    }
+    const items = mediaTags.size ? mediaItems.filter((i) => i.tag_ids.some((t) => mediaTags.has(t))) : mediaItems;
     $("#media-title").textContent = `Médias · ${channelTitle(channel)}${items.length ? ` (${items.length})` : ""}`;
+    const grid = $("#media-grid");
     grid.replaceChildren();
-    if (!items.length) return grid.append(el("p", "muted", "Aucune photo n'a encore été envoyée dans ce fil."));
+    if (!items.length) {
+      return grid.append(el("p", "muted", mediaTags.size ? "Aucune photo pour ces dates." : "Aucune photo n'a encore été envoyée dans ce fil."));
+    }
     let day = "";
     let row = null;
     for (const item of items) {
@@ -1908,12 +2007,14 @@ export function createChat({ supabase, user }) {
   }
 
   function renderComposerExtra() {
-    const reply = state.replyTo;
+    const editingMessage = state.editing ? state.messages.find((m) => m.id === state.editing.id) : null;
+    const reply = editingMessage || state.replyTo;
     $("#reply-bar").hidden = !reply;
     if (reply) {
-      $("#reply-author").textContent = authorName(reply.user_id);
+      $("#reply-author").textContent = editingMessage ? "Modifier le message" : authorName(reply.user_id);
       $("#reply-excerpt").textContent = messageExcerpt(reply);
     }
+    $("#composer-attach").disabled = Boolean(editingMessage);
     const box = $("#composer-tags");
     box.replaceChildren();
     for (const id of state.composerTags) {
@@ -4465,6 +4566,8 @@ export function createChat({ supabase, user }) {
       if (strike) return toggleStrike(strike.dataset.id);
       const move = event.target.closest("[data-action='move']");
       if (move) return openMove(move.dataset.id);
+      const edit = event.target.closest("[data-action='edit']");
+      if (edit) return startEdit(edit.dataset.id);
       const copy = event.target.closest("[data-action='copy']");
       if (copy) return copyMessages([copy.dataset.id]);
       const forward = event.target.closest("[data-action='forward']");
@@ -4521,6 +4624,7 @@ export function createChat({ supabase, user }) {
       if (!$("#attach-menu").hidden && !event.target.closest("#attach-menu, #composer-attach")) toggleAttachMenu(false);
     });
     on($("#reply-cancel"), "click", () => {
+      if (state.editing) return cancelEdit();
       state.replyTo = null;
       renderComposerExtra();
     });

@@ -441,6 +441,7 @@
         <h4>Écrire et répondre</h4>
         <ul>
           <li>Écris dans la zone du bas. Sur ordinateur, Entrée envoie et Maj+Entrée passe à la ligne ; sur téléphone, Entrée passe à la ligne et le bouton envoie.</li>
+          <li><strong>Modifier un message</strong> : touche ton message (ou fais-le glisser vers la gauche) puis « Modifier ». Le texte revient dans la zone de saisie : corrige-le, ajoute ou retire des badges # de dates, puis envoie. Le message porte alors la mention « modifié ». Tu ne peux modifier que tes propres messages, dans n'importe quel fil ; ✕ au-dessus de la zone de saisie annule.</li>
           <li><strong>Options d'un message</strong> : touche un message ou fais-le glisser vers la gauche pour afficher ses actions (Répondre, Citer, Copier, Transférer, Rayer, Déplacer pour les administrateurs, Supprimer).</li>
           <li><strong>Mise en forme</strong> : écris <code>*gras*</code>, <code>_italique_</code> ou <code>~barré~</code> (le signe doit toucher le texte). Plus simple : sélectionne du texte dans la zone de saisie puis touche <strong>G</strong>, <strong>I</strong> ou <strong>S</strong> au-dessus du clavier (Ctrl+B et Ctrl+I sur ordinateur) ; un second appui retire la mise en forme.</li>
           <li><strong>Sélectionner plusieurs messages</strong> : maintiens ton doigt sur un message ; il se coche, puis chaque appui en coche ou décoche un autre. La barre du haut propose alors <strong>Copier</strong>, <strong>Transférer</strong>, <strong>Rayer</strong> (tes messages), <strong>Déplacer</strong> (administrateurs) et <strong>Supprimer</strong> (seulement si tu peux agir sur tous les messages choisis) ; ✕ ou « Retour » quitte la sélection.</li>
@@ -492,7 +493,7 @@
           <li>Les <strong>pastilles</strong> comptent les messages non lus par espace, spectacle, sous-salon et message privé, et sur l'icône de l'application installée.</li>
           <li><strong>Notifications</strong> (barre latérale) : active-les sur cet appareil, puis règle chaque espace, spectacle, sous-salon ou message privé : activées, silence 8 heures, silence 1 semaine ou désactivées. La cloche en haut d'un sous-salon fait la même chose pour lui.</li>
           <li>Ce qui est en silence est atténué et marqué d'une cloche barrée.</li>
-          <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour.</li>
+          <li><strong>Médias du fil</strong> : dans le menu ⋮ d'un fil, « Médias du fil » rassemble toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne, classées par jour, avec un filtre par date de tournée (#).</li>
           <li><strong>Date en cours proposée</strong> : quand le spectacle a une date en cours (sur place, sinon la veille ou le lendemain), chaque nouveau message porte d'office le badge # de cette date. Touche le badge pour le retirer si tu ne veux pas le mettre.</li>
           <li><strong>Sourdine d'un fil</strong> : dans le menu ⋮ d'un fil, « Mettre ce fil en sourdine » coupe les notifications de ce fil seulement (8 heures, 1 semaine ou toujours) ; les autres fils continuent de notifier. Le même bouton la réactive.</li>
         </ul>
@@ -654,7 +655,8 @@
 
     <dialog id="dialog-media" class="docs">
       <h3 id="media-title" tabindex="-1">Médias du fil</h3>
-      <p class="muted">Toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne. Touche une photo pour l'agrandir.</p>
+      <p class="muted">Toutes les photos envoyées dans ce fil, de la plus récente à la plus ancienne. Touche une photo pour l'agrandir ; les badges # filtrent par date de tournée.</p>
+      <div id="media-filter" class="tag-chips media-filter" aria-label="Filtrer par date de tournée" hidden></div>
       <div id="media-grid" class="media-grid"></div>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
