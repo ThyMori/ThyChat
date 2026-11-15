@@ -2598,17 +2598,29 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.replaceChildren();
     const q = normalizeText($("#notes-search").value.trim());
     const manyWs = state.workspaces.length > 1;
+    const today = toISO(new Date());
+    // Classés par prochaine date : en cours ou à venir (la plus proche d'abord), puis les passés (le plus récent d'abord), puis sans date.
+    const info = (room) => {
+      const dates = state.tags.filter((t) => t.room_id === room.id && t.start_date);
+      const coming = dates.filter((t) => (t.end_date || t.start_date) >= today).sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
+      if (coming) return { group: 0, key: coming.start_date > today ? coming.start_date : today, tag: coming, now: coming.start_date <= today };
+      const past = dates.sort((a, b) => (b.end_date || b.start_date).localeCompare(a.end_date || a.start_date))[0];
+      return past ? { group: 1, key: past.end_date || past.start_date, tag: past } : { group: 2, key: "" };
+    };
+    const rooms = state.workspaces
+      .flatMap((ws) => roomsOfWs(ws.id).map((room) => ({ room, ws, ...info(room) })))
+      .filter((r) => !q || normalizeText(r.room.name + " " + r.ws.name).includes(q))
+      .sort((a, b) => a.group - b.group || (a.group === 1 ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key)) || a.room.name.localeCompare(b.room.name, "fr"));
     let shown = 0;
-    for (const ws of state.workspaces) {
-      for (const room of roomsOfWs(ws.id)) {
-        if (q && !normalizeText(room.name + " " + ws.name).includes(q)) continue;
-        const button = el("button", "ghost todos-room");
-        button.type = "button";
-        button.dataset.notesRoom = room.id;
-        button.append(el("span", "", manyWs ? `${room.name} · ${ws.name}` : room.name));
-        box.append(button);
-        shown++;
-      }
+    for (const { room, ws, group, tag, now } of rooms) {
+      const button = el("button", "ghost todos-room");
+      button.type = "button";
+      button.dataset.notesRoom = room.id;
+      const text = el("span", "", manyWs ? `${room.name} · ${ws.name}` : room.name);
+      if (tag) text.append(el("small", "muted notes-when", `${group === 0 ? (now ? "En cours" : "Prochaine date") : "Dernière date"} : ${shortDate(tag.start_date)}`));
+      button.append(text);
+      box.append(button);
+      shown++;
     }
     if (!shown) box.append(el("p", "muted", q ? "Aucun spectacle ne correspond." : "Aucun spectacle pour l'instant."));
   }
