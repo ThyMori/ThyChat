@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 3.45.1 — 2026-11-15
+- Un fil s'ouvre toujours sur ses derniers messages, même avec un message épinglé
+
 ## 3.45.0 — 2026-11-15
 - Au lancement ou après une mise à jour, l'application s'ouvre sur le calendrier de tous les espaces (une notification ouvre toujours son fil)
 

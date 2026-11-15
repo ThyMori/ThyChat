@@ -2193,9 +2193,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   function renderPinBar() {
     const bar = $("#pin-bar");
+    const box = $("#messages");
     const list = state.calendarOpen || !state.channel ? [] : activePins();
+    // Le bandeau réduit la zone des messages : si on était en bas du fil, on y reste (même quand un message est épinglé).
+    const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+    const wasHidden = bar.hidden;
     bar.hidden = !list.length;
     bar.replaceChildren();
+    if (bar.hidden !== wasHidden && atBottom) box.scrollTop = box.scrollHeight;
     if (!list.length) return;
     if (state.pinIndex >= list.length) state.pinIndex = 0;
     const pin = list[state.pinIndex];
@@ -2220,6 +2225,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
     bar.append(text, actionIcon("pin"));
     bar.setAttribute("aria-label", "Aller au message épinglé");
+    if (atBottom) box.scrollTop = box.scrollHeight;
   }
 
   // Toucher le bandeau mène au message épinglé, puis passe à l'épingle suivante.
