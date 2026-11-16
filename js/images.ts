@@ -1,7 +1,6 @@
 // Photos dans les messages : réduction avant envoi, envoi dans le stockage privé, liens temporaires.
 
-import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Attachment, PendingImage } from "./types.js";
+import type { Attachment, Db, PendingImage } from "./types.js";
 
 const MAX_SIDE = 1600;
 export const MAX_IMAGES = 4;
@@ -29,7 +28,7 @@ export async function resizedJpeg(file: Blob): Promise<PendingImage> {
   return { blob, width, height };
 }
 
-export async function uploadMessageImage(supabase: SupabaseClient, channelId: string, image: PendingImage): Promise<Attachment> {
+export async function uploadMessageImage(supabase: Db, channelId: string, image: PendingImage): Promise<Attachment> {
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
   const path = `${channelId}/${id}.jpg`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, image.blob, {
@@ -40,7 +39,7 @@ export async function uploadMessageImage(supabase: SupabaseClient, channelId: st
   return { path, w: image.width, h: image.height };
 }
 
-export async function removeMessageImages(supabase: SupabaseClient, paths: string[]): Promise<void> {
+export async function removeMessageImages(supabase: Db, paths: string[]): Promise<void> {
   if (!paths.length) return;
   try {
     await supabase.storage.from(BUCKET).remove(paths);
@@ -50,7 +49,7 @@ export async function removeMessageImages(supabase: SupabaseClient, paths: strin
 }
 
 // Liens temporaires (24 h) pour afficher les images d'un stockage privé.
-export async function signPaths(supabase: SupabaseClient, paths: string[]): Promise<Map<string, string>> {
+export async function signPaths(supabase: Db, paths: string[]): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   if (!paths.length) return out;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, SIGN_SECONDS);
@@ -60,7 +59,7 @@ export async function signPaths(supabase: SupabaseClient, paths: string[]): Prom
 }
 
 // Retire toutes les photos rangées pour un sous-salon (suppression d'une discussion privée).
-export async function removeChannelImages(supabase: SupabaseClient, channelId: string): Promise<void> {
+export async function removeChannelImages(supabase: Db, channelId: string): Promise<void> {
   try {
     const { data } = await supabase.storage.from(BUCKET).list(channelId, { limit: 1000 });
     const paths = (data || []).filter((f) => f.name).map((f) => `${channelId}/${f.name}`);
@@ -72,7 +71,7 @@ export async function removeChannelImages(supabase: SupabaseClient, channelId: s
 
 // Déplace réellement des photos vers le dossier d'un autre sous-salon (administrateurs).
 // Renvoie { moved: [[ancien, nouveau], …] } ; en cas d'échec, remet en place ce qui avait été déplacé et lève l'erreur.
-export async function moveMessageImages(supabase: SupabaseClient, paths: string[], targetChannelId: string): Promise<[string, string][]> {
+export async function moveMessageImages(supabase: Db, paths: string[], targetChannelId: string): Promise<[string, string][]> {
   const moved: [string, string][] = [];
   try {
     for (const from of paths) {
@@ -88,7 +87,7 @@ export async function moveMessageImages(supabase: SupabaseClient, paths: string[
   return moved;
 }
 
-export async function moveBack(supabase: SupabaseClient, moved: [string, string][]): Promise<void> {
+export async function moveBack(supabase: Db, moved: [string, string][]): Promise<void> {
   for (const [from, to] of moved) {
     try {
       await supabase.storage.from(BUCKET).move(to, from);
@@ -99,7 +98,7 @@ export async function moveBack(supabase: SupabaseClient, moved: [string, string]
 }
 
 // Copie des photos dans le dossier d'un autre sous-salon (transfert d'un message) : renvoie les nouvelles pièces jointes.
-export async function copyMessageImages(supabase: SupabaseClient, attachments: Attachment[], targetChannelId: string): Promise<Attachment[]> {
+export async function copyMessageImages(supabase: Db, attachments: Attachment[], targetChannelId: string): Promise<Attachment[]> {
   const copied: Attachment[] = [];
   try {
     for (const item of attachments) {

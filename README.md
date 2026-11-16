@@ -23,6 +23,8 @@ scripts/build.mjs       construit le site dans dist/ (js/*.js ou *.ts → JavaSc
 tests/                  tests automatiques (jsdom + faux Supabase) ; `npm test` les lance sur dist/
 .github/workflows/deploy.yml  vérifie, teste, construit puis publie sur GitHub Pages
 tsconfig.json           vérification des types (`npm run typecheck`)
+js/database.types.ts    types des tables et fonctions de la base, GÉNÉRÉS depuis supabase/schema.sql (`npm run types:db`)
+scripts/gen-db-types.py générateur de ces types (nécessite Python et `pip install pglast`)
 scripts/bump-version.mjs  incrémente la version (version.js, sw.js, CHANGELOG.md)
 CHANGELOG.md            journal des versions
 sw.js                   service worker (coquille hors ligne)

@@ -1,7 +1,7 @@
 // Notifications push : abonnement de cet appareil et pastille sur l'icône de l'application.
 // L'envoi proprement dit est fait par la fonction Supabase « send-push » (voir README).
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Db } from "./types.js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 
 export type PushStatus = "unsupported" | "needs-install" | "unconfigured" | "denied" | "off" | "on";
@@ -49,7 +49,7 @@ export async function pushStatus(): Promise<PushStatus> {
   }
 }
 
-export async function enablePush(supabase: SupabaseClient): Promise<void> {
+export async function enablePush(supabase: Db): Promise<void> {
   const status = await pushStatus();
   if (status !== "off" && status !== "on") throw new Error(status);
 
@@ -73,7 +73,7 @@ export async function enablePush(supabase: SupabaseClient): Promise<void> {
   if (error) throw error;
 }
 
-export async function disablePush(supabase: SupabaseClient): Promise<void> {
+export async function disablePush(supabase: Db): Promise<void> {
   const subscription = await currentSubscription();
   if (!subscription) return;
   await supabase.rpc("remove_push_subscription", { p_endpoint: subscription.endpoint });
@@ -81,7 +81,7 @@ export async function disablePush(supabase: SupabaseClient): Promise<void> {
 }
 
 // Si cet appareil est déjà autorisé, rattache l'abonnement au compte connecté (changement de compte).
-export async function syncPush(supabase: SupabaseClient): Promise<void> {
+export async function syncPush(supabase: Db): Promise<void> {
   try {
     if ((await pushStatus()) !== "on") return;
     const subscription = (await currentSubscription()) as PushSubscription;

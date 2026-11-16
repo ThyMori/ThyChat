@@ -1,6 +1,6 @@
 // Documents des dates de tournée et fiches techniques : PDF, images ou liens web (envoi, liens temporaires, suppression ; stockage privé).
 
-import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Db } from "./types.js";
 
 const BUCKET = "tag-documents";
 export const MAX_PDF_BYTES = 15 * 1024 * 1024;
@@ -45,7 +45,7 @@ export function sizeLabel(bytes: number | null | undefined): string {
 }
 
 // Range le fichier dans <salon>/<date>/<identifiant>.pdf.
-export async function uploadTagDocument(supabase: SupabaseClient, roomId: string, tagId: string, file: File) {
+export async function uploadTagDocument(supabase: Db, roomId: string, tagId: string, file: File) {
   const type = fileType(file) || TYPES[0];
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
   const path = `${roomId}/${tagId}/${id}.${type.ext}`;
@@ -57,7 +57,7 @@ export async function uploadTagDocument(supabase: SupabaseClient, roomId: string
   return { path, name: String(file.name || "Document.pdf").slice(0, 160), size_bytes: file.size };
 }
 
-export async function removeTagDocuments(supabase: SupabaseClient, allPaths: (string | null | undefined)[] | null | undefined): Promise<void> {
+export async function removeTagDocuments(supabase: Db, allPaths: (string | null | undefined)[] | null | undefined): Promise<void> {
   const paths = (allPaths || []).filter(Boolean) as string[]; // les liens web n'ont pas de fichier
   if (!paths.length) return;
   try {
@@ -68,7 +68,7 @@ export async function removeTagDocuments(supabase: SupabaseClient, allPaths: (st
 }
 
 // Liens temporaires (1 h) pour ouvrir les PDF : chemin -> lien.
-export async function signDocuments(supabase: SupabaseClient, input: (string | null | undefined)[] | null | undefined): Promise<Map<string, string>> {
+export async function signDocuments(supabase: Db, input: (string | null | undefined)[] | null | undefined): Promise<Map<string, string>> {
   const out = new Map<string, string>();
   const paths = (input || []).filter(Boolean) as string[];
   if (!paths.length) return out;
@@ -79,7 +79,7 @@ export async function signDocuments(supabase: SupabaseClient, input: (string | n
 }
 
 // Fiche technique d'un spectacle : rangée dans <salon>/fiche/<identifiant>.pdf (même stockage privé).
-export async function uploadRoomSheet(supabase: SupabaseClient, roomId: string, file: File) {
+export async function uploadRoomSheet(supabase: Db, roomId: string, file: File) {
   const type = fileType(file) || TYPES[0];
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
   const path = `${roomId}/fiche/${id}.${type.ext}`;

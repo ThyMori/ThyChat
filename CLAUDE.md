@@ -21,7 +21,7 @@ Le numéro est affiché en petit en bas de l'application. Format `MAJEUR.FONCTIO
 
 - Textes de l'interface en français, tutoiement.
 - Jamais d'`innerHTML` avec du texte venant des utilisateurs : utiliser `textContent`.
-- Base de données : tout changement passe par un fichier numéroté dans `supabase/migrations/` **et** par `supabase/schema.sql` (qui doit rester rejouable). Dire à Thierry de coller le SQL dans Supabase.
+- Base de données : tout changement passe par un fichier numéroté dans `supabase/migrations/` **et** par `supabase/schema.sql` (qui doit rester rejouable), puis relancer `npm run types:db` pour régénérer `js/database.types.ts` (le workflow refuse de publier si ce fichier n'est pas à jour). Dire à Thierry de coller le SQL dans Supabase.
 - Ne jamais mettre de clé secrète (`service_role` / `secret`) dans le dépôt ; seule la clé publique est dans `js/config.js`.
 - Les couleurs de l'interface dérivent de `--h` (teinte de l'espace courant) : ne pas coder de couleur en dur dans la zone `#screen-app`.
 - Service worker : ajouter tout nouveau fichier JS/CSS à la liste `SHELL` de `sw.js`.

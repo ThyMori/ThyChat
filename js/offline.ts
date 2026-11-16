@@ -153,7 +153,7 @@ interface ReadCacheOptions {
   timeoutMs?: number;
 }
 
-export function withReadCache(client: SupabaseClient, { userId, store, isOnline = () => typeof navigator === "undefined" || navigator.onLine !== false, onServed = () => {}, onLive = () => {}, timeoutMs = 8000 }: ReadCacheOptions): SupabaseClient {
+export function withReadCache<C extends SupabaseClient<any, any, any>>(client: C, { userId, store, isOnline = () => typeof navigator === "undefined" || navigator.onLine !== false, onServed = () => {}, onLive = () => {}, timeoutMs = 8000 }: ReadCacheOptions): C {
   // Le constructeur de requêtes de Supabase est enveloppé dynamiquement : ses types précis n'apportent rien ici.
   const wrap = (real: any, table: string) => {
     const calls: [string, unknown[]][] = [];

@@ -1,5 +1,11 @@
 // Types partagés (effacés à la construction : ce fichier ne produit aucun code).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "./database.types.js";
+
+// Client Supabase typé avec les tables et fonctions de la base (voir js/database.types.ts).
+export type Db = SupabaseClient<Database>;
+
 // Ligne de la table notification_mutes.
 export interface MuteRow {
   scope?: "workspace" | "room" | "channel";

@@ -27,6 +27,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: node scripts/bump-version.mjs --check
+      - run: pip install pglast
+      - run: python3 scripts/gen-db-types.py --check
       - run: npm run typecheck
       - run: npm test
       - uses: actions/upload-pages-artifact@v3
