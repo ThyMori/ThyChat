@@ -39,6 +39,7 @@ const MESSAGE_COLS = "id, channel_id, user_id, parent_id, reply_to, tag_ids, str
 /** @typedef {Tables["tour_tags"]["Row"]} Tag */
 /** @typedef {{ t: string, done?: boolean, by?: string }} TodoItem */
 /** @typedef {Omit<Tables["postits"]["Row"], "items"> & { items: TodoItem[] }} Postit */
+/** @param {{ supabase: any, user: import("@supabase/supabase-js").User, store?: import("./offline.js").OfflineStore }} options */
 export function createChat({ supabase: rawSupabase, user, store = createStore() }) {
   // Lectures gardées sur l'appareil : sans réseau, on retrouve les derniers messages vus.
   const supabase = withReadCache(rawSupabase, {
@@ -52,71 +53,77 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const fallbackName = user.user_metadata?.display_name || user.email || "Moi";
   const state = {
     dmOpen: readDmOpen(), // messages privés dépliés dans le menu ?
-    outbox: [], // messages écrits sans réseau, en attente d'envoi : { id, channel_id, body, reply_to, tag_ids, images, attachments, created_at, status, error }
-    workspaces: [], // { id, name, role, theme }
-    ws: null,
-    allRooms: [], // salons (spectacles) visibles : { id, workspace_id, name, description, everyone }
+    outbox: /** @type {any[]} */ ([]), // messages écrits sans réseau, en attente d'envoi : { id, channel_id, body, reply_to, tag_ids, images, attachments, created_at, status, error }
+    workspaces: /** @type {any[]} */ ([]), // { id, name, role, theme }
+    ws: /** @type {any} */ (null),
+    allRooms: /** @type {Room[]} */ ([]), // salons (spectacles) visibles : { id, workspace_id, name, description, everyone }
     openRooms: readOpen(), // salons dépliés dans la barre latérale
-    allChannels: [], // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
+    allChannels: /** @type {Channel[]} */ ([]), // tous les sous-salons et messages privés visibles : { id, workspace_id, room_id, name, description, kind, everyone }
     dmMembers: new Map(), // id du message privé -> [ids des deux personnes]
     dmActivity: new Map(), // id du message privé -> date du dernier message
-    sheets: [], // fiches techniques des spectacles : { id, room_id, name, path, version_date, size_bytes }
-    tagDocs: [], // documents PDF des dates : { id, tag_id, name, path, size_bytes }
-    focus: null, // message à montrer à l'ouverture d'un sous-salon (résultat de recherche) : { id, at }
-    channel: null,
-    messages: [],
-    tags: [], // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
+    sheets: /** @type {any[]} */ ([]), // fiches techniques des spectacles : { id, room_id, name, path, version_date, size_bytes }
+    tagDocs: /** @type {any[]} */ ([]), // documents PDF des dates : { id, tag_id, name, path, size_bytes }
+    focus: /** @type {any} */ (null), // message à montrer à l'ouverture d'un sous-salon (résultat de recherche) : { id, at }
+    channel: /** @type {any} */ (null),
+    messages: /** @type {any[]} */ ([]),
+    tags: /** @type {Tag[]} */ ([]), // dates de tournée visibles : { id, room_id, label, start_date, end_date, shows }
     calendarOpen: false,
     calMonth: new Date(new Date().getFullYear(), new Date().getMonth(), 1),
     myStaff: new Map(), // mes fonctions par spectacle : roomId -> { functions, sheet_read }
     staffReady: false,
-    notesUsage: null, // consommation de « Mes notes » (my_notes_usage)
+    notesUsage: /** @type {any} */ (null), // consommation de « Mes notes » (my_notes_usage)
     calScope: "all", // « all » (tous mes espaces, vue de base), « ws » (cet espace) ou l'id d'un spectacle
-    calDay: null, // jour touché dans le calendrier (AAAA-MM-JJ)
-    pendingFilter: null, // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
+    calDay: /** @type {any} */ (null), // jour touché dans le calendrier (AAAA-MM-JJ)
+    pendingFilter: /** @type {any} */ (null), // date à filtrer à l'ouverture d'un spectacle depuis le calendrier
     tagFilter: new Set(), // dates sélectionnées pour filtrer le sous-salon ouvert
-    pendingImages: [], // photos en attente d'envoi : { id, blob, width, height, url }
+    pendingImages: /** @type {any[]} */ ([]), // photos en attente d'envoi : { id, blob, width, height, url }
     imageUrls: new Map(), // chemin -> lien temporaire d'une photo
     composerTags: new Set(), // dates ajoutées au message en cours d'écriture
-    editing: null, // { id, head } : message de moi en cours de modification
-    postits: [], // Post-it du fil ouvert
-    pins: [], // messages épinglés du fil ouvert : { message_id, pinned_by, pinned_at, expires_at }, du plus récent au plus ancien
+    editing: /** @type {any} */ (null), // { id, head } : message de moi en cours de modification
+    postits: /** @type {Postit[]} */ ([]), // Post-it du fil ouvert
+    pins: /** @type {any[]} */ ([]), // messages épinglés du fil ouvert : { message_id, pinned_by, pinned_at, expires_at }, du plus récent au plus ancien
     pinMsgs: new Map(), // contenu des messages épinglés : id → { id, user_id, body, attachments, created_at }
     pinIndex: 0, // épingle montrée dans le bandeau
-    pinTarget: null, // message en cours d'épinglage (choix de la durée)
+    pinTarget: /** @type {any} */ (null), // message en cours d'épinglage (choix de la durée)
     postitStates: new Map(), // id -> « discarded » | « purged » (mon état)
     postitsReady: true, // false tant que la migration 020 n'est pas passée
-    replyTo: null, // message auquel on répond
+    replyTo: /** @type {any} */ (null), // message auquel on répond
     quoted: new Map(), // id -> { user_id, body } des messages cités qui ne sont pas dans la liste
-    selectedId: null, // message touché (affiche « Supprimer »)
+    selectedId: /** @type {any} */ (null), // message touché (affiche « Supprimer »)
     multi: new Set(), // messages cochés (appui long) pour agir par lot
     profiles: new Map(), // id -> { name, avatar }
     unread: new Map(), // id du salon -> nombre de messages non lus
     mutes: new Map(), // « scope:id » -> ligne de notification_mutes
     isSuper: false,
-    realtime: null,
+    realtime: /** @type {any} */ (null),
     loadToken: 0,
     themeColumn: true, // false tant que la migration SQL des couleurs n'est pas passée
     avatarColumn: true, // false tant que la migration 007 (photos d'espace) n'est pas passée
-    pendingDeepLink: null, // { w, c } venant d'une notification
+    pendingDeepLink: /** @type {any} */ (null), // { w, c } venant d'une notification
     pushStatus: "unsupported",
   };
+  /** @type {any} */
   let controller = null; // détache tous les écouteurs à l'arrêt
   let stopped = false;
+  /** @type {any} */
   let emptyAction = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let toastTimer = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let structureTimer = null;
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let expiryTimer = null;
   let pendingTheme = DEFAULT_THEME.key;
   /** @type {Channel | null} */
   let editingChannel = null; // sous-salon en cours de modification (null = création)
+  /** @type {any} */
   let channelRoomId = null; // salon (spectacle) du sous-salon en cours de création
   /** @type {Room | null} */
   let editingRoom = null; // salon (spectacle) en cours de modification (null = création)
 
   // --- Petits utilitaires d'interface ------------------------------------
 
-  function toast(text, kind = "error") {
+  function toast(/** @type {string} */ text, kind = "error") {
     const node = $("#toast");
     node.textContent = text;
     node.dataset.kind = kind;
@@ -127,7 +134,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }, 6000);
   }
 
-  function setView(mode, empty = {}) {
+  function setView(/** @type {any} */ mode, /** @type {any} */ empty = {}) {
     const isChat = mode === "chat";
     const isCalendar = mode === "calendar";
     $("#messages").hidden = !isChat;
@@ -145,8 +152,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Geste horizontal net (> 60 px, plus horizontal que vertical) : appelle fn(-1) vers la gauche, fn(1) vers la droite.
-  function onSwipe(node, fn, opts) {
+  function onSwipe(/** @type {any} */ node, /** @type {any} */ fn, /** @type {any} */ opts) {
     if (!node) return;
+    /** @type {any} */
     let start = null;
     node.addEventListener("touchstart", (/** @type {any} */ e) => {
       const t = e.touches[0];
@@ -171,7 +179,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const visible = () => document.visibilityState !== "hidden";
 
-  function authorName(userId) {
+  function authorName(/** @type {string} */ userId) {
     return state.profiles.get(userId)?.name || "Membre";
   }
 
@@ -181,7 +189,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Fonctions dans un spectacle (migration 028) : Technique, Prod, RG. Les administrateurs de l'espace ont tous les droits.
   const staffOf = (/** @type {string} */ roomId) => state.myStaff.get(roomId) || { functions: [], sheet_read: false };
-  const hasFunction = (/** @type {string} */ roomId, ...names) => staffOf(roomId).functions.some((f) => names.includes(f));
+  const hasFunction = (/** @type {string} */ roomId, /** @type {string[]} */ ...names) => staffOf(roomId).functions.some((/** @type {any} */ f) => names.includes(f));
   const canEditSheet = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
   const canReadSheet = (/** @type {string} */ roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
   const canEditRoadmap = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
@@ -190,7 +198,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const canAssign = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
 
   // Pastille ronde : photo de la personne si elle en a une, sinon son initiale.
-  function avatarFor(userId, extra = "soft") {
+  function avatarFor(/** @type {string} */ userId, extra = "soft") {
     const node = el("span", `avatar ${extra}`);
     node.setAttribute("aria-hidden", "true");
     const url = safeAvatarUrl(state.profiles.get(userId)?.avatar);
@@ -208,7 +216,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Pastille d'un espace : sa photo si elle en a une, sinon ses initiales.
-  function fillWsAvatar(node, ws) {
+  function fillWsAvatar(/** @type {any} */ node, /** @type {any} */ ws) {
     node.replaceChildren();
     node.classList.remove("has-photo");
     const url = ws ? safeAvatarUrl(ws.avatar) : "";
@@ -223,7 +231,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function ensureProfiles(ids) {
+  async function ensureProfiles(/** @type {string[]} */ ids) {
     const missing = [...new Set(ids)].filter((id) => id && !state.profiles.has(id));
     if (!missing.length) return;
     const { data, error } = await supabase.from("profiles").select("id, display_name, avatar_url").in("id", missing);
@@ -238,16 +246,16 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Salons, messages privés, silences ------------------------------------
 
-  const byName = (a, b) => a.name.localeCompare(b.name, "fr");
+  const byName = (/** @type {any} */ a, /** @type {any} */ b) => a.name.localeCompare(b.name, "fr");
   // Ouvert à tous d'abord (« Tous »), puis les accès restreints, chacun par ordre alphabétique.
-  const bySalon = (a, b) => Number(b.everyone) - Number(a.everyone) || byName(a, b);
-  const channelsOfWs = (wsId) => state.allChannels.filter((c) => c.workspace_id === wsId);
-  const roomsOfWs = (wsId) => state.allRooms.filter((r) => r.workspace_id === wsId).sort(bySalon);
+  const bySalon = (/** @type {any} */ a, /** @type {any} */ b) => Number(b.everyone) - Number(a.everyone) || byName(a, b);
+  const channelsOfWs = (/** @type {string} */ wsId) => state.allChannels.filter((c) => c.workspace_id === wsId);
+  const roomsOfWs = (/** @type {string} */ wsId) => state.allRooms.filter((r) => r.workspace_id === wsId).sort(bySalon);
   // Le salon « Général » d'un spectacle (créé avec lui) en est la racine : le plus ancien sous-salon ouvert à tous.
   // Il n'apparaît pas dans la liste : c'est la ligne du spectacle qui l'ouvre.
   function rootOf(/** @type {string} */ roomId) {
     const all = state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId);
-    const pick = (list) => list.slice().sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name, "fr"))[0] || null;
+    const pick = (/** @type {any} */ list) => list.slice().sort((/** @type {any} */ a, /** @type {any} */ b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name, "fr"))[0] || null;
     return pick(all.filter((c) => c.everyone)) || pick(all);
   }
   const ROOT_GLYPH = "⌂"; // le salon racine d'un spectacle (« Général ») porte une maison plutôt qu'un G
@@ -256,7 +264,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const roomById = (/** @type {string} */ id) => state.allRooms.find((r) => r.id === id) || null;
   // Tous les sous-salons de l'espace courant, salon par salon.
   const salons = () => (state.ws ? roomsOfWs(state.ws.id).flatMap((room) => subsOfRoom(room.id)) : []);
-  const dmPartner = (/** @type {Channel} */ channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
+  const dmPartner = (/** @type {Channel} */ channel) => (state.dmMembers.get(channel.id) || []).find((/** @type {string} */ id) => id !== user.id) || null;
   // Les messages privés ne dépendent d'aucun espace : ils apparaissent dans tous.
   const dms = () =>
     state.allChannels
@@ -271,12 +279,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return partner ? authorName(partner) : "Message privé";
   }
 
-  const wsMute = (wsId) => state.mutes.get(muteKey("workspace", wsId));
+  const wsMute = (/** @type {string} */ wsId) => state.mutes.get(muteKey("workspace", wsId));
   const channelMute = (/** @type {string} */ id) => state.mutes.get(muteKey("channel", id));
   const muted = (/** @type {Channel} */ channel) => channelMuted(state.mutes, channel);
 
   // Non lus d'un espace : { count (hors silences), all (tout), muted }.
-  function wsUnread(wsId) {
+  function wsUnread(/** @type {string} */ wsId) {
     let count = 0;
     let all = 0;
     for (const channel of channelsOfWs(wsId)) {
@@ -342,7 +350,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     // Mes fonctions dans chaque spectacle (absent tant que la migration 028 n'est pas exécutée : seuls les administrateurs modifient alors).
     const staffResult = await supabase.from("room_staff").select("room_id, functions, sheet_read").eq("user_id", user.id);
     if (stopped) return false;
-    state.myStaff = new Map((staffResult.error ? [] : staffResult.data || []).map((row) => [row.room_id, { functions: row.functions || [], sheet_read: Boolean(row.sheet_read) }]));
+    state.myStaff = new Map((staffResult.error ? [] : staffResult.data || []).map((/** @type {any} */ row) => [row.room_id, { functions: row.functions || [], sheet_read: Boolean(row.sheet_read) }]));
     state.staffReady = !staffResult.error;
     // Documents des dates (migration 012 : sans elle, simplement aucun document).
     // Migration 017 : liens web et images ; sans elle, on relit les anciennes colonnes (PDF seulement).
@@ -418,7 +426,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }, 400);
   }
 
-  function pickChannel(wanted) {
+  function pickChannel(/** @type {any} */ wanted) {
     const list = [...salons(), ...dms()];
     return (list.find((c) => c.id === wanted) || list[0] || { id: null }).id;
   }
@@ -463,13 +471,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     x: ["M18 6 6 18", "m6 6 12 12"],
     "bell-off": ["M8.7 3A6 6 0 0 1 18 8a21.3 21.3 0 0 0 .6 5", "M17 17H3s3-2 3-9a4.67 4.67 0 0 1 .3-1.7", "M10.3 21a1.94 1.94 0 0 0 3.4 0", "m2 2 20 20"],
   };
-  function icon(name) {
+  function icon(/** @type {string} */ name) {
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
     svg.setAttribute("viewBox", "0 0 24 24");
     svg.setAttribute("class", "ic");
     svg.setAttribute("aria-hidden", "true");
-    for (const d of ICON_PATHS[name]) {
+    for (const d of ICON_PATHS[/** @type {keyof typeof ICON_PATHS} */ (name)]) {
       const path = document.createElementNS(ns, "path");
       path.setAttribute("d", d);
       svg.append(path);
@@ -477,6 +485,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return svg;
   }
 
+  /** @param {string} text @param {string} className @param {string=} title */
   function flag(text, className, title) {
     const node = el("span", className);
     if (text === "bell-off") node.append(icon("bell-off"));
@@ -500,9 +509,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Un administrateur général entré dans l'espace pour dépanner est signalé « Support » (visible de tous les membres).
-  const adminBadge = (row) => el("span", "badge", row.support ? "Support" : "Admin");
+  const adminBadge = (/** @type {any} */ row) => el("span", "badge", row.support ? "Support" : "Admin");
 
-  function roleLabel(role) {
+  function roleLabel(/** @type {string} */ role) {
     return role === "admin" ? "Administrateur" : "Utilisateur";
   }
 
@@ -838,7 +847,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         bubble.append(el("div", "msg-forwarded", forwarded[0].trim()));
         text = text.slice(forwarded[0].length);
       }
-      const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
+      const bodyTags = (message.tag_ids || []).map(tagById).filter(Boolean).map((/** @type {any} */ t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
       if (message.attachments && message.attachments.length) bubble.append(imagesBlock(message));
       renderMessageBody(body, text, bodyTags);
       if (message.edited_at) body.append(el("span", "msg-edited", "modifié"));
@@ -895,7 +904,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // Sur iPhone, la hauteur du fil change juste après l'affichage (photos, barres, polices) : on reste collé
   // en bas pendant un court instant, sauf si la personne fait défiler elle-même.
   let settleUntil = 0;
-  function settleBottom(box) {
+  function settleBottom(/** @type {any} */ box) {
     settleUntil = Date.now() + 2500;
     const again = () => {
       if (Date.now() < settleUntil) box.scrollTop = box.scrollHeight;
@@ -906,7 +915,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Sélection de plusieurs messages (appui long, comme sur WhatsApp) ----------------------
 
-  const canDelete = (message) => message.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel");
+  const canDelete = (/** @type {any} */ message) => message.user_id === user.id || (isAdmin() && state.channel && state.channel.kind === "channel");
 
   function renderSelectBar() {
     const bar = $("#select-bar");
@@ -971,9 +980,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Copie le texte d'un ou plusieurs messages (le texte seul, sans la mention « Transféré »).
-  const plainText = (message) => String(message.body || "").replace(/^↪ [^\n]*\n/, "");
+  const plainText = (/** @type {any} */ message) => String(message.body || "").replace(/^↪ [^\n]*\n/, "");
 
-  async function copyMessages(ids) {
+  async function copyMessages(/** @type {string[]} */ ids) {
     const picked = state.messages.filter((m) => ids.includes(m.id));
     if (!picked.length) return;
     const text = picked.length === 1 ? plainText(picked[0]) : picked.map((m) => `${authorName(m.user_id)} : ${plainText(m)}`).join("\n");
@@ -1003,9 +1012,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Transférer des messages ------------------------------------------------------------
 
+  /** @type {any[]} */
   let forwardIds = [];
 
-  function openForward(ids) {
+  function openForward(/** @type {string[]} */ ids) {
     const picked = state.messages.filter((m) => ids.includes(m.id));
     if (!picked.length || !state.ws) return;
     forwardIds = picked.map((m) => m.id);
@@ -1045,7 +1055,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     openDialog("#dialog-forward");
   }
 
-  async function forwardMessages(targetId) {
+  async function forwardMessages(/** @type {string} */ targetId) {
     const target = state.allChannels.find((c) => c.id === targetId);
     const picked = state.messages.filter((m) => forwardIds.includes(m.id));
     if (!target || !picked.length) return;
@@ -1055,7 +1065,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let done = 0;
     for (const message of picked) {
       const head = /^↪ /.test(message.body) ? "" : `↪ Transféré de ${authorName(message.user_id)}\n`;
+      /** @type {any} */
       const row = { channel_id: target.id, body: (head + message.body).slice(0, 8000) };
+      /** @type {any[]} */
       let copied = [];
       try {
         const attachments = message.attachments || [];
@@ -1087,7 +1099,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Chargement des données ---------------------------------------------
 
-  function showFatal(error) {
+  function showFatal(/** @type {any} */ error) {
     console.warn("Erreur de chargement :", error.message);
     setView("empty", {
       title: "La base n'est pas prête",
@@ -1113,7 +1125,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const wsColumns = () => "id, name" + (state.themeColumn ? ", theme" : "") + (state.avatarColumn ? ", avatar_url" : "");
 
-  async function loadWorkspaces(preferredId) {
+  async function loadWorkspaces(/** @type {any} */ preferredId) {
     const { data, error } = await fetchMemberships();
     if (stopped) return;
     if (error) return showFatal(error);
@@ -1177,7 +1189,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await selectWorkspace(target.id, deep?.c);
   }
 
-  async function selectWorkspace(/** @type {string} */ id, channelId) {
+  /** @param {string} id @param {string=} channelId */
+  async function selectWorkspace(id, channelId) {
     state.ws = state.workspaces.find((ws) => ws.id === id) || null;
     if (!state.ws) return;
     writeLast({ ws: id });
@@ -1254,7 +1267,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await loadMessages(state.channel.id, token);
   }
 
-  async function loadMessages(channelId, token) {
+  async function loadMessages(/** @type {string} */ channelId, /** @type {number} */ token) {
     let query = supabase
       .from("messages")
       .select(MESSAGE_COLS)
@@ -1299,21 +1312,21 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Récupère les messages auxquels répondent ceux-ci, quand ils ne sont pas déjà affichés.
-  async function loadQuoted(messages) {
+  async function loadQuoted(/** @type {any} */ messages) {
     const wanted = [
       ...new Set(
         messages
-          .map((m) => m.reply_to)
-          .filter((id) => id && !state.quoted.has(id) && !state.messages.some((m) => m.id === id))
+          .map((/** @type {any} */ m) => m.reply_to)
+          .filter((/** @type {string} */ id) => id && !state.quoted.has(id) && !state.messages.some((m) => m.id === id))
       ),
     ];
     if (!wanted.length) return;
     const { data } = await supabase.from("messages").select("id, user_id, body, attachments").in("id", wanted);
     for (const row of data || []) state.quoted.set(row.id, { user_id: row.user_id, body: row.body, attachments: row.attachments });
-    await ensureProfiles((data || []).map((row) => row.user_id));
+    await ensureProfiles((data || []).map((/** @type {any} */ row) => row.user_id));
   }
 
-  const replyInfo = (message) => {
+  const replyInfo = (/** @type {any} */ message) => {
     if (!message.reply_to) return null;
     return state.messages.find((m) => m.id === message.reply_to) || state.quoted.get(message.reply_to) || null;
   };
@@ -1347,7 +1360,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function onRealtime(payload) {
+  async function onRealtime(/** @type {any} */ payload) {
     if (stopped) return;
 
     if (payload.eventType === "INSERT") {
@@ -1370,7 +1383,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         await loadQuoted([message]);
         await resolveImages([message]);
         if (stopped || !state.channel || state.channel.id !== message.channel_id) return;
-        const hidden = state.tagFilter.size && !(message.tag_ids || []).some((t) => state.tagFilter.has(t));
+        const hidden = state.tagFilter.size && !(message.tag_ids || []).some((/** @type {any} */ t) => state.tagFilter.has(t));
         if (!hidden) addMessage(message, mine);
         if (!mine) {
           if (visible()) markRead(message.channel_id);
@@ -1403,12 +1416,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  function bumpUnread(channelId) {
+  function bumpUnread(/** @type {string} */ channelId) {
     state.unread.set(channelId, (state.unread.get(channelId) || 0) + 1);
     renderBadges();
   }
 
-  function addMessage(message, forceBottom = false) {
+  function addMessage(/** @type {any} */ message, forceBottom = false) {
     if (state.allChannels.some((c) => c.id === message.channel_id && c.kind === "dm")) {
       state.dmActivity.set(message.channel_id, message.created_at);
       renderChannels();
@@ -1420,9 +1433,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Déplacer un message (administrateurs) vers un autre sous-salon ou spectacle du même espace.
+  /** @type {any[]} */
   let movingIds = [];
 
-  function openMove(ids) {
+  function openMove(/** @type {string[]} */ ids) {
     const list = [].concat(ids);
     const picked = state.messages.filter((m) => list.includes(m.id));
     if (!picked.length || !isAdmin() || !state.channel) return;
@@ -1450,7 +1464,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     openDialog("#dialog-move");
   }
 
-  async function moveMessage(targetId) {
+  async function moveMessage(/** @type {string} */ targetId) {
     const picked = state.messages.filter((m) => movingIds.includes(m.id));
     const target = state.allChannels.find((c) => c.id === targetId);
     if (!picked.length || !target) return;
@@ -1464,7 +1478,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     for (const message of picked) {
       // Les photos sont déplacées d'abord (stockage), puis le message ; si le message échoue, on remet les photos.
       let moved = [];
-      const paths = (message.attachments || []).map((a) => a.path).filter(Boolean);
+      const paths = (message.attachments || []).map((/** @type {any} */ a) => a.path).filter(Boolean);
       try {
         moved = await moveMessageImages(supabase, paths, target.id);
       } catch (e) {
@@ -1567,11 +1581,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   let offline = false;
   const isOnline = () => navigator.onLine !== false;
-  const looksOffline = (error) => !isOnline() || isNetworkError(error && { message: error.message, code: error.code }, undefined);
+  const looksOffline = (/** @type {any} */ error) => !isOnline() || isNetworkError(error && { message: error.message, code: error.code }, undefined);
   const pendingOfChannel = () => (state.channel ? state.outbox.filter((e) => e.channel_id === state.channel.id) : []);
   const pendingUrls = new Map(); // id d'une photo en attente -> adresse locale
 
-  function setOffline(value) {
+  function setOffline(/** @type {any} */ value) {
     offline = Boolean(value);
     renderOfflineBar();
   }
@@ -1588,7 +1602,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     bar.textContent = parts.join(" ");
   }
 
-  function pendingNode(entry) {
+  function pendingNode(/** @type {any} */ entry) {
     const failed = entry.status === "failed";
     const item = el("article", "msg mine pending" + (failed ? " failed" : ""));
     item.dataset.pending = entry.id;
@@ -1602,7 +1616,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (entry.images.length) {
       const box = el("div", "msg-images");
       box.dataset.count = String(Math.min(entry.images.length, 4));
-      entry.images.forEach((image, index) => {
+      entry.images.forEach((/** @type {any} */ image, /** @type {any} */ index) => {
         const img = document.createElement("img");
         img.alt = "Photo en attente";
         if (image.width && image.height) img.style.aspectRatio = `${image.width} / ${image.height}`;
@@ -1614,7 +1628,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       bubble.append(box);
     }
     const body = el("div", "msg-body");
-    const bodyTags = (entry.tag_ids || []).map(tagById).filter(Boolean).map((t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
+    const bodyTags = (entry.tag_ids || []).map(tagById).filter(Boolean).map((/** @type {any} */ t) => ({ id: t.id, label: t.label, hue: hueOfTag(t) }));
     renderMessageBody(body, entry.body, bodyTags);
     bubble.append(body);
     const note = el("div", "msg-pending-note");
@@ -1636,7 +1650,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return item;
   }
 
-  function forgetPendingUrls(entry) {
+  function forgetPendingUrls(/** @type {any} */ entry) {
     for (const key of [...pendingUrls.keys()]) {
       if (key.startsWith(entry.id + ":")) {
         if (typeof URL.revokeObjectURL === "function") URL.revokeObjectURL(pendingUrls.get(key));
@@ -1645,21 +1659,21 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function dropPending(entry) {
+  async function dropPending(/** @type {any} */ entry) {
     state.outbox = state.outbox.filter((e) => e.id !== entry.id);
     forgetPendingUrls(entry);
     await store.outboxDelete(entry.id);
     renderOfflineBar();
   }
 
-  async function queueMessage(entry) {
+  async function queueMessage(/** @type {any} */ entry) {
     state.outbox.push(entry);
     await store.outboxPut(entry);
     renderMessages(true);
     renderOfflineBar();
   }
 
-  async function pendingAction(action, /** @type {string} */ id) {
+  async function pendingAction(/** @type {any} */ action, /** @type {string} */ id) {
     const entry = state.outbox.find((e) => e.id === id);
     if (!entry) return;
     if (action === "cancel") {
@@ -1677,7 +1691,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Envoie un message de la file ; rend « sent », « network » (on réessaiera) ou « failed ».
-  async function sendQueued(entry) {
+  async function sendQueued(/** @type {any} */ entry) {
     try {
       while (entry.images.length) {
         entry.attachments.push(await uploadMessageImage(supabase, entry.channel_id, entry.images[0]));
@@ -1688,6 +1702,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       if (looksOffline(error)) return "network";
       return fail(entry, error && error.message ? error.message : "photo refusée");
     }
+    /** @type {any} */
     const row = { id: entry.id, channel_id: entry.channel_id, body: entry.body };
     if (entry.reply_to) row.reply_to = entry.reply_to;
     if (entry.tag_ids && entry.tag_ids.length) row.tag_ids = entry.tag_ids;
@@ -1709,7 +1724,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return "sent";
   }
 
-  async function fail(entry, message) {
+  async function fail(/** @type {any} */ entry, /** @type {any} */ message) {
     entry.status = "failed";
     entry.error = message;
     await store.outboxPut(entry);
@@ -1745,11 +1760,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!body && !images.length) return;
 
     const channelId = state.channel.id;
+    /** @type {any} */
     const row = { channel_id: channelId, body };
     if (state.replyTo) row.reply_to = state.replyTo.id;
     if (state.composerTags.size) row.tag_ids = [...state.composerTags];
     const replied = state.replyTo;
-    const entry = (extra) => ({
+    const entry = (/** @type {any} */ extra) => ({
       id: newId(),
       user_id: user.id,
       channel_id: channelId,
@@ -1764,7 +1780,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       ...extra,
     });
     // Le message part dans la file (au lieu d'une erreur) quand le réseau manque, ou derrière ceux qui attendent déjà.
-    const toQueue = async (extra) => {
+    const toQueue = async (/** @type {any} */ extra) => {
       input.value = "";
       autosize();
       hideSuggest();
@@ -1810,7 +1826,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       renderComposerExtra();
       await resolveImages([data]);
       if (state.channel && state.channel.kind === "notes") loadNotesUsage();
-      const hidden = state.tagFilter.size && !(data.tag_ids || []).some((t) => state.tagFilter.has(t));
+      const hidden = state.tagFilter.size && !(data.tag_ids || []).some((/** @type {any} */ t) => state.tagFilter.has(t));
       if (hidden) toast("Message envoyé (hors du filtre de dates actuel).");
       else if (state.channel && state.channel.id === channelId) addMessage(data, true);
     } catch (error) {
@@ -1859,7 +1875,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.hidden = !state.pendingImages.length;
   }
 
-  async function addImages(files) {
+  async function addImages(/** @type {any} */ files) {
     const list = [...files].filter((f) => f && /^image\//.test(f.type));
     if (!list.length) return;
     const room = MAX_IMAGES - state.pendingImages.length;
@@ -1877,7 +1893,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Liens temporaires des photos des messages donnés.
-  async function resolveImages(messages) {
+  async function resolveImages(/** @type {any} */ messages) {
     const paths = [];
     for (const m of messages) for (const a of m.attachments || []) if (a.path && !state.imageUrls.has(a.path)) paths.push(a.path);
     if (!paths.length) return;
@@ -1885,7 +1901,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     for (const [path, url] of urls) state.imageUrls.set(path, url);
   }
 
-  function imagesBlock(message) {
+  function imagesBlock(/** @type {any} */ message) {
     const box = el("div", "msg-images");
     box.dataset.count = String(Math.min(message.attachments.length, 4));
     for (const attachment of message.attachments) {
@@ -1924,6 +1940,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   /** @type {string | null} */
   let postitOpenId = null;
   let postitBusy = false;
+  /** @type {any} */
   let postitFreshId = null; // à coller avec animation au prochain affichage
 
   const postitById = (/** @type {string} */ id) => state.postits.find((p) => p.id === id);
@@ -1932,7 +1949,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const todoItems = (/** @type {Postit} */ p) => (Array.isArray(p.items) ? p.items : []);
   // Empreinte d'une To-Do (ordre des clés sans importance), pour repérer un vrai changement.
   const todoKey = (/** @type {Postit} */ p) => JSON.stringify([p.body, todoItems(p).map((i) => [i.t, Boolean(i.done), i.by || ""])]);
-  const todoSigners = (list) => list.flatMap((/** @type {Postit} */ p) => (isTodo(p) ? todoItems(p).map((i) => i.by) : [])).filter(Boolean);
+  const todoSigners = (/** @type {any} */ list) => list.flatMap((/** @type {Postit} */ p) => (isTodo(p) ? todoItems(p).map((i) => i.by) : [])).filter(Boolean);
   const todoDone = (/** @type {Postit} */ p) => isTodo(p) && todoItems(p).length > 0 && todoItems(p).every((i) => i.done);
   const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id) && !todoDone(p));
   // Jetés par moi, ou To-Do terminées (sauf si je les ai jetées définitivement).
@@ -1951,7 +1968,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return ((h % 61) - 30) / 10;
   };
 
-  async function loadPostits(channelId, token) {
+  async function loadPostits(/** @type {string} */ channelId, /** @type {number} */ token) {
     state.postits = [];
     state.postitStates = new Map();
     renderPostitWall();
@@ -1980,6 +1997,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const activePins = () => state.pins.filter((pin) => new Date(pin.expires_at).getTime() > Date.now());
   const isPinned = (/** @type {string} */ id) => activePins().some((pin) => pin.message_id === id);
 
+  /** @param {string} channelId @param {number=} token @param {{ newest?: boolean }=} options */
   async function loadPins(channelId, token, { newest = false } = {}) {
     const { data, error } = await supabase
       .from("message_pins")
@@ -1998,7 +2016,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const rows = await supabase.from("messages").select("id, user_id, body, attachments, created_at").in("id", missing);
       if (stopped || !state.channel || state.channel.id !== channelId) return;
       for (const row of rows.data || []) state.pinMsgs.set(row.id, row);
-      await ensureProfiles((rows.data || []).map((row) => row.user_id));
+      await ensureProfiles((rows.data || []).map((/** @type {any} */ row) => row.user_id));
       await resolveImages(rows.data || []);
     }
     renderPinBar();
@@ -2082,7 +2100,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     openDialog("#dialog-pin");
   }
 
-  async function pinMessage(hours) {
+  async function pinMessage(/** @type {any} */ hours) {
     const id = state.pinTarget;
     state.pinTarget = null;
     closeDialog($("#dialog-pin"));
@@ -2110,6 +2128,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     toast("Message détaché.", "ok");
   }
 
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let pinReload = null;
   function onPinRealtime() {
     if (stopped) return;
@@ -2120,7 +2139,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Un Post-it (collé en haut du fil, ou petit dans la liste des jetés).
-  function todoNode(postit, options = {}) {
+  function todoNode(/** @type {Postit} */ postit, /** @type {any} */ options = {}) {
     const full = options.button === false && !options.mini;
     const node = el(options.button === false ? "div" : "button", "postit todo" + (options.mini ? " mini" : ""));
     if (options.button !== false) /** @type {HTMLButtonElement} */ (node).type = "button";
@@ -2153,7 +2172,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return node;
   }
 
-  function postitNode(postit, options = {}) {
+  function postitNode(/** @type {Postit} */ postit, /** @type {any} */ options = {}) {
     if (isTodo(postit)) return todoNode(postit, options);
     const node = el(options.button === false ? "div" : "button", "postit" + (options.mini ? " mini" : ""));
     if (options.button !== false) /** @type {HTMLButtonElement} */ (node).type = "button";
@@ -2177,9 +2196,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     postitFreshId = null;
   }
 
+  /** @type {any} */
   let postitEditingId = null;
 
-  function openPostitWrite(editId = null) {
+  function openPostitWrite(/** @type {string} */ editId = null) {
     if (!state.channel) return;
     const editing = editId && postitById(editId);
     postitEditingId = editing ? editId : null;
@@ -2196,9 +2216,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- To-Do : écriture ---------------------------------------------------------------------------------
   const TODO_MAX_ITEMS = 30;
   const TODO_ITEM_MAX = 100;
+  /** @type {any} */
   let todoEditingId = null;
 
-  function addTodoRow(text = "", done = false, focus = false, after = null, by = "") {
+  function addTodoRow(text = "", done = false, focus = false, /** @type {any} */ after = null, by = "") {
     const list = $("#todo-items");
     if (list.children.length >= TODO_MAX_ITEMS) return null;
     const row = el("li");
@@ -2221,7 +2242,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return row;
   }
 
-  function openTodoWrite(editId = null) {
+  function openTodoWrite(/** @type {string} */ editId = null) {
     if (!state.channel) return;
     const editing = editId && postitById(editId);
     todoEditingId = editing ? editId : null;
@@ -2267,7 +2288,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Cocher / décocher : n'importe qui ayant accès au fil.
-  async function setTodoItem(postit, index, done) {
+  async function setTodoItem(/** @type {Postit} */ postit, /** @type {any} */ index, /** @type {any} */ done) {
     const { error } = await supabase.rpc("set_todo_item", { p_id: postit.id, p_index: index, p_done: done });
     if (error) return error;
     const items = todoItems(postit).map((item, i) => {
@@ -2282,7 +2303,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Montre (ou retire) la signature à côté d'une case qui vient d'être cochée (ou décochée).
-  function signTodoRow(box, postit) {
+  function signTodoRow(/** @type {any} */ box, /** @type {Postit} */ postit) {
     const label = box.closest("label");
     if (!label) return;
     for (const old of label.querySelectorAll(".todo-by")) old.remove();
@@ -2320,19 +2341,20 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     setNoticeTodoDone(postit);
   }
 
-  function setNoticeTodoDone(postit) {
+  function setNoticeTodoDone(/** @type {Postit} */ postit) {
     if (todoDone(postit)) setNotice("#postit-read-message", "Toutes les cases sont cochées : la To-Do disparaîtra quand tu fermeras cette feuille. Tu peux encore décocher.", "ok");
     else setNotice("#postit-read-message", "");
   }
 
   // Vue d'ensemble : toutes les To-Do en cours qui me concernent, classées par spectacle.
+  /** @type {{ room: any, list: Postit[] }} */
   let todoView = { room: null, list: [] };
   let todoToken = 0;
 
   // --- Mes notes : un salon personnel par spectacle (migration 026) ---------------------------
 
   const MB = 1048576;
-  const normalizeText = (text) => String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const normalizeText = (/** @type {string} */ text) => String(text).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   function notesUsageLabel() {
     const u = state.notesUsage;
     if (!u) return "";
@@ -2353,6 +2375,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const room = roomById(roomId);
     if (!room) return;
     closeNotesPicker();
+    /** @type {any} */
     let channel = state.allChannels.find((c) => c.kind === "notes" && c.room_id === roomId);
     if (!channel) {
       const { data, error } = await supabase.rpc("open_notes", { rm: roomId });
@@ -2435,7 +2458,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (visible.length) {
       const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
       if (token !== todoToken || stopped) return;
-      gone = new Set((states.data || []).map((r) => r.postit_id));
+      gone = new Set((states.data || []).map((/** @type {any} */ r) => r.postit_id));
     }
     todoView.list = visible.filter((/** @type {Postit} */ p) => !gone.has(p.id) && !todoDone(p));
     await ensureProfiles([...todoView.list.map((p) => p.user_id), ...todoSigners(todoView.list)]);
@@ -2443,7 +2466,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderTodos();
   }
 
-  const todoGroupOf = (postit) => {
+  const todoGroupOf = (/** @type {Postit} */ postit) => {
     const channel = state.allChannels.find((c) => c.id === postit.channel_id);
     if (channel && channel.kind === "notes") return "notes";
     return channel && channel.kind === "channel" && channel.room_id ? channel.room_id : "dm";
@@ -2531,7 +2554,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function savePostitEdit(body) {
+  async function savePostitEdit(/** @type {any} */ body) {
     const id = postitEditingId;
     const postit = id && postitById(id);
     if (!postit) return closeDialog($("#dialog-postit"));
@@ -2646,7 +2669,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if ($("#dialog-postit-trash").hasAttribute("open")) renderPostitTrash();
   }
 
-  async function onPostitRealtime(payload) {
+  async function onPostitRealtime(/** @type {any} */ payload) {
     if (stopped) return;
     if (payload.eventType === "INSERT") {
       const postit = payload.new;
@@ -2748,6 +2771,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Médias du fil : toutes les photos envoyées dans ce fil, la plus récente d'abord, filtrables par date de tournée (#).
   let mediaToken = 0;
+  /** @type {any[]} */
   let mediaItems = [];
   let mediaTags = new Set();
 
@@ -2801,7 +2825,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         })
       );
     }
-    const items = mediaTags.size ? mediaItems.filter((i) => i.tag_ids.some((t) => mediaTags.has(t))) : mediaItems;
+    const items = mediaTags.size ? mediaItems.filter((i) => i.tag_ids.some((/** @type {any} */ t) => mediaTags.has(t))) : mediaItems;
     $("#media-title").textContent = `Médias · ${channelTitle(channel)}${items.length ? ` (${items.length})` : ""}`;
     const grid = $("#media-grid");
     grid.replaceChildren();
@@ -2837,7 +2861,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  function toggleAttachMenu(force) {
+  function toggleAttachMenu(/** @type {any} */ force) {
     const menu = $("#attach-menu");
     const open = force === undefined ? menu.hidden : force;
     menu.hidden = !open;
@@ -2854,7 +2878,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!tag.start_date) return "";
     const a = fromISO(tag.start_date);
     const b = fromISO(tag.end_date || tag.start_date);
-    const m = (d) => d.toLocaleDateString("fr-FR", { month: "short" });
+    const m = (/** @type {any} */ d) => d.toLocaleDateString("fr-FR", { month: "short" });
     if (toISO(a) === toISO(b)) return `${a.getDate()} ${m(a)}`;
     if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${a.getDate()}–${b.getDate()} ${m(b)}`;
     return `${a.getDate()} ${m(a)} → ${b.getDate()} ${m(b)}`;
@@ -2882,7 +2906,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
           a.label.localeCompare(b.label, "fr"),
       );
 
-  function tagChip(/** @type {Tag} */ tag, active, onClick) {
+  function tagChip(/** @type {Tag} */ tag, /** @type {any} */ active, /** @type {any} */ onClick) {
     const chip = el("button", "tag-chip", tag.label);
     chip.type = "button";
     chip.dataset.tag = tag.id;
@@ -2901,7 +2925,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       return false;
     }
   }
-  function setDatesOpen(open) {
+  function setDatesOpen(/** @type {any} */ open) {
     try {
       localStorage.setItem(DATES_KEY, open ? "1" : "0");
     } catch {
@@ -3027,7 +3051,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Une pastille par couleur de production concernée (la plus proche en premier), au plus 3.
-  function fillDots(box, list) {
+  function fillDots(/** @type {any} */ box, /** @type {any} */ list) {
     box.replaceChildren();
     const hues = [...new Set(list.map(hueOfTag))].slice(0, 3);
     for (const hue of hues) {
@@ -3106,11 +3130,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Documents PDF des dates -------------------------------------------------------------
 
-  const docsOfTag = (tagId) => state.tagDocs.filter((d) => d.tag_id === tagId);
+  const docsOfTag = (/** @type {string} */ tagId) => state.tagDocs.filter((d) => d.tag_id === tagId);
   const docsOfRoom = (/** @type {string} */ roomId) => {
     const ids = new Set(state.tags.filter((t) => t.room_id === roomId).map((t) => t.id));
     return state.tagDocs.filter((d) => ids.has(d.tag_id));
   };
+  /** @type {any} */
   let docsTarget = null; // date qui reçoit les fichiers choisis
 
   // Fiches techniques : la version la plus récente d'abord.
@@ -3142,7 +3167,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     openDialog("#dialog-sheet");
   }
 
-  function sheetRow(sheet, latest) {
+  function sheetRow(/** @type {any} */ sheet, /** @type {any} */ latest) {
     const row = el("div", "doc-row");
     const open = docLink(sheet, "doc-open" + (latest ? " latest" : ""));
     open.append(docIcon(sheet), el("span", "doc-name", sheet.name), el("small", "muted", docMeta(sheet)));
@@ -3178,7 +3203,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Ajoute à la fiche des fichiers (PDF, images) ; un intitulé n'est pris en compte que pour un fichier seul.
-  async function addSheetFiles(files) {
+  async function addSheetFiles(/** @type {any} */ files) {
     const roomId = currentRoomId();
     if (!roomId || !canEditSheet(roomId) || !files.length) return;
     const date = $("#sheet-date").value;
@@ -3245,9 +3270,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderTagBar();
   }
 
+  /** @type {any} */
   let docsOnlyTag = null;
 
-  function openDocs(tagId) {
+  function openDocs(/** @type {string} */ tagId) {
     if (!currentRoomId()) return;
     docsOnlyTag = typeof tagId === "string" ? tagId : null;
     const room = roomById(currentRoomId());
@@ -3311,6 +3337,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
+  /** @type {any} */
   let linkTarget = null; // date qui reçoit le lien en cours de saisie
 
   async function addDocumentLink() {
@@ -3331,7 +3358,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderTagBar();
   }
 
-  async function addDocuments(files) {
+  async function addDocuments(/** @type {any} */ files) {
     const tag = docsTarget && tagById(docsTarget);
     docsTarget = null;
     if (!tag || !canEditRoadmap(tag.room_id)) return;
@@ -3365,12 +3392,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // Les PDF sont de vrais liens (touchés directement par la personne) : aucun blocage de fenêtre, même sur téléphone.
   const docUrls = new Map(); // chemin -> { url, at }
   let signQueue = new Map(); // chemin -> liens à renseigner
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let signTimer = null;
 
-  const isLinkDoc = (doc) => doc.kind === "link";
-  const docIcon = (doc) => icon(isLinkDoc(doc) ? "link" : "file");
+  const isLinkDoc = (/** @type {any} */ doc) => doc.kind === "link";
+  const docIcon = (/** @type {any} */ doc) => icon(isLinkDoc(doc) ? "link" : "file");
   // Précision affichée à droite : taille du fichier, ou site du lien.
-  function docMeta(doc) {
+  function docMeta(/** @type {any} */ doc) {
     if (!isLinkDoc(doc)) return sizeLabel(doc.size_bytes);
     try {
       return new URL(cleanUrl(doc.url)).hostname.replace(/^www\./, "");
@@ -3379,7 +3407,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  function docLink(doc, className) {
+  function docLink(/** @type {any} */ doc, /** @type {string} */ className) {
     const link = el("a", className);
     link.target = "_blank";
     link.rel = "noopener noreferrer";
@@ -3450,10 +3478,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   };
 
   // Grille d'une semaine (ou d'une frise) : cases des jours, ★ des représentations et frises des dates.
-  function weekGrid(days, tags, lanes, opts = {}) {
+  function weekGrid(/** @type {any} */ days, /** @type {any} */ tags, /** @type {any} */ lanes, /** @type {any} */ opts = {}) {
     const isos = days.map(toISO);
-    const placed = tags.filter((t) => t.start_date && isos.some((x) => x >= t.start_date && x <= t.end_date));
-    const laneCount = placed.length ? Math.max(...placed.map((t) => lanes.get(t.id) ?? 0)) + 1 : 0;
+    const placed = tags.filter((/** @type {any} */ t) => t.start_date && isos.some((/** @type {any} */ x) => x >= t.start_date && x <= t.end_date));
+    const laneCount = placed.length ? Math.max(...placed.map((/** @type {any} */ t) => lanes.get(t.id) ?? 0)) + 1 : 0;
     const barH = opts.compact ? 18 : 22;
     const grid = el("div", "cal-week" + (opts.compact ? " compact" : ""));
     grid.style.gridTemplateColumns = `repeat(${days.length}, minmax(0, 1fr))`;
@@ -3462,7 +3490,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     grid.style.gridTemplateRows = `${headH}px repeat(${laneCount}, ${barH}px) ${tail}px`;
     const today = toISO(new Date());
 
-    days.forEach((day, index) => {
+    days.forEach((/** @type {any} */ day, /** @type {any} */ index) => {
       const cell = el("div", "cal-day");
       cell.dataset.day = isos[index];
       cell.style.gridColumn = String(index + 1);
@@ -3478,7 +3506,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
 
     for (const tag of placed) {
-      const first = isos.findIndex((x) => x >= tag.start_date && x <= tag.end_date);
+      const first = isos.findIndex((/** @type {any} */ x) => x >= tag.start_date && x <= tag.end_date);
       let last = first;
       while (last + 1 < isos.length && isos[last + 1] <= tag.end_date) last += 1;
       const label = opts.showRoom ? `${roomById(tag.room_id)?.name || ""} · ${tag.label}` : tag.label;
@@ -3556,7 +3584,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     guardHistory();
   }
 
-  function shiftMonth(delta) {
+  function shiftMonth(/** @type {any} */ delta) {
     state.calMonth = new Date(state.calMonth.getFullYear(), state.calMonth.getMonth() + delta, 1);
     state.calDay = null;
     renderCalendar();
@@ -3600,14 +3628,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderDayDetail(tags);
   }
 
-  function renderDayDetail(tags) {
+  function renderDayDetail(/** @type {any} */ tags) {
     const box = $("#cal-detail");
     box.replaceChildren();
     box.hidden = !state.calDay;
     if (!state.calDay) return;
     box.append(el("strong", "", fromISO(state.calDay).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" })));
     const that = tags.filter(
-      (t) => (t.start_date && state.calDay >= t.start_date && state.calDay <= t.end_date) || (t.shows || []).includes(state.calDay)
+      (/** @type {any} */ t) => (t.start_date && state.calDay >= t.start_date && state.calDay <= t.end_date) || (t.shows || []).includes(state.calDay)
     );
     if (!that.length) box.append(el("p", "muted", "Rien de prévu ce jour-là."));
     for (const tag of that) {
@@ -3615,7 +3643,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       row.type = "button";
       row.dataset.openTag = tag.id;
       row.style.setProperty("--h", String(hueOfTag(tag)));
-      const nShows = (tag.shows || []).filter((d) => d === state.calDay).length;
+      const nShows = (tag.shows || []).filter((/** @type {any} */ d) => d === state.calDay).length;
       const star = nShows ? ` ★ ${nShows > 1 ? nShows + " représentations" : "représentation"}` : "";
       row.append(el("span", "cal-swatch"), el("span", "", `${roomById(tag.room_id)?.name || ""} · ${tag.label}${star}`));
       box.append(row);
@@ -3628,7 +3656,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Touche une frise : ouvre le spectacle sur cette date (en changeant d'espace si besoin).
-  async function openTagFromCalendar(tagId, { filtered = true } = {}) {
+  async function openTagFromCalendar(/** @type {string} */ tagId, { filtered = true } = {}) {
     const tag = tagById(tagId);
     const room = tag && roomById(tag.room_id);
     if (!room) return;
@@ -3685,6 +3713,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Saisie de « # » : propose les dates du salon ; le choix ajoute la date au message.
   let suggestIndex = 0;
+  /** @type {any[]} */
   let suggestItems = [];
 
   function hashQuery() {
@@ -3766,9 +3795,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   /** @type {string[]} */
   let editingShows = []; // une entrée par représentation (un même jour peut en avoir plusieurs : matinée, soirée…)
+  /** @type {any} */
   let rangePicker = null;
   /** @type {any} */
   let showsPicker = null;
+  /** @type {any} */
   let pendingShowDay = null;
 
   const showCounts = () => {
@@ -3811,7 +3842,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         grid.append(button);
       }
     }
-    const go = (delta) => {
+    const go = (/** @type {any} */ delta) => {
       month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
       render();
     };
@@ -3866,7 +3897,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     };
   }
 
-  function setRange(start, end) {
+  function setRange(/** @type {any} */ start, /** @type {any} */ end) {
     $("#tag-start").value = start || "";
     $("#tag-end").value = end || "";
     renderRangeSummary();
@@ -3941,7 +3972,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#show-choice").hidden = false;
   }
 
-  function answerShowChoice(choice) {
+  function answerShowChoice(/** @type {any} */ choice) {
     const iso = pendingShowDay;
     pendingShowDay = null;
     $("#show-choice").hidden = true;
@@ -3955,9 +3986,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderShowChips();
   }
 
-  function setupTagPickers(on) {
+  function setupTagPickers(/** @type {any} */ on) {
     rangePicker = makeMonthPicker($("#tag-range-picker"), {
-      mark(/** @type {string} */ iso, button) {
+      mark(/** @type {string} */ iso, /** @type {any} */ button) {
         const start = $("#tag-start").value;
         const end = $("#tag-end").value || start;
         if (start && iso >= start && iso <= end) button.classList.add("in-range");
@@ -3965,10 +3996,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         if (end && iso === end) button.classList.add("range-end");
       },
       onTap: tapRange,
-      onDrag: (a, b) => setRange(a, b),
+      onDrag: (/** @type {any} */ a, /** @type {any} */ b) => setRange(a, b),
     }, on);
     showsPicker = makeMonthPicker($("#tag-shows-picker"), {
-      mark(/** @type {string} */ iso, button) {
+      mark(/** @type {string} */ iso, /** @type {any} */ button) {
         const start = $("#tag-start").value;
         const end = $("#tag-end").value || start;
         if (start && iso >= start && iso <= end) button.classList.add("in-range");
@@ -4057,7 +4088,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     state.tags = state.tags.filter((t) => t.id !== id);
     state.tagFilter.delete(id);
     state.composerTags.delete(id);
-    state.messages = state.messages.map((m) => ({ ...m, tag_ids: (m.tag_ids || []).filter((t) => t !== id) }));
+    state.messages = state.messages.map((m) => ({ ...m, tag_ids: (m.tag_ids || []).filter((/** @type {any} */ t) => t !== id) }));
     if (editingTag && editingTag.id === id) {
       editingTag = null;
       tagFormOpen = false;
@@ -4079,7 +4110,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       return false;
     }
     if (target && target.attachments && target.attachments.length) {
-      removeMessageImages(supabase, target.attachments.map((a) => a.path).filter(Boolean));
+      removeMessageImages(supabase, target.attachments.map((/** @type {any} */ a) => a.path).filter(Boolean));
     }
     removeMessage(id);
     return true;
@@ -4110,7 +4141,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (stopped) return;
     list.replaceChildren();
     if (error) return list.append(el("li", "muted", "Liste indisponible : " + error.message + (/platform_workspaces|schema cache/i.test(error.message) ? " (exécute la migration 030)." : "")));
-    const others = (data || []).filter((w) => !w.joined);
+    const others = (data || []).filter((/** @type {any} */ w) => !w.joined);
     if (!others.length) return list.append(el("li", "muted", "Aucun autre espace."));
     for (const w of others) {
       const item = el("li", "platform-row");
@@ -4127,7 +4158,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function joinSupport(wsId) {
+  async function joinSupport(/** @type {string} */ wsId) {
     const { error } = await supabase.rpc("join_workspace_as_support", { ws: wsId });
     if (error) return toast("Impossible de rejoindre cet espace : " + error.message, "error");
     closeDialog($("#dialog-switch"));
@@ -4197,7 +4228,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#space-photo-remove").hidden = !safeAvatarUrl(state.ws.avatar);
   }
 
-  async function pickSpacePhoto(file) {
+  async function pickSpacePhoto(/** @type {any} */ file) {
     if (!file || !state.ws || !isAdmin()) return;
     if (!state.avatarColumn) return setNotice("#members-message", "Exécute d'abord la migration 007 dans Supabase (README).");
     if (!/^image\//.test(file.type)) return setNotice("#members-message", "Choisis une image.");
@@ -4223,7 +4254,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  function setWsAvatar(url) {
+  function setWsAvatar(/** @type {string} */ url) {
     state.ws.avatar = url;
     const known = state.workspaces.find((w) => w.id === state.ws.id);
     if (known) known.avatar = url;
@@ -4239,7 +4270,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderSwatches($("#theme-swatches"), themeFor(state.ws).key, changeTheme);
   }
 
-  async function changeTheme(key) {
+  async function changeTheme(/** @type {string} */ key) {
     if (!state.ws || !isAdmin()) return;
     const { error } = await supabase.from("workspaces").update({ theme: key }).eq("id", state.ws.id);
     if (error) {
@@ -4255,16 +4286,16 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- Boîtes de dialogue : salons ------------------------------------------------
 
   // Utilisateurs (non administrateurs) de l'espace courant, pour choisir qui a accès à un salon.
-  async function workspaceUsers(wsId) {
+  async function workspaceUsers(/** @type {string} */ wsId) {
     let { data, error } = await supabase.from("workspace_members").select("user_id, role, support").eq("workspace_id", wsId);
     // Colonne « support » absente tant que la migration 031 n'est pas exécutée : on relit sans elle.
     if (error) ({ data, error } = await supabase.from("workspace_members").select("user_id, role").eq("workspace_id", wsId));
     if (error) return [];
-    await ensureProfiles((data || []).map((row) => row.user_id));
-    return (data || []).slice().sort((a, b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
+    await ensureProfiles((data || []).map((/** @type {any} */ row) => row.user_id));
+    return (data || []).slice().sort((/** @type {any} */ a, /** @type {any} */ b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
   }
 
-  function renderPick(container, rows, checkedIds) {
+  function renderPick(/** @type {any} */ container, /** @type {any} */ rows, /** @type {any} */ checkedIds) {
     container.replaceChildren();
     for (const row of rows) {
       const item = el("li");
@@ -4280,21 +4311,21 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  const accessMode = (name) => /** @type {HTMLInputElement | null} */ (document.querySelector(`input[name="${name}"]:checked`))?.value || "everyone";
+  const accessMode = (/** @type {string} */ name) => /** @type {HTMLInputElement | null} */ (document.querySelector(`input[name="${name}"]:checked`))?.value || "everyone";
 
   // Utilisateurs (non administrateurs) qui ont accès à un salon : base du choix pour ses sous-salons.
   async function roomUsers(/** @type {Room} */ room) {
-    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
+    const users = (await workspaceUsers(state.ws.id)).filter((/** @type {any} */ row) => row.role !== "admin");
     if (room.everyone) return users;
     const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
-    const ids = new Set((data || []).map((row) => row.user_id));
-    return users.filter((row) => ids.has(row.user_id));
+    const ids = new Set((data || []).map((/** @type {any} */ row) => row.user_id));
+    return users.filter((/** @type {any} */ row) => ids.has(row.user_id));
   }
 
   // Aligne une table d'assignations (room_members ou channel_members) sur la liste cochée.
-  async function syncMembers(table, keyColumn, keyValue, wanted) {
+  async function syncMembers(/** @type {any} */ table, /** @type {any} */ keyColumn, /** @type {any} */ keyValue, /** @type {any} */ wanted) {
     const { data: current } = await supabase.from(table).select("user_id").eq(keyColumn, keyValue);
-    const have = new Set((current || []).map((row) => row.user_id));
+    const have = new Set((current || []).map((/** @type {any} */ row) => row.user_id));
     const want = new Set(wanted);
     const added = [...want].filter((id) => !have.has(id));
     const removed = [...have].filter((id) => !want.has(id));
@@ -4322,9 +4353,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let checked = new Set();
     if (room) {
       const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
-      checked = new Set((data || []).map((row) => row.user_id));
+      checked = new Set((data || []).map((/** @type {any} */ row) => row.user_id));
     }
-    const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
+    const users = (await workspaceUsers(state.ws.id)).filter((/** @type {any} */ row) => row.role !== "admin");
     renderPick($("#room-pick"), users, checked);
   }
 
@@ -4339,11 +4370,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const button = $("#room-submit");
     button.disabled = true;
     setNotice("#room-message", "");
-    const fail = (error) => {
+    const fail = (/** @type {any} */ error) => {
       button.disabled = false;
       setNotice("#room-message", error.code === "23505" ? "Un spectacle porte déjà ce nom." : "Enregistrement impossible : " + error.message);
     };
 
+    /** @type {any} */
     let room;
     let firstChannel = null;
     if (editingRoom) {
@@ -4398,7 +4430,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Équipe du spectacle : accès et fonctions (Technique, Prod, RG) ---
 
+  /** @type {any} */
   let teamRoom = null;
+  /** @type {any} */
   let teamStart = null; // état de départ : userId -> { access, functions, sheet_read }
   const TEAM_FUNCTIONS = [["technique", "Technique"], ["prod", "Prod"], ["rg", "RG"]];
 
@@ -4420,8 +4454,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       workspaceUsers(state.ws.id),
     ]);
     if (stopped || teamRoom !== room) return;
-    const access = new Set((members.data || []).map((row) => row.user_id));
-    const staffBy = new Map((staff.data || []).map((row) => [row.user_id, row]));
+    const access = new Set((members.data || []).map((/** @type {any} */ row) => row.user_id));
+    const staffBy = new Map((staff.data || []).map((/** @type {any} */ row) => [row.user_id, row]));
     teamStart = new Map();
     const list = $("#team-list");
     list.replaceChildren();
@@ -4441,7 +4475,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const start = { access: room.everyone || access.has(row.user_id), functions: st ? st.functions : [], sheet_read: Boolean(st && st.sheet_read) };
       teamStart.set(row.user_id, start);
       const opts = el("div", "team-opts");
-      const addBox = (key, label, checked) => {
+      const addBox = (/** @type {string} */ key, /** @type {any} */ label, /** @type {any} */ checked) => {
         const l = el("label", "choice");
         const box = el("input");
         box.type = "checkbox";
@@ -4477,7 +4511,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const want = new Map();
     for (const item of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("#team-list .team-row"))) {
       if (!teamStart.has(item.dataset.user)) continue;
-      const value = (key) => Boolean(/** @type {HTMLInputElement | null} */ (item.querySelector(`[data-opt="${key}"]`))?.checked);
+      const value = (/** @type {string} */ key) => Boolean(/** @type {HTMLInputElement | null} */ (item.querySelector(`[data-opt="${key}"]`))?.checked);
       const functions = TEAM_FUNCTIONS.map(([key]) => key).filter(value);
       want.set(item.dataset.user, { access: room.everyone || value("access"), functions, sheet_read: value("sheet_read") || functions.length > 0 });
     }
@@ -4537,7 +4571,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let checked = new Set();
     if (channel) {
       const { data } = await supabase.from("channel_members").select("user_id").eq("channel_id", channel.id);
-      checked = new Set((data || []).map((row) => row.user_id));
+      checked = new Set((data || []).map((/** @type {any} */ row) => row.user_id));
     }
     renderPick($("#channel-pick"), await roomUsers(room), checked);
   }
@@ -4555,6 +4589,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     button.disabled = true;
     setNotice("#channel-message", "");
 
+    /** @type {any} */
     let channel;
     if (editingChannel) {
       const { data, error } = await supabase
@@ -4592,7 +4627,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (created) await selectChannel(channel.id);
   }
 
-  function channelError(error, button) {
+  function channelError(/** @type {any} */ error, /** @type {any} */ button) {
     button.disabled = false;
     const text = error.code === "23505" ? "Un sous-salon porte déjà ce nom dans ce spectacle." : "Enregistrement impossible : " + error.message;
     setNotice("#channel-message", text);
@@ -4610,10 +4645,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Recherche dans les messages -----------------------------------------------------
 
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let searchTimer = null;
   let searchToken = 0;
 
-  function openSearch(scope) {
+  function openSearch(/** @type {string} */ scope) {
     const select = $("#search-scope");
     /** @type {HTMLOptionElement} */ (select.querySelector('option[value="here"]')).disabled = !state.channel;
     select.value = scope === "here" && state.channel ? "here" : "all";
@@ -4638,7 +4674,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Même texte sans accents ni majuscules, avec la position de chaque lettre dans le texte d'origine.
-  function folded(text) {
+  function folded(/** @type {string} */ text) {
     let out = "";
     const origin = [];
     let index = 0;
@@ -4654,7 +4690,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Extrait autour de la première occurrence, occurrences surlignées (sans innerHTML), accents et majuscules ignorés.
-  function highlighted(text, needle) {
+  function highlighted(/** @type {string} */ text, /** @type {any} */ needle) {
     const box = el("span", "search-excerpt");
     const flat = String(text || "").replace(/\s+/g, " ").trim();
     const f = folded(flat);
@@ -4712,8 +4748,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       status.textContent = "Recherche impossible : " + error.message;
       return;
     }
-    const rows = (data || []).filter((m) => state.allChannels.some((c) => c.id === m.channel_id));
-    await ensureProfiles(rows.map((m) => m.user_id));
+    const rows = (data || []).filter((/** @type {any} */ m) => state.allChannels.some((c) => c.id === m.channel_id));
+    await ensureProfiles(rows.map((/** @type {any} */ m) => m.user_id));
     if (stopped || token !== searchToken) return;
     status.textContent = rows.length ? (rows.length === 50 ? "50 résultats les plus récents." : `${rows.length} résultat${rows.length > 1 ? "s" : ""}.`) : "Aucun message trouvé.";
     for (const message of rows) {
@@ -4732,7 +4768,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function openFoundMessage(button) {
+  async function openFoundMessage(/** @type {any} */ button) {
     const channel = state.allChannels.find((c) => c.id === button.dataset.channel);
     if (!channel) return;
     closeDialog($("#dialog-search"));
@@ -4751,6 +4787,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Messages privés ----------------------------------------------------------------
 
+  /** @type {any[]} */
   let dmCandidates = [];
 
   async function openDmPicker() {
@@ -4758,14 +4795,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     setNotice("#dm-message", "");
     $("#dm-search").value = "";
     openDialog("#dialog-dm");
-    const people = (await workspaceUsers(state.ws.id)).filter((row) => row.user_id !== user.id).map((row) => row.user_id);
+    const people = (await workspaceUsers(state.ws.id)).filter((/** @type {any} */ row) => row.user_id !== user.id).map((/** @type {any} */ row) => row.user_id);
     // Les fils déjà ouverts d'abord (du plus récent au plus ancien), puis les autres personnes de l'espace.
     const threads = dms().map((channel) => ({ user_id: dmPartner(channel), thread: channel })).filter((c) => c.user_id);
     const withThread = new Set(threads.map((c) => c.user_id));
     const others = people
-      .filter((id) => !withThread.has(id))
-      .map((id) => ({ user_id: id, thread: null }))
-      .sort((a, b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
+      .filter((/** @type {string} */ id) => !withThread.has(id))
+      .map((/** @type {string} */ id) => ({ user_id: id, thread: /** @type {any} */ (null) }))
+      .sort((/** @type {any} */ a, /** @type {any} */ b) => authorName(a.user_id).localeCompare(authorName(b.user_id), "fr"));
     dmCandidates = [...threads, ...others];
     renderDmPick();
     setTimeout(() => $("#dm-search").focus(), 50);
@@ -4825,13 +4862,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let allowed = null; // null : tous les non-administrateurs de l'espace
     if (!channel.everyone) {
       const { data } = await supabase.from("channel_members").select("user_id").eq("channel_id", channel.id);
-      allowed = new Set((data || []).map((row) => row.user_id));
+      allowed = new Set((data || []).map((/** @type {any} */ row) => row.user_id));
     } else if (room && !room.everyone) {
       const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
-      allowed = new Set((data || []).map((row) => row.user_id));
+      allowed = new Set((data || []).map((/** @type {any} */ row) => row.user_id));
     }
     if (state.channel !== channel) return;
-    const rows = users.filter((row) => row.role === "admin" || !allowed || allowed.has(row.user_id));
+    const rows = users.filter((/** @type {any} */ row) => row.role === "admin" || !allowed || allowed.has(row.user_id));
     list.replaceChildren();
     for (const row of rows) {
       const item = el("li");
@@ -4848,7 +4885,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!list.children.length) list.append(el("li", "muted", "Personne pour l'instant."));
   }
 
-  async function startDm(otherId) {
+  async function startDm(/** @type {any} */ otherId) {
     const existing = dms().find((c) => dmPartner(c) === otherId);
     if (existing) {
       closeDialog($("#dialog-dm"));
@@ -4948,7 +4985,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function changeRole(userId, role) {
+  async function changeRole(/** @type {string} */ userId, /** @type {string} */ role) {
     const { error } = await supabase
       .from("workspace_members")
       .update({ role })
@@ -4959,7 +4996,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await refreshMembers();
   }
 
-  async function removeMember(userId) {
+  async function removeMember(/** @type {string} */ userId) {
     if (!window.confirm(`Retirer ${authorName(userId)} de l'espace « ${state.ws.name} » ?`)) return;
     const { error } = await supabase
       .from("workspace_members")
@@ -5071,7 +5108,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#invite-salons-box").hidden = !any;
   }
 
-  async function functionMessage(error) {
+  async function functionMessage(/** @type {any} */ error) {
     try {
       const body = await error.context.json();
       if (body && body.error) return body.error;
@@ -5188,7 +5225,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#profile-title").focus();
   }
 
-  async function pickPhoto(file) {
+  async function pickPhoto(/** @type {any} */ file) {
     if (!file) return;
     if (!/^image\//.test(file.type)) return setNotice("#profile-message", "Choisis une image.");
     setNotice("#profile-message", "Envoi de la photo…", "ok");
@@ -5284,7 +5321,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const box = $("#push-box");
     if (!box) return;
     box.dataset.status = status;
-    $("#push-status").textContent = PUSH_TEXT[status] || "";
+    $("#push-status").textContent = /** @type {Record<string, string>} */ (PUSH_TEXT)[status] || "";
     const toggle = $("#push-toggle");
     toggle.hidden = status !== "on" && status !== "off";
     toggle.textContent = status === "on" ? "Désactiver sur cet appareil" : "Activer sur cet appareil";
@@ -5308,7 +5345,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await refreshPushStatus();
   }
 
-  function muteRow(scope, /** @type {string} */ id, name, extra) {
+  /** @param {import("./types.js").MuteScope} scope @param {string} id @param {string} name @param {any=} extra */
+  function muteRow(scope, id, name, extra) {
     const row = state.mutes.get(muteKey(scope, id));
     const choice = choiceOf(row);
     const item = el("li", "mute-row");
@@ -5406,7 +5444,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     refreshPushStatus();
   }
 
-  async function setMute(scope, /** @type {string} */ id, choice) {
+  /** @param {import("./types.js").MuteScope} scope @param {string} id @param {any} choice */
+  async function setMute(scope, id, choice) {
     const fields = muteFromChoice(choice);
     const key = muteKey(scope, id);
     let error;
@@ -5500,7 +5539,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#channel-delete"), "click", deleteChannel);
     on($("#new-dm"), "click", openDmPicker);
     // Roue crantée du profil : regroupe espace et membres, notifications, installation, déconnexion.
-    const meMenu = (open) => {
+    const meMenu = (/** @type {any} */ open) => {
       $("#me-menu").hidden = !open;
       $("#me-menu-button").setAttribute("aria-expanded", String(open));
     };
@@ -5541,7 +5580,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       renderPushStatus();
     });
     // Glisser vers la droite dans un fil : ouvre le menu (hors calendrier).
-    onSwipe($("#messages"), (dir, origin) => {
+    onSwipe($("#messages"), (/** @type {any} */ dir, /** @type {any} */ origin) => {
       if (state.calendarOpen) return;
       const row = origin && origin.closest ? origin.closest(".msg") : null;
       if (dir < 0) {
@@ -5561,7 +5600,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const box = $("#messages");
       /** @type {any} */
       let drag = null;
-      const settle = (row) => {
+      const settle = (/** @type {any} */ row) => {
         if (!row) return;
         row.classList.remove("swiping", "armed");
         row.classList.add("swipe-back");
@@ -5846,7 +5885,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#select-cancel"), "click", clearMulti);
     // Mise en forme : sélectionne du texte puis touche G, I ou S (ou Ctrl+B / Ctrl+I) ; sans sélection, place les marqueurs autour du curseur.
     const field = $("#composer-input");
-    const wrapSelection = (marker) => {
+    const wrapSelection = (/** @type {any} */ marker) => {
       let { selectionStart: a, selectionEnd: b, value } = field;
       while (a < b && /\s/.test(value[a])) a++;
       while (b > a && /\s/.test(value[b - 1])) b--;
@@ -5877,7 +5916,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
     on(field, "keydown", (event) => {
       if (!(event.ctrlKey || event.metaKey) || event.altKey) return;
-      const marker = { b: "*", i: "_" }[event.key.toLowerCase()];
+      const marker = /** @type {Record<string, string>} */ ({ b: "*", i: "_" })[event.key.toLowerCase()];
       if (!marker) return;
       event.preventDefault();
       wrapSelection(marker);
@@ -6102,14 +6141,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       }
     });
     // Glisser du doigt : à gauche sur la liste pour la fermer ; à gauche/droite sur le calendrier pour changer de mois.
-    onSwipe($("#sidebar"), (dir) => {
+    onSwipe($("#sidebar"), (/** @type {any} */ dir) => {
       if (dir < 0 && isMobile()) closeSidebar();
     }, opts);
-    onSwipe($("#calendar"), (dir) => {
+    onSwipe($("#calendar"), (/** @type {any} */ dir) => {
       if (state.calendarOpen) shiftMonth(dir < 0 ? 1 : -1);
     }, opts);
     // Menu ⋮ de l'en-tête (téléphone) : regroupe les petits boutons.
-    const toolsMenu = (open) => {
+    const toolsMenu = (/** @type {any} */ open) => {
       $("#head-tools").classList.toggle("open", open);
       $("#head-more").setAttribute("aria-expanded", String(open));
     };
@@ -6191,6 +6230,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     // Un appui à l'extérieur d'une fenêtre la ferme (comme « Retour »). Le geste doit commencer ET finir sur le fond :
     // sélectionner du texte en sortant de la fenêtre ne la ferme pas.
+    /** @type {any} */
     let backdropDown = null;
     const backdropHit = (/** @type {any} */ event) => {
       const dialog = event.target;
@@ -6353,6 +6393,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     flushOutbox();
   }
 
+  /** @type {ReturnType<typeof setTimeout> | null} */
   let outboxTimer = null;
 
   // Partage l'adresse de l'application (feuille de partage du téléphone, sinon copie dans le presse-papiers).

@@ -145,7 +145,7 @@ export function setupInk({ dialog, onDone, toast }: InkOptions): () => void {
     return [event.clientX - r.left, event.clientY - r.top];
   }
 
-  function startGesture() {
+  function startGesture(): null | void {
     const pts = [...state.pointers.values()];
     if (pts.length < 2) return (state.gesture = null);
     const [a, b] = pts;

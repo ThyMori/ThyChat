@@ -1,6 +1,6 @@
 {
-  // Vérification de messagerie.js (resté en JavaScript) : mode souple, on resserre petit à petit.
+  // Vérification de messagerie.js (resté en JavaScript) : mode souple mais sans « any » implicite.
   "extends": "./tsconfig.json",
-  "compilerOptions": { "checkJs": true, "strict": false },
+  "compilerOptions": { "checkJs": true, "strict": false, "noImplicitAny": true },
   "include": ["js/messagerie.js", "js/globals.d.ts"]
 }

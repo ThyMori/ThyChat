@@ -1,6 +1,6 @@
 # ThyChat — consignes pour Claude
 
-Messagerie professionnelle pour les équipes de spectacle vivant de Thierry. Application web installable (PWA) statique, publiée par GitHub Pages sur `thychat.thierry-morin.com`, avec Supabase (authentification, base Postgres, temps réel). Build par `scripts/build.mjs` (esbuild, **sans regroupement** : mêmes noms de fichiers `js/xxx.js`, donc la liste `SHELL` de `sw.js` ne change pas) ; GitHub Actions vérifie, teste, construit `dist/` puis publie. Le code est en cours de passage à TypeScript, fichier par fichier.
+Messagerie professionnelle pour les équipes de spectacle vivant de Thierry. Application web installable (PWA) statique, publiée par GitHub Pages sur `thychat.thierry-morin.com`, avec Supabase (authentification, base Postgres, temps réel). Build par `scripts/build.mjs` (esbuild, **sans regroupement** : mêmes noms de fichiers `js/xxx.js`, donc la liste `SHELL` de `sw.js` ne change pas) ; GitHub Actions vérifie, teste, construit `dist/` puis publie. Le code est en cours de passage à TypeScript, fichier par fichier ; `messagerie.js` reste en JavaScript mais est vérifié par `tsc` (JSDoc, `noImplicitAny`) : tout nouveau paramètre ou variable y reçoit un type en commentaire `/** @type {…} */`.
 
 ## Versions (à faire à chaque livraison)
 

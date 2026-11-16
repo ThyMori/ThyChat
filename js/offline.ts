@@ -163,10 +163,10 @@ export function withReadCache<C extends SupabaseClient<any, any, any>>(client: C
     const run = async (): Promise<any> => {
       if (write || calls.some(([name]) => name === "ilike")) return current; // pas de cache pour les écritures ni la recherche
       const key = `${userId}|${hash(table + JSON.stringify(calls))}`;
-      const cachedPromise = store.getRead(key).catch(() => undefined);
+      const cachedPromise = store.getRead(key).catch((): undefined => undefined);
       const serve = (cached: ReadEntry) => {
         onServed();
-        return { data: cached.data, count: cached.count ?? null, error: null, status: 200, statusText: "OK (appareil)" };
+        return { data: cached.data, count: cached.count ?? null, error: null as any, status: 200, statusText: "OK (appareil)" };
       };
       if (!isOnline()) {
         const cached = await cachedPromise;
@@ -180,7 +180,7 @@ export function withReadCache<C extends SupabaseClient<any, any, any>>(client: C
           }
           return result;
         },
-        (error: any) => ({ data: null, error: { message: String((error && error.message) || error) }, status: 0 })
+        (error: any) => ({ data: null as any, error: { message: String((error && error.message) || error) }, status: 0 })
       );
       const cached = await cachedPromise;
       let result: any;
