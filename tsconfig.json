@@ -13,7 +13,7 @@
     "isolatedModules": true,
     // L'application charge Supabase depuis un CDN ; pour les types on lit la copie installée.
     "baseUrl": ".",
-    "paths": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm": ["node_modules/@supabase/supabase-js"] }
+    "paths": { "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm": ["node_modules/@supabase/supabase-js/dist/index.d.mts"] }
   },
   "include": ["js/**/*"]
 }

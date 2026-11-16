@@ -3,16 +3,21 @@ import { createChat } from "./messagerie.js";
 import { initInstall } from "./install.js";
 import { VERSION } from "./version.js";
 import { watchUpdates } from "./updates.js";
+import type { Session } from "@supabase/supabase-js";
+import type { Db } from "./types.js";
 
-const $ = (selector) => document.querySelector(selector);
+// Le client n'existe que si la configuration est renseignée ; chaque fonction qui s'en sert vérifie `isConfigured` avant.
+const sb = supabase as Db;
+
+const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector(selector) as T;
 
 // Numéro de version, affiché en petit en bas de la connexion et de la barre latérale.
 for (const node of document.querySelectorAll(".app-version")) node.textContent = `v${VERSION}`;
 
 // iPhone, application installée : iOS donne parfois une marge de sécurité nulle au démarrage, et l'en-tête
 // passe alors sous l'encoche / l'heure. On mesure la marge réelle et, si elle est nulle, on en impose une.
-function fixSafeTop() {
-  const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+function fixSafeTop(): void {
+  const standalone = (window.navigator as Navigator & { standalone?: boolean }).standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
   const ios = /iPhone|iPad|iPod/.test(window.navigator.userAgent);
   const root = document.documentElement;
   if (!standalone || !ios) return;
@@ -33,23 +38,23 @@ document.addEventListener("visibilitychange", () => !document.hidden && fixSafeT
 initInstall();
 const SCREENS = ["loading", "login", "set-password", "app"];
 
-function show(name) {
+function show(name: string): void {
   if (name !== "loading") window.__booted = true;
   for (const screen of SCREENS) {
     $(`#screen-${screen}`).hidden = screen !== name;
   }
 }
 
-function setMessage(element, text, kind = "error") {
+function setMessage(element: HTMLElement, text: string, kind = "error"): void {
   element.textContent = text || "";
   element.dataset.kind = kind;
   element.hidden = !text;
 }
 
-function setBusy(button, busy, busyLabel) {
+function setBusy(button: HTMLButtonElement, busy: boolean, busyLabel?: string): void {
   if (busy) {
     button.dataset.label = button.textContent;
-    button.textContent = busyLabel;
+    button.textContent = busyLabel ?? "";
   } else if (button.dataset.label) {
     button.textContent = button.dataset.label;
   }
@@ -64,7 +69,7 @@ if ("serviceWorker" in navigator) {
     });
   });
   // Nouvelle version prête : un bandeau propose de recharger (jamais de rechargement sans prévenir).
-  watchUpdates({ onUpdate: () => ($("#update-bar").hidden = false) });
+  watchUpdates({ onUpdate: () => void ($("#update-bar").hidden = false) });
   $("#update-now").addEventListener("click", () => window.location.reload());
   $("#update-later").addEventListener("click", () => ($("#update-bar").hidden = true));
 }
@@ -78,7 +83,7 @@ const linkErrorText = linkParams.get("error_description");
 
 let needsPassword = linkType === "invite" || linkType === "recovery";
 
-function friendlyLinkError() {
+function friendlyLinkError(): string {
   if (!linkErrorCode && !linkErrorText) return "";
   if (linkErrorCode === "otp_expired") {
     return "Ce lien a expiré ou a déjà été utilisé. Demande une nouvelle invitation, ou utilise « Mot de passe oublié ».";
@@ -86,7 +91,7 @@ function friendlyLinkError() {
   return linkErrorText || "Le lien n'est pas valide.";
 }
 
-function friendlyAuthError(error) {
+function friendlyAuthError(error: { message?: string } | null | undefined): string {
   const message = (error && error.message) || "";
   if (/invalid login credentials/i.test(message)) return "E-mail ou mot de passe incorrect.";
   if (/email not confirmed/i.test(message)) return "Ce compte n'est pas encore activé : utilise le lien reçu par e-mail.";
@@ -96,15 +101,15 @@ function friendlyAuthError(error) {
 }
 
 // Erreur au démarrage : on l'affiche avec un bouton de réinitialisation au lieu de rester bloqué.
-function showStartupError(error) {
+function showStartupError(error: unknown): void {
   console.error("Erreur de démarrage :", error);
-  window.__lastError = (error && error.message) || String(error);
+  window.__lastError = (error as Error | undefined)?.message || String(error);
   show("loading");
   window.__showLoadingError();
 }
 
 // --- Routage selon l'état de session --------------------------------------
-async function route(session) {
+async function route(session: Session | null): Promise<void> {
   if (!session) {
     stopChat();
     show("login");
@@ -128,18 +133,18 @@ async function route(session) {
 }
 
 // --- Messagerie -----------------------------------------------------------
-let chat = null;
+let chat: ReturnType<typeof createChat> | null = null;
 
-function startChat(session) {
+function startChat(session: Session) {
   const user = session.user;
   if (!chat || chat.userId !== user.id) {
     stopChat();
-    chat = createChat({ supabase, user });
+    chat = createChat({ supabase: sb, user });
   }
   return chat.start();
 }
 
-function stopChat() {
+function stopChat(): void {
   if (chat) {
     chat.stop();
     chat = null;
@@ -147,11 +152,11 @@ function stopChat() {
 }
 
 // Session gardée par Supabase dans le stockage local (utilisée seulement quand le réseau manque).
-function storedSession() {
+function storedSession(): Session | null {
   try {
     for (const key of Object.keys(localStorage)) {
       if (!/^sb-.+-auth-token$/.test(key)) continue;
-      const value = JSON.parse(localStorage.getItem(key));
+      const value = JSON.parse(localStorage.getItem(key) as string);
       if (value && value.user && value.user.id) return value;
     }
   } catch {
@@ -161,12 +166,12 @@ function storedSession() {
 }
 
 // --- Démarrage ------------------------------------------------------------
-async function main() {
+async function main(): Promise<void> {
   window.__step = "démarrage (main)";
   if (!isConfigured) {
     $("#config-warning").hidden = false;
-    $("#login-submit").disabled = true;
-    $("#forgot-password").disabled = true;
+    $<HTMLButtonElement>("#login-submit").disabled = true;
+    $<HTMLButtonElement>("#forgot-password").disabled = true;
     show("login");
     return;
   }
@@ -174,7 +179,7 @@ async function main() {
   const initialError = friendlyLinkError();
   if (initialError) setMessage($("#login-message"), initialError);
 
-  supabase.auth.onAuthStateChange((event, session) => {
+  sb.auth.onAuthStateChange((event, session) => {
     // Pas d'appel Supabase asynchrone directement dans ce callback : on sort du tick.
     setTimeout(() => {
       if (event === "PASSWORD_RECOVERY") needsPassword = true;
@@ -184,7 +189,7 @@ async function main() {
   });
 
   window.__step = "lecture de la session (getSession)";
-  const { data, error: sessionError } = await supabase.auth.getSession();
+  const { data, error: sessionError } = await sb.auth.getSession();
   window.__step = "session lue, routage";
   let session = data.session;
   // Sans réseau, le jeton expiré ne peut pas être renouvelé : on rouvre quand même la session gardée sur l'appareil.
@@ -201,10 +206,10 @@ $("#login-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!isConfigured) return;
 
-  const email = $("#email").value.trim();
-  const password = $("#password").value;
+  const email = $<HTMLInputElement>("#email").value.trim();
+  const password = $<HTMLInputElement>("#password").value;
   const message = $("#login-message");
-  const button = $("#login-submit");
+  const button = $<HTMLButtonElement>("#login-submit");
 
   if (!email || !password) {
     setMessage(message, "Renseigne ton e-mail et ton mot de passe.");
@@ -213,17 +218,17 @@ $("#login-form").addEventListener("submit", async (event) => {
 
   setMessage(message, "");
   setBusy(button, true, "Connexion…");
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  const { error } = await sb.auth.signInWithPassword({ email, password });
   setBusy(button, false);
 
   if (error) setMessage(message, friendlyAuthError(error));
   // En cas de succès, onAuthStateChange déclenche le routage.
 });
 
-$("#forgot-password").addEventListener("click", async () => {
+$<HTMLButtonElement>("#forgot-password").addEventListener("click", async () => {
   if (!isConfigured) return;
 
-  const email = $("#email").value.trim();
+  const email = $<HTMLInputElement>("#email").value.trim();
   const message = $("#login-message");
 
   if (!email) {
@@ -231,7 +236,7 @@ $("#forgot-password").addEventListener("click", async () => {
     return;
   }
 
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await sb.auth.resetPasswordForEmail(email, {
     redirectTo: location.origin + location.pathname,
   });
 
@@ -244,25 +249,25 @@ $("#forgot-password").addEventListener("click", async () => {
 });
 
 // --- Demande d'inscription (personne sans compte) -------------------------
-const accessDialog = $("#dialog-access");
+const accessDialog = $<HTMLDialogElement>("#dialog-access");
 $("#request-access-open").addEventListener("click", () => {
   setMessage($("#access-message"), "");
-  $("#access-email").value = $("#email").value.trim();
+  $<HTMLInputElement>("#access-email").value = $<HTMLInputElement>("#email").value.trim();
   accessDialog.showModal();
-  $("#access-name").focus();
+  $<HTMLInputElement>("#access-name").focus();
 });
 $("#access-cancel").addEventListener("click", () => accessDialog.close());
 accessDialog.addEventListener("click", (event) => {
   if (event.target === accessDialog) accessDialog.close(); // appui à l'extérieur de la fenêtre
 });
 
-$("#access-form").addEventListener("submit", async (event) => {
+$<HTMLFormElement>("#access-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = $("#access-message");
-  const button = $("#access-submit");
-  const name = $("#access-name").value.trim();
-  const email = $("#access-email").value.trim();
-  const production = $("#access-production").value.trim();
+  const button = $<HTMLButtonElement>("#access-submit");
+  const name = $<HTMLInputElement>("#access-name").value.trim();
+  const email = $<HTMLInputElement>("#access-email").value.trim();
+  const production = $<HTMLInputElement>("#access-production").value.trim();
 
   if (!name || !email || !production) return setMessage(message, "Renseigne ton nom, ton e-mail et le spectacle ou la production.");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setMessage(message, "Cette adresse e-mail n'a pas l'air valide.");
@@ -270,8 +275,8 @@ $("#access-form").addEventListener("submit", async (event) => {
 
   setMessage(message, "");
   setBusy(button, true, "Envoi…");
-  const { data, error } = await supabase.functions.invoke("request-access", {
-    body: { name, email, production, website: $("#access-website").value },
+  const { data, error } = await sb.functions.invoke("request-access", {
+    body: { name, email, production, website: $<HTMLInputElement>("#access-website").value },
   });
   setBusy(button, false);
 
@@ -282,7 +287,7 @@ $("#access-form").addEventListener("submit", async (event) => {
   if (error || (data && data.error)) {
     return setMessage(message, detail || "La demande n'a pas pu être envoyée. Vérifie ta connexion et réessaie.");
   }
-  $("#access-form").reset();
+  $<HTMLFormElement>("#access-form").reset();
   accessDialog.close();
   setMessage($("#login-message"), data && data.mail_sent === false
     ? "Ta demande est enregistrée. Elle sera traitée dans les meilleurs délais ; sans nouvelles, demande une invitation directement à ton équipe."
@@ -293,11 +298,11 @@ $("#access-form").addEventListener("submit", async (event) => {
 $("#set-password-form").addEventListener("submit", async (event) => {
   event.preventDefault();
 
-  const name = $("#new-name").value.trim();
-  const password = $("#new-password").value;
-  const confirm = $("#confirm-password").value;
+  const name = $<HTMLInputElement>("#new-name").value.trim();
+  const password = $<HTMLInputElement>("#new-password").value;
+  const confirm = $<HTMLInputElement>("#confirm-password").value;
   const message = $("#set-password-message");
-  const button = $("#set-password-submit");
+  const button = $<HTMLButtonElement>("#set-password-submit");
 
   if (password.length < 10) {
     setMessage(message, "Le mot de passe doit faire au moins 10 caractères.");
@@ -311,9 +316,9 @@ $("#set-password-form").addEventListener("submit", async (event) => {
   setMessage(message, "");
   setBusy(button, true, "Enregistrement…");
 
-  const attributes = { password };
+  const attributes: { password: string; data?: { display_name: string } } = { password };
   if (name) attributes.data = { display_name: name };
-  const { data, error } = await supabase.auth.updateUser(attributes);
+  const { data, error } = await sb.auth.updateUser(attributes);
 
   if (error) {
     setBusy(button, false);
@@ -322,7 +327,7 @@ $("#set-password-form").addEventListener("submit", async (event) => {
   }
 
   if (name && data?.user) {
-    const { error: profileError } = await supabase
+    const { error: profileError } = await sb
       .from("profiles")
       .update({ display_name: name })
       .eq("id", data.user.id);
@@ -331,9 +336,9 @@ $("#set-password-form").addEventListener("submit", async (event) => {
 
   setBusy(button, false);
   needsPassword = false;
-  $("#new-password").value = "";
-  $("#confirm-password").value = "";
-  const { data: sessionData } = await supabase.auth.getSession();
+  $<HTMLInputElement>("#new-password").value = "";
+  $<HTMLInputElement>("#confirm-password").value = "";
+  const { data: sessionData } = await sb.auth.getSession();
   await route(sessionData.session);
 });
 
@@ -343,7 +348,7 @@ $("#logout").addEventListener("click", async () => {
   if (waiting && !window.confirm(`${waiting} message${waiting > 1 ? "s" : ""} ne ${waiting > 1 ? "sont" : "est"} pas encore envoyé${waiting > 1 ? "s" : ""} : se déconnecter ${waiting > 1 ? "les" : "le"} supprimera. Continuer ?`)) return;
   // Les messages gardés sur l'appareil sont effacés à la déconnexion.
   if (chat) await chat.wipeOffline();
-  await supabase.auth.signOut();
+  await sb.auth.signOut();
 });
 
 main().catch(showStartupError);

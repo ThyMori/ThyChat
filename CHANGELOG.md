@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.10 — 2026-11-16
+- Interne : la connexion (app) passe en TypeScript
+- aucun changement visible
+
 ## 5.2.9 — 2026-11-16
 - Interne : types de la base générés depuis le schéma, client Supabase typé
 - aucun changement visible
