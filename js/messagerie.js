@@ -33,6 +33,12 @@ const THEME_SQL_HINT =
 const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16)));
 const MESSAGE_COLS = "id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at";
 
+/** @typedef {import("./database.types.js").Database["public"]["Tables"]} Tables */
+/** @typedef {Tables["channels"]["Row"]} Channel */
+/** @typedef {Tables["rooms"]["Row"]} Room */
+/** @typedef {Tables["tour_tags"]["Row"]} Tag */
+/** @typedef {{ t: string, done?: boolean, by?: string }} TodoItem */
+/** @typedef {Omit<Tables["postits"]["Row"], "items"> & { items: TodoItem[] }} Postit */
 export function createChat({ supabase: rawSupabase, user, store = createStore() }) {
   // Lectures gardées sur l'appareil : sans réseau, on retrouve les derniers messages vus.
   const supabase = withReadCache(rawSupabase, {
@@ -178,7 +184,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const canReadSheet = (/** @type {string} */ roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
   const canEditRoadmap = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
   // Tout membre d'un spectacle crée des sous-salons ; le créateur (ou un administrateur) gère le sien (migration 029).
-  const canManageChannel = (channel) => Boolean(channel) && channel.kind === "channel" && (isAdmin() || channel.created_by === user.id);
+  const canManageChannel = (/** @type {Channel} */ channel) => Boolean(channel) && channel.kind === "channel" && (isAdmin() || channel.created_by === user.id);
   const canAssign = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
 
   // Pastille ronde : photo de la personne si elle en a une, sinon son initiale.
@@ -243,20 +249,20 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return pick(all.filter((c) => c.everyone)) || pick(all);
   }
   const ROOT_GLYPH = "⌂"; // le salon racine d'un spectacle (« Général ») porte une maison plutôt qu'un G
-  const isRoot = (channel) => Boolean(channel && channel.kind === "channel" && rootOf(channel.room_id)?.id === channel.id);
+  const isRoot = (/** @type {Channel} */ channel) => Boolean(channel && channel.kind === "channel" && rootOf(channel.room_id)?.id === channel.id);
   const subsOfRoom = (/** @type {string} */ roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
   const roomById = (/** @type {string} */ id) => state.allRooms.find((r) => r.id === id) || null;
   // Tous les sous-salons de l'espace courant, salon par salon.
   const salons = () => (state.ws ? roomsOfWs(state.ws.id).flatMap((room) => subsOfRoom(room.id)) : []);
-  const dmPartner = (channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
+  const dmPartner = (/** @type {Channel} */ channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
   // Les messages privés ne dépendent d'aucun espace : ils apparaissent dans tous.
   const dms = () =>
     state.allChannels
       .filter((c) => c.kind === "dm")
       .sort((a, b) => dmLast(b).localeCompare(dmLast(a)) || channelTitle(a).localeCompare(channelTitle(b), "fr"));
-  const dmLast = (channel) => state.dmActivity.get(channel.id) || channel.created_at || "";
+  const dmLast = (/** @type {Channel} */ channel) => state.dmActivity.get(channel.id) || channel.created_at || "";
 
-  function channelTitle(channel) {
+  function channelTitle(/** @type {Channel} */ channel) {
     if (channel.kind === "notes") return "Mes notes";
     if (channel.kind !== "dm") return channel.name;
     const partner = dmPartner(channel);
@@ -265,7 +271,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const wsMute = (wsId) => state.mutes.get(muteKey("workspace", wsId));
   const channelMute = (/** @type {string} */ id) => state.mutes.get(muteKey("channel", id));
-  const muted = (channel) => channelMuted(state.mutes, channel);
+  const muted = (/** @type {Channel} */ channel) => channelMuted(state.mutes, channel);
 
   // Non lus d'un espace : { count (hors silences), all (tout), muted }.
   function wsUnread(wsId) {
@@ -280,7 +286,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return { count, all, muted: isMuted(state.mutes, "workspace", wsId) };
   }
 
-  function roomUnread(room) {
+  function roomUnread(/** @type {Room} */ room) {
     let count = 0;
     let all = 0;
     for (const channel of subsOfRoom(room.id)) {
@@ -292,7 +298,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Ligne de silence qui s'applique à un sous-salon : le sien, sinon celui du salon, sinon celui de l'espace.
-  function mutedRowFor(channel) {
+  function mutedRowFor(/** @type {Channel} */ channel) {
     if (isMuted(state.mutes, "channel", channel.id)) return channelMute(channel.id);
     if (channel.room_id && isMuted(state.mutes, "room", channel.room_id)) return state.mutes.get(muteKey("room", channel.room_id));
     if (channel.kind !== "dm" && isMuted(state.mutes, "workspace", channel.workspace_id)) return wsMute(channel.workspace_id);
@@ -526,7 +532,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  function channelItem(channel) {
+  function channelItem(/** @type {Channel} */ channel) {
     const item = el("button", "channel-item");
     item.type = "button";
     item.dataset.id = channel.id;
@@ -560,10 +566,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return item;
   }
 
-  const roomOpen = (room) => state.openRooms.has(room.id);
+  const roomOpen = (/** @type {Room} */ room) => state.openRooms.has(room.id);
 
   // Un salon (spectacle) : une ligne qui se déplie sur ses sous-salons.
-  function roomGroup(room) {
+  function roomGroup(/** @type {Room} */ room) {
     const group = el("div", "room-group");
     const open = roomOpen(room);
     const info = roomUnread(room);
@@ -1919,12 +1925,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const postitById = (/** @type {string} */ id) => state.postits.find((p) => p.id === id);
   // To-Do : une ligne de `postits` avec kind = "todo", body = titre, items = [{ t, done }].
-  const isTodo = (p) => p.kind === "todo";
-  const todoItems = (p) => (Array.isArray(p.items) ? p.items : []);
+  const isTodo = (/** @type {Postit} */ p) => p.kind === "todo";
+  const todoItems = (/** @type {Postit} */ p) => (Array.isArray(p.items) ? p.items : []);
   // Empreinte d'une To-Do (ordre des clés sans importance), pour repérer un vrai changement.
-  const todoKey = (p) => JSON.stringify([p.body, todoItems(p).map((i) => [i.t, Boolean(i.done), i.by || ""])]);
-  const todoSigners = (list) => list.flatMap((p) => (isTodo(p) ? todoItems(p).map((i) => i.by) : [])).filter(Boolean);
-  const todoDone = (p) => isTodo(p) && todoItems(p).length > 0 && todoItems(p).every((i) => i.done);
+  const todoKey = (/** @type {Postit} */ p) => JSON.stringify([p.body, todoItems(p).map((i) => [i.t, Boolean(i.done), i.by || ""])]);
+  const todoSigners = (list) => list.flatMap((/** @type {Postit} */ p) => (isTodo(p) ? todoItems(p).map((i) => i.by) : [])).filter(Boolean);
+  const todoDone = (/** @type {Postit} */ p) => isTodo(p) && todoItems(p).length > 0 && todoItems(p).every((i) => i.done);
   const activePostits = () => state.postits.filter((p) => !state.postitStates.has(p.id) && !todoDone(p));
   // Jetés par moi, ou To-Do terminées (sauf si je les ai jetées définitivement).
   const trashedPostits = () =>
@@ -2381,7 +2387,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const manyWs = state.workspaces.length > 1;
     const today = toISO(new Date());
     // Classés par prochaine date : en cours ou à venir (la plus proche d'abord), puis les passés (le plus récent d'abord), puis sans date.
-    const info = (room) => {
+    const info = (/** @type {Room} */ room) => {
       const dates = state.tags.filter((t) => t.room_id === room.id && t.start_date);
       const coming = dates.filter((t) => (t.end_date || t.start_date) >= today).sort((a, b) => a.start_date.localeCompare(b.start_date))[0];
       if (coming) return { group: 0, key: coming.start_date > today ? coming.start_date : today, tag: coming, now: coming.start_date <= today };
@@ -2421,14 +2427,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       $("#todos-list").replaceChildren();
       return setNotice("#todos-message", "To-Do illisibles : " + error.message + (/kind|schema cache/i.test(error.message) ? " (exécute la migration 022 dans Supabase)." : ""));
     }
-    const visible = (data || []).filter((p) => state.allChannels.some((c) => c.id === p.channel_id));
+    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id));
     let gone = new Set();
     if (visible.length) {
-      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((p) => p.id));
+      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
       if (token !== todoToken || stopped) return;
       gone = new Set((states.data || []).map((r) => r.postit_id));
     }
-    todoView.list = visible.filter((p) => !gone.has(p.id) && !todoDone(p));
+    todoView.list = visible.filter((/** @type {Postit} */ p) => !gone.has(p.id) && !todoDone(p));
     await ensureProfiles([...todoView.list.map((p) => p.user_id), ...todoSigners(todoView.list)]);
     if (token !== todoToken || stopped) return;
     renderTodos();
@@ -2841,7 +2847,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const currentRoomId = () => (state.channel && (state.channel.kind === "channel" || state.channel.kind === "notes") ? state.channel.room_id : null);
   const tagById = (/** @type {string} */ id) => state.tags.find((t) => t.id === id);
   // « 9–13 nov. », « 29 nov. → 2 déc. », « 13 nov. » (sans l'année : lisible en badge).
-  function shortRange(tag) {
+  function shortRange(/** @type {Tag} */ tag) {
     if (!tag.start_date) return "";
     const a = fromISO(tag.start_date);
     const b = fromISO(tag.end_date || tag.start_date);
@@ -2850,18 +2856,18 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (a.getMonth() === b.getMonth() && a.getFullYear() === b.getFullYear()) return `${a.getDate()}–${b.getDate()} ${m(b)}`;
     return `${a.getDate()} ${m(a)} → ${b.getDate()} ${m(b)}`;
   }
-  const tagText = (tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
+  const tagText = (/** @type {Tag} */ tag) => (tag.start_date ? `${tag.label} · ${rangeText(tag)}` : tag.label);
   // Dernier jour d'une date (fin, sinon dernière représentation, sinon début) ; une date est passée quand il est avant aujourd'hui.
-  const tagLastDay = (tag) => tag.end_date || [...(tag.shows || [])].sort().pop() || tag.start_date || "";
+  const tagLastDay = (/** @type {Tag} */ tag) => tag.end_date || [...(tag.shows || [])].sort().pop() || tag.start_date || "";
   // Barrée à partir du surlendemain du dernier jour : le lendemain (retour) compte encore comme « en cours ».
-  const tagIsPast = (tag) => {
+  const tagIsPast = (/** @type {Tag} */ tag) => {
     const last = tagLastDay(tag);
     if (!last) return false;
     const limit = fromISO(last);
     limit.setDate(limit.getDate() + 1);
     return toISO(limit) < toISO(new Date());
   };
-  const firstShow = (tag) => [...(tag.shows || [])].sort()[0] || null;
+  const firstShow = (/** @type {Tag} */ tag) => [...(tag.shows || [])].sort()[0] || null;
   // À venir d'abord (par ordre chronologique), puis sans date, puis les passées (rayées) à la fin.
   const tagsOfRoom = (/** @type {string} */ roomId) =>
     state.tags
@@ -2873,7 +2879,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
           a.label.localeCompare(b.label, "fr"),
       );
 
-  function tagChip(tag, active, onClick) {
+  function tagChip(/** @type {Tag} */ tag, active, onClick) {
     const chip = el("button", "tag-chip", tag.label);
     chip.type = "button";
     chip.dataset.tag = tag.id;
@@ -3434,7 +3440,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Calendrier et frise hebdomadaire ---------------------------------------------
 
-  const hueOfTag = (tag) => {
+  const hueOfTag = (/** @type {Tag} */ tag) => {
     const room = roomById(tag.room_id);
     const ws = room && state.workspaces.find((w) => w.id === room.workspace_id);
     return themeFor(ws || state.ws).hue;
@@ -4270,7 +4276,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const accessMode = (name) => /** @type {HTMLInputElement | null} */ (document.querySelector(`input[name="${name}"]:checked`))?.value || "everyone";
 
   // Utilisateurs (non administrateurs) qui ont accès à un salon : base du choix pour ses sous-salons.
-  async function roomUsers(room) {
+  async function roomUsers(/** @type {Room} */ room) {
     const users = (await workspaceUsers(state.ws.id)).filter((row) => row.role !== "admin");
     if (room.everyone) return users;
     const { data } = await supabase.from("room_members").select("user_id").eq("room_id", room.id);
@@ -4291,7 +4297,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Salons (spectacles) ---
 
-  async function openRoomDialog(room) {
+  async function openRoomDialog(/** @type {Room} */ room) {
     if (!state.ws || !isAdmin()) return;
     editingRoom = room || null;
     $("#room-dialog-title").textContent = room ? "Spectacle" : "Nouveau spectacle";
@@ -4389,7 +4395,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   let teamStart = null; // état de départ : userId -> { access, functions, sheet_read }
   const TEAM_FUNCTIONS = [["technique", "Technique"], ["prod", "Prod"], ["rg", "RG"]];
 
-  async function openTeamDialog(room) {
+  async function openTeamDialog(/** @type {Room} */ room) {
     if (!room || !state.ws || !canAssign(room.id)) return;
     if (!state.staffReady) return toast("Fonctions indisponibles : exécute la migration 028 dans Supabase.", "error");
     teamRoom = room;
@@ -4617,7 +4623,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Nom lisible du lieu d'un message : « Hamlet · Technique » ou « Message privé · Camille ».
-  function placeOf(channel) {
+  function placeOf(/** @type {Channel} */ channel) {
     if (channel.kind === "dm") return "Message privé · " + channelTitle(channel);
     const room = roomById(channel.room_id);
     const ws = state.workspaces.length > 1 ? state.workspaces.find((w) => w.id === channel.workspace_id) : null;
