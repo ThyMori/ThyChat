@@ -172,14 +172,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Fonctions dans un spectacle (migration 028) : Technique, Prod, RG. Les administrateurs de l'espace ont tous les droits.
-  const staffOf = (roomId) => state.myStaff.get(roomId) || { functions: [], sheet_read: false };
-  const hasFunction = (roomId, ...names) => staffOf(roomId).functions.some((f) => names.includes(f));
-  const canEditSheet = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
-  const canReadSheet = (roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
-  const canEditRoadmap = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
+  const staffOf = (/** @type {string} */ roomId) => state.myStaff.get(roomId) || { functions: [], sheet_read: false };
+  const hasFunction = (/** @type {string} */ roomId, ...names) => staffOf(roomId).functions.some((f) => names.includes(f));
+  const canEditSheet = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
+  const canReadSheet = (/** @type {string} */ roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
+  const canEditRoadmap = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
   // Tout membre d'un spectacle crée des sous-salons ; le créateur (ou un administrateur) gère le sien (migration 029).
   const canManageChannel = (channel) => Boolean(channel) && channel.kind === "channel" && (isAdmin() || channel.created_by === user.id);
-  const canAssign = (roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
+  const canAssign = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
 
   // Pastille ronde : photo de la personne si elle en a une, sinon son initiale.
   function avatarFor(userId, extra = "soft") {
@@ -237,15 +237,15 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const roomsOfWs = (wsId) => state.allRooms.filter((r) => r.workspace_id === wsId).sort(bySalon);
   // Le salon « Général » d'un spectacle (créé avec lui) en est la racine : le plus ancien sous-salon ouvert à tous.
   // Il n'apparaît pas dans la liste : c'est la ligne du spectacle qui l'ouvre.
-  function rootOf(roomId) {
+  function rootOf(/** @type {string} */ roomId) {
     const all = state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId);
     const pick = (list) => list.slice().sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || a.name.localeCompare(b.name, "fr"))[0] || null;
     return pick(all.filter((c) => c.everyone)) || pick(all);
   }
   const ROOT_GLYPH = "⌂"; // le salon racine d'un spectacle (« Général ») porte une maison plutôt qu'un G
   const isRoot = (channel) => Boolean(channel && channel.kind === "channel" && rootOf(channel.room_id)?.id === channel.id);
-  const subsOfRoom = (roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
-  const roomById = (id) => state.allRooms.find((r) => r.id === id) || null;
+  const subsOfRoom = (/** @type {string} */ roomId) => state.allChannels.filter((c) => c.kind === "channel" && c.room_id === roomId).sort(bySalon);
+  const roomById = (/** @type {string} */ id) => state.allRooms.find((r) => r.id === id) || null;
   // Tous les sous-salons de l'espace courant, salon par salon.
   const salons = () => (state.ws ? roomsOfWs(state.ws.id).flatMap((room) => subsOfRoom(room.id)) : []);
   const dmPartner = (channel) => (state.dmMembers.get(channel.id) || []).find((id) => id !== user.id) || null;
@@ -264,7 +264,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   const wsMute = (wsId) => state.mutes.get(muteKey("workspace", wsId));
-  const channelMute = (id) => state.mutes.get(muteKey("channel", id));
+  const channelMute = (/** @type {string} */ id) => state.mutes.get(muteKey("channel", id));
   const muted = (channel) => channelMuted(state.mutes, channel);
 
   // Non lus d'un espace : { count (hors silences), all (tout), muted }.
@@ -415,7 +415,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return (list.find((c) => c.id === wanted) || list[0] || { id: null }).id;
   }
 
-  async function markRead(id) {
+  async function markRead(/** @type {string} */ id) {
     if (!id) return;
     if (state.unread.delete(id)) renderBadges();
     const { error } = await supabase.rpc("mark_channel_read", { ch: id });
@@ -918,7 +918,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#select-delete").title = deletable ? "Supprimer la sélection" : "Tu ne peux supprimer que tes propres messages";
   }
 
-  function toggleMulti(id) {
+  function toggleMulti(/** @type {string} */ id) {
     if (!state.messages.some((m) => m.id === id)) return;
     if (!state.multi.size) guardHistory(); // « Retour » quitte la sélection
     if (state.multi.has(id)) state.multi.delete(id);
@@ -1169,7 +1169,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await selectWorkspace(target.id, deep?.c);
   }
 
-  async function selectWorkspace(id, channelId) {
+  async function selectWorkspace(/** @type {string} */ id, channelId) {
     state.ws = state.workspaces.find((ws) => ws.id === id) || null;
     if (!state.ws) return;
     writeLast({ ws: id });
@@ -1184,7 +1184,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await selectChannel(target ? target.id : null);
   }
 
-  async function selectChannel(id) {
+  async function selectChannel(/** @type {string} */ id) {
     const token = ++state.loadToken;
     const previousRoom = state.channel ? state.channel.room_id : null;
     state.calendarOpen = false;
@@ -1480,7 +1480,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     toast(`${done === 1 ? "Message déplacé" : done + " messages déplacés"} vers « ${dest} ».`, "ok");
   }
 
-  function removeMessage(id) {
+  function removeMessage(/** @type {string} */ id) {
     if (!id || !state.messages.some((m) => m.id === id)) return;
     if (state.selectedId === id) state.selectedId = null;
     state.multi.delete(id);
@@ -1494,7 +1494,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Modifier un message (le sien, dans n'importe quel fil) ----------------------------------
 
-  function startEdit(id) {
+  function startEdit(/** @type {string} */ id) {
     const message = state.messages.find((m) => m.id === id);
     if (!message || message.user_id !== user.id) return;
     const head = (/^↪ [^\n]*\n/.exec(message.body || "") || [""])[0]; // la mention « Transféré » est conservée telle quelle
@@ -1651,7 +1651,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderOfflineBar();
   }
 
-  async function pendingAction(action, id) {
+  async function pendingAction(action, /** @type {string} */ id) {
     const entry = state.outbox.find((e) => e.id === id);
     if (!entry) return;
     if (action === "cancel") {
@@ -1917,7 +1917,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   let postitBusy = false;
   let postitFreshId = null; // à coller avec animation au prochain affichage
 
-  const postitById = (id) => state.postits.find((p) => p.id === id);
+  const postitById = (/** @type {string} */ id) => state.postits.find((p) => p.id === id);
   // To-Do : une ligne de `postits` avec kind = "todo", body = titre, items = [{ t, done }].
   const isTodo = (p) => p.kind === "todo";
   const todoItems = (p) => (Array.isArray(p.items) ? p.items : []);
@@ -1936,7 +1936,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       .slice()
       .reverse();
   // Inclinaison stable (-3° à +3°) propre à chaque Post-it.
-  const tiltOf = (id) => {
+  const tiltOf = (/** @type {string} */ id) => {
     let h = 0;
     for (const ch of String(id)) h = (h * 31 + ch.charCodeAt(0)) % 997;
     return ((h % 61) - 30) / 10;
@@ -1969,7 +1969,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   const PIN_CHOICES = [[24, "24 heures"], [168, "7 jours"], [720, "30 jours"]];
   const activePins = () => state.pins.filter((pin) => new Date(pin.expires_at).getTime() > Date.now());
-  const isPinned = (id) => activePins().some((pin) => pin.message_id === id);
+  const isPinned = (/** @type {string} */ id) => activePins().some((pin) => pin.message_id === id);
 
   async function loadPins(channelId, token, { newest = false } = {}) {
     const { data, error } = await supabase
@@ -1996,7 +1996,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderMessages();
   }
 
-  const pinnedMessage = (id) => state.messages.find((m) => m.id === id) || state.pinMsgs.get(id) || null;
+  const pinnedMessage = (/** @type {string} */ id) => state.messages.find((m) => m.id === id) || state.pinMsgs.get(id) || null;
 
   function renderPinBar() {
     const bar = $("#pin-bar");
@@ -2051,7 +2051,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await loadMessages(state.channel.id, state.loadToken);
   }
 
-  function openPin(id) {
+  function openPin(/** @type {string} */ id) {
     const message = state.messages.find((m) => m.id === id);
     if (!message || !state.channel) return;
     state.pinTarget = id;
@@ -2088,7 +2088,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     toast("Message épinglé.", "ok");
   }
 
-  async function unpinMessage(id) {
+  async function unpinMessage(/** @type {string} */ id) {
     state.selectedId = null;
     const { error } = await supabase.rpc("unpin_message", { msg: id });
     if (error) {
@@ -2340,7 +2340,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Ouvre (et crée au premier passage) mes notes d'un spectacle.
-  async function openNotes(roomId) {
+  async function openNotes(/** @type {string} */ roomId) {
     const room = roomById(roomId);
     if (!room) return;
     closeNotesPicker();
@@ -2544,7 +2544,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // Toucher un Post-it : il se décolle de l'écran, puis s'ouvre en grand.
-  function peelPostit(id) {
+  function peelPostit(/** @type {string} */ id) {
     const postit = postitById(id);
     if (!postit || postitBusy) return;
     const stuck = $("#postit-wall").querySelector(`[data-id="${id}"]`);
@@ -2560,7 +2560,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }, stuck ? PEEL_MS : 0);
   }
 
-  function showPostit(id) {
+  function showPostit(/** @type {string} */ id) {
     const postit = postitById(id);
     if (!postit) return renderPostitWall();
     postitOpenId = id;
@@ -2630,7 +2630,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     closeDialog($("#dialog-postit-read"));
   }
 
-  function removePostit(id) {
+  function removePostit(/** @type {string} */ id) {
     state.postits = state.postits.filter((p) => p.id !== id);
     state.postitStates.delete(id);
     renderPostitWall();
@@ -2706,7 +2706,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function restorePostit(id) {
+  async function restorePostit(/** @type {string} */ id) {
     const { error } = await supabase.from("postit_states").delete().eq("postit_id", id).eq("user_id", user.id);
     if (error) return setNotice("#postit-trash-message", "Impossible de remettre le Post-it : " + error.message);
     state.postitStates.delete(id);
@@ -2729,7 +2729,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     toast("Poubelle vidée.", "ok");
   }
 
-  async function purgePostit(id) {
+  async function purgePostit(/** @type {string} */ id) {
     if (!window.confirm("Jeter définitivement ce Post-it ? Il disparaîtra aussi de cette liste (pour toi seulement).")) return;
     const { error } = await supabase.from("postit_states").upsert({ postit_id: id, user_id: user.id, state: "purged" }, { onConflict: "postit_id,user_id" });
     if (error) return setNotice("#postit-trash-message", "Impossible de jeter le Post-it : " + error.message);
@@ -2839,7 +2839,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Les sous-salons et « Mes notes » héritent des dates (#) du spectacle.
   const currentRoomId = () => (state.channel && (state.channel.kind === "channel" || state.channel.kind === "notes") ? state.channel.room_id : null);
-  const tagById = (id) => state.tags.find((t) => t.id === id);
+  const tagById = (/** @type {string} */ id) => state.tags.find((t) => t.id === id);
   // « 9–13 nov. », « 29 nov. → 2 déc. », « 13 nov. » (sans l'année : lisible en badge).
   function shortRange(tag) {
     if (!tag.start_date) return "";
@@ -2863,7 +2863,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   };
   const firstShow = (tag) => [...(tag.shows || [])].sort()[0] || null;
   // À venir d'abord (par ordre chronologique), puis sans date, puis les passées (rayées) à la fin.
-  const tagsOfRoom = (roomId) =>
+  const tagsOfRoom = (/** @type {string} */ roomId) =>
     state.tags
       .filter((t) => t.room_id === roomId)
       .sort(
@@ -2951,7 +2951,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderCurrentButtons();
   }
 
-  function toggleTagFilter(id) {
+  function toggleTagFilter(/** @type {string} */ id) {
     if (state.tagFilter.has(id)) state.tagFilter.delete(id);
     else state.tagFilter.add(id);
     reloadMessages();
@@ -2997,8 +2997,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- Dates en cours : accès rapide depuis n'importe où -----------------------------------
 
   // Dates en cours : de la veille du début au lendemain de la fin (trajets aller et retour), dans tous les spectacles accessibles.
-  const dayBefore = (iso) => toISO(addDays(fromISO(iso), -1));
-  const dayAfter = (iso) => toISO(addDays(fromISO(iso), 1));
+  const dayBefore = (/** @type {string} */ iso) => toISO(addDays(fromISO(iso), -1));
+  const dayAfter = (/** @type {string} */ iso) => toISO(addDays(fromISO(iso), 1));
   // Date en cours du spectacle ouvert, proposée d'office dans chaque nouveau message (un appui sur son badge la retire).
   // Sur place (du premier au dernier jour) d'abord ; sinon les jours de trajet (veille, lendemain).
   function defaultComposerTags() {
@@ -3098,20 +3098,20 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // --- Documents PDF des dates -------------------------------------------------------------
 
   const docsOfTag = (tagId) => state.tagDocs.filter((d) => d.tag_id === tagId);
-  const docsOfRoom = (roomId) => {
+  const docsOfRoom = (/** @type {string} */ roomId) => {
     const ids = new Set(state.tags.filter((t) => t.room_id === roomId).map((t) => t.id));
     return state.tagDocs.filter((d) => ids.has(d.tag_id));
   };
   let docsTarget = null; // date qui reçoit les fichiers choisis
 
   // Fiches techniques : la version la plus récente d'abord.
-  const sheetsOfRoom = (roomId) =>
+  const sheetsOfRoom = (/** @type {string} */ roomId) =>
     state.sheets
       .filter((s) => s.room_id === roomId)
       .sort((a, b) => b.version_date.localeCompare(a.version_date) || String(b.created_at).localeCompare(String(a.created_at)));
 
   // Fiche technique en vigueur : tous les fichiers et liens de la version la plus récente (plan son, plan lumière…).
-  const latestSheets = (roomId) => {
+  const latestSheets = (/** @type {string} */ roomId) => {
     const all = sheetsOfRoom(roomId);
     return all.filter((s) => all[0] && s.version_date === all[0].version_date);
   };
@@ -3225,7 +3225,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderTagBar();
   }
 
-  async function deleteSheet(id) {
+  async function deleteSheet(/** @type {string} */ id) {
     const sheet = state.sheets.find((s) => s.id === id);
     if (!sheet || !window.confirm(`Retirer « ${sheet.name} » (version du ${shortDate(sheet.version_date)}) ?`)) return;
     const { error } = await supabase.from("room_sheets").delete().eq("id", id);
@@ -3420,7 +3420,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function deleteDocument(id) {
+  async function deleteDocument(/** @type {string} */ id) {
     const doc = state.tagDocs.find((d) => d.id === id);
     if (!doc || !window.confirm(`Retirer le document « ${doc.name} » ?`)) return;
     const { error } = await supabase.from("tag_documents").delete().eq("id", id);
@@ -3525,7 +3525,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return state.tags.filter((t) => ids.has(t.room_id) && (t.start_date || (t.shows || []).length));
   }
 
-  function openCalendar(roomId) {
+  function openCalendar(/** @type {string} */ roomId) {
     if (!state.ws) return;
     state.calendarOpen = true;
     state.selectedId = null;
@@ -3632,7 +3632,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   // L'auteur raye son message (il reste lisible, barré) ou le rétablit.
-  async function toggleStrike(id) {
+  async function toggleStrike(/** @type {string} */ id) {
     const message = state.messages.find((m) => m.id === id);
     if (!message || message.user_id !== user.id) return;
     const struck_at = message.struck_at ? null : new Date().toISOString();
@@ -3643,7 +3643,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderMessages();
   }
 
-  function startReply(id) {
+  function startReply(/** @type {string} */ id) {
     const message = state.messages.find((m) => m.id === id);
     if (!message) return;
     state.replyTo = message;
@@ -3653,7 +3653,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#composer-input").focus();
   }
 
-  function startQuote(id) {
+  function startQuote(/** @type {string} */ id) {
     const message = state.messages.find((m) => m.id === id);
     if (!message) return;
     const input = $("#composer-input");
@@ -3666,7 +3666,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     input.setSelectionRange(input.value.length, input.value.length);
   }
 
-  function jumpToMessage(id) {
+  function jumpToMessage(/** @type {string} */ id) {
     const target = [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("#messages .msg"))].find((node) => node.dataset.id === id);
     if (!target) return toast("Ce message est plus ancien que ceux qui sont affichés.");
     target.scrollIntoView({ block: "center" });
@@ -3720,7 +3720,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.replaceChildren();
   }
 
-  function pickSuggest(id) {
+  function pickSuggest(/** @type {string} */ id) {
     const found = hashQuery();
     if (!found || !tagById(id)) return hideSuggest();
     const input = $("#composer-input");
@@ -3845,7 +3845,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
     return {
       render,
-      goTo(iso) {
+      goTo(/** @type {string} */ iso) {
         const d = iso ? fromISO(iso) : new Date();
         month = new Date(d.getFullYear(), d.getMonth(), 1);
         render();
@@ -3864,7 +3864,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function renderRangeSummary() {
     const start = $("#tag-start").value;
     const end = $("#tag-end").value;
-    const f = (iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+    const f = (/** @type {string} */ iso) => fromISO(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
     $("#tag-range-summary").textContent = !start
       ? "Aucun jour choisi."
       : !end
@@ -3908,7 +3908,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (showsPicker) showsPicker.render();
   }
 
-  function tapRange(iso) {
+  function tapRange(/** @type {string} */ iso) {
     const start = $("#tag-start").value;
     const end = $("#tag-end").value;
     if (!start || end) return setRange(iso, ""); // nouveau début
@@ -3916,7 +3916,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     setRange(start, iso);
   }
 
-  function tapShow(iso) {
+  function tapShow(/** @type {string} */ iso) {
     const n = showCounts().get(iso) || 0;
     if (!n) {
       editingShows.push(iso);
@@ -3944,7 +3944,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   function setupTagPickers(on) {
     rangePicker = makeMonthPicker($("#tag-range-picker"), {
-      mark(iso, button) {
+      mark(/** @type {string} */ iso, button) {
         const start = $("#tag-start").value;
         const end = $("#tag-end").value || start;
         if (start && iso >= start && iso <= end) button.classList.add("in-range");
@@ -3955,7 +3955,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       onDrag: (a, b) => setRange(a, b),
     }, on);
     showsPicker = makeMonthPicker($("#tag-shows-picker"), {
-      mark(iso, button) {
+      mark(/** @type {string} */ iso, button) {
         const start = $("#tag-start").value;
         const end = $("#tag-end").value || start;
         if (start && iso >= start && iso <= end) button.classList.add("in-range");
@@ -4030,7 +4030,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (state.calendarOpen) renderCalendar();
   }
 
-  async function deleteTag(id) {
+  async function deleteTag(/** @type {string} */ id) {
     const tag = tagById(id);
     if (!tag) return;
     const nDocs = docsOfTag(id).length;
@@ -4057,7 +4057,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (state.calendarOpen) renderCalendar();
   }
 
-  async function deleteMessage(id, ask = true) {
+  async function deleteMessage(/** @type {string} */ id, ask = true) {
     if (ask && !window.confirm("Supprimer ce message ? Cette action est définitive.")) return false;
     const target = state.messages.find((m) => m.id === id);
     const { error } = await supabase.from("messages").delete().eq("id", id);
@@ -4498,6 +4498,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // --- Sous-salons ---
 
+  /** @param {any} channel @param {string=} roomId */
   async function openChannelDialog(channel, roomId) {
     if (!state.ws || (channel ? !canManageChannel(channel) : !roomById(roomId))) return;
     editingChannel = channel || null;
@@ -4727,7 +4728,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     else await selectChannel(channel.id);
   }
 
-  function showMessage(id) {
+  function showMessage(/** @type {string} */ id) {
     const node = document.querySelector(`#messages .msg[data-id="${id}"]`);
     if (!node) return;
     if (node.scrollIntoView) node.scrollIntoView({ block: "center" });
@@ -5294,7 +5295,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     await refreshPushStatus();
   }
 
-  function muteRow(scope, id, name, extra) {
+  function muteRow(scope, /** @type {string} */ id, name, extra) {
     const row = state.mutes.get(muteKey(scope, id));
     const choice = choiceOf(row);
     const item = el("li", "mute-row");
@@ -5392,7 +5393,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     refreshPushStatus();
   }
 
-  async function setMute(scope, id, choice) {
+  async function setMute(scope, /** @type {string} */ id, choice) {
     const fields = muteFromChoice(choice);
     const key = muteKey(scope, id);
     let error;

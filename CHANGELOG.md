@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.13 — 2026-11-16
+- Interne : types des identifiants dans messagerie.js
+- aucun changement visible
+
 ## 5.2.12 — 2026-11-16
 - Interne : vérification des types de messagerie.js et des éléments de index.html
 - aucun changement visible
