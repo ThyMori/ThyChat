@@ -140,11 +140,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function onSwipe(node, fn, opts) {
     if (!node) return;
     let start = null;
-    node.addEventListener("touchstart", (e) => {
+    node.addEventListener("touchstart", (/** @type {any} */ e) => {
       const t = e.touches[0];
       start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, target: e.target } : null;
     }, { ...opts, passive: true });
-    node.addEventListener("touchend", (e) => {
+    node.addEventListener("touchend", (/** @type {any} */ e) => {
       const t = e.changedTouches[0];
       if (!start || !t) return;
       const dx = t.clientX - start.x;
@@ -2228,7 +2228,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     ($("#todo-items").querySelector("input") || $("#todo-title")).focus();
   }
 
-  async function submitTodo(event) {
+  async function submitTodo(/** @type {any} */ event) {
     event.preventDefault();
     if (!state.channel || postitBusy) return;
     const items = /** @type {HTMLElement[]} */ ([...$("#todo-items").children])
@@ -2283,11 +2283,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Chaque case cochée ou décochée demande une confirmation (la liste est commune à tout le monde).
   // Pas de confirmation : seule la case elle-même coche ou décoche. Un appui sur la ligne ne fait rien.
-  function guardTodoLine(event) {
+  function guardTodoLine(/** @type {any} */ event) {
     if (event.target.closest(".todo-item") && !event.target.matches('input[type="checkbox"]')) event.preventDefault();
   }
 
-  async function onTodoCheck(event) {
+  async function onTodoCheck(/** @type {any} */ event) {
     const box = event.target.closest('input[type="checkbox"]');
     if (!box) return;
     const postit = postitById(postitOpenId);
@@ -2474,7 +2474,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function onTodosCheck(event) {
+  async function onTodosCheck(/** @type {any} */ event) {
     const box = event.target.closest('input[type="checkbox"]');
     const node = box && box.closest(".postit.todo");
     const postit = node && todoView.list.find((p) => p.id === node.dataset.id);
@@ -2501,7 +2501,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (todoView.list.length < before) toast("To-Do terminée !", "ok");
   }
 
-  async function submitPostit(event) {
+  async function submitPostit(/** @type {any} */ event) {
     event.preventDefault();
     if (!state.channel || postitBusy) return;
     const body = $("#postit-input").value.trim();
@@ -3809,17 +3809,17 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let suppress = false;
     let anchor = null;
     let dragged = false;
-    const dayAt = (event) => {
+    const dayAt = (/** @type {any} */ event) => {
       const node = document.elementFromPoint ? document.elementFromPoint(event.clientX, event.clientY) : event.target;
       return node && node.closest ? node.closest(".mini-day") : null;
     };
     if (onDrag) {
-      on(grid, "pointerdown", (event) => {
+      on(grid, "pointerdown", (/** @type {any} */ event) => {
         const day = event.target.closest && event.target.closest(".mini-day");
         anchor = day ? day.dataset.iso : null;
         dragged = false;
       });
-      on(grid, "pointermove", (event) => {
+      on(grid, "pointermove", (/** @type {any} */ event) => {
         if (!anchor) return;
         const day = dayAt(event);
         if (!day || (day.dataset.iso === anchor && !dragged)) return;
@@ -3838,7 +3838,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       on(grid, "pointerup", finish);
       on(grid, "pointercancel", finish);
     }
-    on(grid, "click", (event) => {
+    on(grid, "click", (/** @type {any} */ event) => {
       const day = event.target.closest(".mini-day");
       if (!day || suppress) return;
       onTap(day.dataset.iso);
@@ -4000,7 +4000,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function submitTag(event) {
+  async function submitTag(/** @type {any} */ event) {
     event.preventDefault();
     const roomId = currentRoomId();
     const label = $("#tag-label").value.trim().replace(/^#+\s*/, "");
@@ -4144,7 +4144,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#workspace-name").focus();
   }
 
-  async function submitWorkspace(event) {
+  async function submitWorkspace(/** @type {any} */ event) {
     event.preventDefault();
     const name = $("#workspace-name").value.trim();
     if (!name) return setNotice("#workspace-message", "Donne un nom à l'espace.");
@@ -4315,7 +4315,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderPick($("#room-pick"), users, checked);
   }
 
-  async function submitRoom(event) {
+  async function submitRoom(/** @type {any} */ event) {
     event.preventDefault();
     const name = $("#room-name").value.trim();
     const description = $("#room-description").value.trim();
@@ -4454,7 +4454,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function submitTeam(event) {
+  async function submitTeam(/** @type {any} */ event) {
     event.preventDefault();
     const room = teamRoom;
     if (!room || !canAssign(room.id)) return;
@@ -4529,7 +4529,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     renderPick($("#channel-pick"), await roomUsers(room), checked);
   }
 
-  async function submitChannel(event) {
+  async function submitChannel(/** @type {any} */ event) {
     event.preventDefault();
     const name = $("#channel-name").value.trim().replace(/^#+\s*/, "");
     const description = $("#channel-description").value.trim();
@@ -4875,7 +4875,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#delete-space-name").focus();
   }
 
-  async function submitDeleteSpace(event) {
+  async function submitDeleteSpace(/** @type {any} */ event) {
     event.preventDefault();
     const ws = state.ws;
     if (!ws || !isAdmin() || $("#delete-space-name").value.trim() !== ws.name) return;
@@ -5068,7 +5068,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return error.message || "Erreur inconnue";
   }
 
-  async function submitInvite(event) {
+  async function submitInvite(/** @type {any} */ event) {
     event.preventDefault();
     const personId = $("#invite-person").value;
     const email = personId ? "" : $("#invite-email").value.trim();
@@ -5205,7 +5205,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  async function submitProfile(event) {
+  async function submitProfile(/** @type {any} */ event) {
     event.preventDefault();
     const name = $("#profile-name").value.trim();
     const email = $("#profile-email").value.trim();
@@ -5590,7 +5590,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
     on($("#empty-action"), "click", () => emptyAction && emptyAction());
 
-    const openFromList = (event) => {
+    const openFromList = (/** @type {any} */ event) => {
       const button = event.target.closest(".channel-item");
       if (!button) return;
       if (button.dataset.notesRoom) return openNotes(button.dataset.notesRoom);
@@ -6177,7 +6177,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     // Un appui à l'extérieur d'une fenêtre la ferme (comme « Retour »). Le geste doit commencer ET finir sur le fond :
     // sélectionner du texte en sortant de la fenêtre ne la ferme pas.
     let backdropDown = null;
-    const backdropHit = (event) => {
+    const backdropHit = (/** @type {any} */ event) => {
       const dialog = event.target;
       if (!dialog || dialog.tagName !== "DIALOG" || !dialog.hasAttribute("open")) return null;
       const r = dialog.getBoundingClientRect();
