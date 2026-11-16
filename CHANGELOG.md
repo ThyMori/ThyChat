@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.18 — 2026-11-16
+- Calendrier : la grille n'est plus écrasée quand un jour contient des événements (la page défile)
+
 ## 5.2.17 — 2026-11-16
 - Interne : messagerie.js entièrement vérifié par TypeScript (plus aucun type implicite)
 - aucun changement visible
