@@ -2,6 +2,35 @@
 // Les traits restent des vecteurs dans l'éditeur (zoom net, annuler, gomme) ; à l'envoi la page est
 // exportée en image PNG recadrée sur le dessin.
 
+type Point = [number, number];
+
+// Un trait : points en coordonnées de la page (pas de l'écran), ou geste de gomme (sans points utiles).
+interface Stroke {
+  color?: string;
+  w: number;
+  pts: Point[];
+  eraser?: boolean;
+}
+
+// Geste en cours : déplacement à un doigt (pan) ou pincement à deux doigts.
+interface Gesture {
+  pan?: boolean;
+  x?: number;
+  y?: number;
+  dist?: number;
+  cx?: number;
+  cy?: number;
+  scale?: number;
+  tx: number;
+  ty: number;
+}
+
+interface InkOptions {
+  dialog: HTMLDialogElement;
+  onDone: (file: File) => unknown;
+  toast: (text: string, kind?: string) => void;
+}
+
 const PAPER = "#f6f1e4";
 const COLORS = ["#1b1b1f", "#1f4fd8", "#c62828", "#2e7d32"];
 const WIDTHS = [2, 4, 9];
@@ -10,7 +39,7 @@ const MAX_SCALE = 8;
 const MAX_SIDE = 2000;
 
 // Distance d'un point à un segment, pour la gomme.
-function distToSegment(p, a, b) {
+function distToSegment(p: Point, a: Point, b: Point): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
   const len = dx * dx + dy * dy;
@@ -19,9 +48,9 @@ function distToSegment(p, a, b) {
   return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
 }
 
-function drawStroke(ctx, s) {
-  ctx.strokeStyle = s.color;
-  ctx.fillStyle = s.color;
+function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke): void {
+  ctx.strokeStyle = s.color as string;
+  ctx.fillStyle = s.color as string;
   ctx.lineWidth = s.w;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
@@ -45,27 +74,27 @@ function drawStroke(ctx, s) {
 }
 
 // Branche la boîte de dialogue #dialog-ink. onDone(file) reçoit l'image PNG à joindre.
-export function setupInk({ dialog, onDone, toast }) {
-  const $ = (sel) => dialog.querySelector(sel);
-  const canvas = $("#ink-canvas");
-  let ctx = null;
+export function setupInk({ dialog, onDone, toast }: InkOptions): () => void {
+  const $ = <T extends HTMLElement = HTMLButtonElement>(sel: string) => dialog.querySelector(sel) as T;
+  const canvas = $<HTMLCanvasElement>("#ink-canvas");
+  let ctx: CanvasRenderingContext2D | null = null;
   const state = {
-    strokes: [],
-    redo: [],
+    strokes: [] as Stroke[],
+    redo: [] as Stroke[],
     color: COLORS[0],
     width: WIDTHS[1],
     eraser: false,
     scale: 1,
     tx: 0,
     ty: 0,
-    pointers: new Map(),
-    current: null,
-    gesture: null,
+    pointers: new Map<number, { x: number; y: number; type: string }>(),
+    current: null as Stroke | null,
+    gesture: null as Gesture | null,
     penSeen: false,
     dpr: 1,
   };
 
-  const toWorld = (x, y) => [(x - state.tx) / state.scale, (y - state.ty) / state.scale];
+  const toWorld = (x: number, y: number): Point => [(x - state.tx) / state.scale, (y - state.ty) / state.scale];
 
   function resize() {
     ctx = canvas.getContext("2d");
@@ -95,11 +124,11 @@ export function setupInk({ dialog, onDone, toast }) {
     $("#ink-clear").disabled = !state.strokes.length;
     $("#ink-send").disabled = !state.strokes.length;
     $("#ink-eraser").setAttribute("aria-pressed", String(state.eraser));
-    for (const b of dialog.querySelectorAll("[data-ink-color]")) b.setAttribute("aria-pressed", String(!state.eraser && b.dataset.inkColor === state.color));
-    for (const b of dialog.querySelectorAll("[data-ink-width]")) b.setAttribute("aria-pressed", String(Number(b.dataset.inkWidth) === state.width));
+    for (const b of dialog.querySelectorAll<HTMLElement>("[data-ink-color]")) b.setAttribute("aria-pressed", String(!state.eraser && b.dataset.inkColor === state.color));
+    for (const b of dialog.querySelectorAll<HTMLElement>("[data-ink-width]")) b.setAttribute("aria-pressed", String(Number(b.dataset.inkWidth) === state.width));
   }
 
-  function eraseAt(wx, wy) {
+  function eraseAt(wx: number, wy: number): void {
     const radius = 10 / state.scale;
     const before = state.strokes.length;
     state.strokes = state.strokes.filter((s) => {
@@ -111,7 +140,7 @@ export function setupInk({ dialog, onDone, toast }) {
     if (state.strokes.length !== before) state.redo = [];
   }
 
-  function localXY(event) {
+  function localXY(event: { clientX: number; clientY: number }): Point {
     const r = canvas.getBoundingClientRect();
     return [event.clientX - r.left, event.clientY - r.top];
   }
@@ -138,17 +167,17 @@ export function setupInk({ dialog, onDone, toast }) {
     const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
     const cx = (a.x + b.x) / 2;
     const cy = (a.y + b.y) / 2;
-    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, g.scale * (dist / g.dist)));
+    const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, (g.scale as number) * (dist / (g.dist as number))));
     // Le point du dessin sous le milieu des doigts reste sous le milieu des doigts.
-    const wx = (g.cx - g.tx) / g.scale;
-    const wy = (g.cy - g.ty) / g.scale;
+    const wx = ((g.cx as number) - g.tx) / (g.scale as number);
+    const wy = ((g.cy as number) - g.ty) / (g.scale as number);
     state.scale = scale;
     state.tx = cx - wx * scale;
     state.ty = cy - wy * scale;
     redraw();
   }
 
-  function zoomAt(x, y, factor) {
+  function zoomAt(x: number, y: number, factor: number): void {
     const scale = Math.max(MIN_SCALE, Math.min(MAX_SCALE, state.scale * factor));
     const wx = (x - state.tx) / state.scale;
     const wy = (y - state.ty) / state.scale;
@@ -158,7 +187,7 @@ export function setupInk({ dialog, onDone, toast }) {
     redraw();
   }
 
-  function canDraw(event) {
+  function canDraw(event: PointerEvent): boolean {
     if (event.pointerType === "pen") return true;
     if (event.pointerType === "mouse") return event.button === 0;
     return !state.penSeen; // une fois le stylet utilisé, le doigt ne fait que déplacer la page
@@ -187,7 +216,7 @@ export function setupInk({ dialog, onDone, toast }) {
     const [wx, wy] = toWorld(x, y);
     if (state.eraser) {
       eraseAt(wx, wy);
-      state.current = { eraser: true, pts: [] };
+      state.current = { eraser: true, w: 0, pts: [] };
       redraw();
     } else {
       state.current = { color: state.color, w: state.width, pts: [[wx, wy]] };
@@ -203,8 +232,8 @@ export function setupInk({ dialog, onDone, toast }) {
     p.y = y;
     if (state.pointers.size >= 2) return updateGesture();
     if (state.gesture?.pan) {
-      state.tx = state.gesture.tx + (x - state.gesture.x);
-      state.ty = state.gesture.ty + (y - state.gesture.y);
+      state.tx = state.gesture.tx + (x - (state.gesture.x as number));
+      state.ty = state.gesture.ty + (y - (state.gesture.y as number));
       return redraw();
     }
     if (!state.current) return;
@@ -219,7 +248,7 @@ export function setupInk({ dialog, onDone, toast }) {
     redraw();
   });
 
-  function end(event) {
+  function end(event: PointerEvent): void {
     if (!state.pointers.has(event.pointerId)) return;
     state.pointers.delete(event.pointerId);
     if (state.current && !state.pointers.size) {
@@ -289,17 +318,17 @@ export function setupInk({ dialog, onDone, toast }) {
     const out = document.createElement("canvas");
     out.width = Math.max(1, Math.round(ww * k));
     out.height = Math.max(1, Math.round(wh * k));
-    const c = out.getContext("2d");
+    const c = out.getContext("2d") as CanvasRenderingContext2D;
     c.fillStyle = PAPER;
     c.fillRect(0, 0, out.width, out.height);
     c.setTransform(k, 0, 0, k, -wx * k, -wy * k);
     for (const s of state.strokes) drawStroke(c, s);
-    const blob = await new Promise((resolve, reject) => out.toBlob((x) => (x ? resolve(x) : reject(new Error("export"))), "image/png"));
+    const blob = await new Promise<Blob>((resolve, reject) => out.toBlob((x) => (x ? resolve(x) : reject(new Error("export"))), "image/png"));
     return new File([blob], "note-manuscrite.png", { type: "image/png" });
   }
 
   dialog.addEventListener("click", async (event) => {
-    const t = event.target.closest("button");
+    const t = (event.target as HTMLElement | null)?.closest("button");
     if (!t) return;
     if (t.dataset.inkColor) {
       state.color = t.dataset.inkColor;

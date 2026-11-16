@@ -7,12 +7,27 @@
 // - « Plus tard » reporte le rappel d'une semaine ; après 3 reports, il ne revient plus tout seul
 //   (le bouton « Installer l'application » reste disponible dans le menu).
 
+// Événement du navigateur qui propose l'installation (absent des types standard).
+interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
+export type Platform = "ios" | "android" | "firefox-desktop" | "mac-safari" | "desktop-chromium";
+
+// Ce qui est gardé sur l'appareil (localStorage).
+interface InstallState {
+  installed?: boolean;
+  snoozedUntil?: number;
+  count?: number;
+}
+
 const KEY = "thychat:install";
 const SNOOZE_MS = 7 * 24 * 60 * 60 * 1000;
 const MAX_SNOOZES = 3;
 
 // ios | android | firefox-desktop | mac-safari | desktop-chromium
-export function detectPlatform(nav = navigator) {
+export function detectPlatform(nav: Pick<Navigator, "userAgent" | "platform" | "maxTouchPoints"> = navigator): Platform {
   const ua = nav.userAgent || "";
   const iPadOnMac = nav.platform === "MacIntel" && nav.maxTouchPoints > 1; // iPadOS se présente comme un Mac
   if (/iPhone|iPad|iPod/.test(ua) || iPadOnMac) return "ios";
@@ -22,25 +37,25 @@ export function detectPlatform(nav = navigator) {
   return "desktop-chromium";
 }
 
-export function isStandalone() {
-  const matches = (query) => Boolean(window.matchMedia && window.matchMedia(query).matches);
+export function isStandalone(): boolean {
+  const matches = (query: string) => Boolean(window.matchMedia && window.matchMedia(query).matches);
   return (
     matches("(display-mode: standalone)") ||
     matches("(display-mode: fullscreen)") ||
     matches("(display-mode: minimal-ui)") ||
-    navigator.standalone === true // Safari iOS
+    (navigator as Navigator & { standalone?: boolean }).standalone === true // Safari iOS
   );
 }
 
-function load() {
+function load(): InstallState {
   try {
-    return JSON.parse(localStorage.getItem(KEY)) || {};
+    return JSON.parse(localStorage.getItem(KEY) as string) || {};
   } catch {
     return {};
   }
 }
 
-function save(patch) {
+function save(patch: InstallState): void {
   try {
     localStorage.setItem(KEY, JSON.stringify({ ...load(), ...patch }));
   } catch {
@@ -49,9 +64,9 @@ function save(patch) {
 }
 
 export function initInstall() {
-  const $ = (selector) => document.querySelector(selector);
+  const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector(selector) as T;
   const platform = detectPlatform();
-  let deferred = null; // événement « beforeinstallprompt » mis de côté
+  let deferred: InstallPromptEvent | null = null; // événement « beforeinstallprompt » mis de côté
 
   const installed = () => isStandalone() || load().installed === true;
 
@@ -78,27 +93,27 @@ export function initInstall() {
   }
 
   function openGuide() {
-    for (const details of document.querySelectorAll("#install-how details[data-platform]")) {
+    for (const details of document.querySelectorAll<HTMLDetailsElement>("#install-how details[data-platform]")) {
       const here = details.dataset.platform === platform;
       details.open = here;
       details.style.order = here ? "-1" : "0"; // l'appareil de la personne passe en premier
-      details.querySelector(".here").hidden = !here;
+      (details.querySelector(".here") as HTMLElement).hidden = !here;
     }
-    const dialog = $("#dialog-install");
+    const dialog = $<HTMLDialogElement>("#dialog-install");
     if (dialog.showModal) dialog.showModal();
     else dialog.setAttribute("open", "");
     $("#install-title").focus();
   }
 
   function closeGuide() {
-    const dialog = $("#dialog-install");
+    const dialog = $<HTMLDialogElement>("#dialog-install");
     if (dialog.close) dialog.close();
     else dialog.removeAttribute("open");
   }
 
   async function promptInstall() {
     if (!deferred) return openGuide();
-    const event = deferred;
+    const event: InstallPromptEvent = deferred;
     deferred = null; // l'événement ne peut servir qu'une fois
     try {
       await event.prompt();
@@ -114,7 +129,7 @@ export function initInstall() {
 
   window.addEventListener("beforeinstallprompt", (event) => {
     event.preventDefault(); // on affiche notre propre invitation, au bon moment
-    deferred = event;
+    deferred = event as InstallPromptEvent;
     save({ installed: false }); // le navigateur propose l'installation : elle n'est donc pas faite
     refresh();
   });
@@ -134,10 +149,10 @@ export function initInstall() {
   $("#dialog-install [data-close]").addEventListener("click", closeGuide);
 
   // Chrome / Edge : détecte une installation faite plus tôt quand on ouvre le site dans un onglet.
-  if (navigator.getInstalledRelatedApps) {
-    navigator
+  if ((navigator as any).getInstalledRelatedApps) {
+    (navigator as any)
       .getInstalledRelatedApps()
-      .then((apps) => {
+      .then((apps: unknown[]) => {
         if (apps && apps.length && !deferred) {
           save({ installed: true });
           refresh();
