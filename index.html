@@ -33,7 +33,7 @@
       // Étape atteinte, puis essai de chaque module de démarrage pour savoir lequel ne se charge pas.
       if (detail) detail.textContent += "\nÉtape : " + (window.__step || "aucun script exécuté");
       try {
-        var probes = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", "./js/config.js", "./js/supabase.js", "./js/messagerie.js", "./js/themes.js", "./js/notify.js", "./js/documents.js", "./js/images.js", "./js/offline.js", "./js/push.js", "./js/install.js", "./js/updates.js", "./js/app.js"];
+        var probes = ["https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm", "./js/config.js", "./js/supabase.js", "./js/messagerie.js", "./js/dom.js", "./js/dates.js", "./js/text.js", "./js/prefs.js", "./js/themes.js", "./js/notify.js", "./js/documents.js", "./js/images.js", "./js/offline.js", "./js/push.js", "./js/install.js", "./js/updates.js", "./js/app.js"];
         probes.forEach(function (url) {
           import(url).then(
             function () { if (detail) detail.textContent += "\nModule OK : " + url.replace(/^.*\//, ""); },
