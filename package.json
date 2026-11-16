@@ -12,6 +12,7 @@
     "serve": "node scripts/build.mjs && npx --yes serve dist"
   },
   "devDependencies": {
+    "@supabase/supabase-js": "^2.119.0",
     "esbuild": "^0.25.0",
     "jsdom": "^31.0.1",
     "typescript": "^5.7.0"

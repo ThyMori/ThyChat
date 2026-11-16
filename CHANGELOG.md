@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.6 — 2026-11-16
+- Interne : images et documents passent en TypeScript
+- aucun changement visible
+
 ## 5.2.5 — 2026-11-16
 - Interne : notify, themes et updates passent en TypeScript (types partagés dans js/types.ts)
 - aucun changement visible

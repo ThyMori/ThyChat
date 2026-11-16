@@ -1,12 +1,15 @@
 // Photos dans les messages : réduction avant envoi, envoi dans le stockage privé, liens temporaires.
 
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Attachment, PendingImage } from "./types.js";
+
 const MAX_SIDE = 1600;
 export const MAX_IMAGES = 4;
 const BUCKET = "message-images";
 const SIGN_SECONDS = 24 * 60 * 60;
 
 // Réduit l'image (côté le plus long : 1600 px) et la convertit en JPEG.
-export async function resizedJpeg(file) {
+export async function resizedJpeg(file: Blob): Promise<PendingImage> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
@@ -15,17 +18,18 @@ export async function resizedJpeg(file) {
   canvas.width = width;
   canvas.height = height;
   const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Image illisible");
   ctx.fillStyle = "#fff"; // fond blanc pour les images transparentes
   ctx.fillRect(0, 0, width, height);
   ctx.drawImage(bitmap, 0, 0, width, height);
   bitmap.close?.();
-  const blob = await new Promise((resolve, reject) =>
+  const blob = await new Promise<Blob>((resolve, reject) =>
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Image illisible"))), "image/jpeg", 0.85)
   );
   return { blob, width, height };
 }
 
-export async function uploadMessageImage(supabase, channelId, image) {
+export async function uploadMessageImage(supabase: SupabaseClient, channelId: string, image: PendingImage): Promise<Attachment> {
   const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);
   const path = `${channelId}/${id}.jpg`;
   const { error } = await supabase.storage.from(BUCKET).upload(path, image.blob, {
@@ -36,7 +40,7 @@ export async function uploadMessageImage(supabase, channelId, image) {
   return { path, w: image.width, h: image.height };
 }
 
-export async function removeMessageImages(supabase, paths) {
+export async function removeMessageImages(supabase: SupabaseClient, paths: string[]): Promise<void> {
   if (!paths.length) return;
   try {
     await supabase.storage.from(BUCKET).remove(paths);
@@ -46,8 +50,8 @@ export async function removeMessageImages(supabase, paths) {
 }
 
 // Liens temporaires (24 h) pour afficher les images d'un stockage privé.
-export async function signPaths(supabase, paths) {
-  const out = new Map();
+export async function signPaths(supabase: SupabaseClient, paths: string[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
   if (!paths.length) return out;
   const { data, error } = await supabase.storage.from(BUCKET).createSignedUrls(paths, SIGN_SECONDS);
   if (error) return out;
@@ -56,7 +60,7 @@ export async function signPaths(supabase, paths) {
 }
 
 // Retire toutes les photos rangées pour un sous-salon (suppression d'une discussion privée).
-export async function removeChannelImages(supabase, channelId) {
+export async function removeChannelImages(supabase: SupabaseClient, channelId: string): Promise<void> {
   try {
     const { data } = await supabase.storage.from(BUCKET).list(channelId, { limit: 1000 });
     const paths = (data || []).filter((f) => f.name).map((f) => `${channelId}/${f.name}`);
@@ -68,8 +72,8 @@ export async function removeChannelImages(supabase, channelId) {
 
 // Déplace réellement des photos vers le dossier d'un autre sous-salon (administrateurs).
 // Renvoie { moved: [[ancien, nouveau], …] } ; en cas d'échec, remet en place ce qui avait été déplacé et lève l'erreur.
-export async function moveMessageImages(supabase, paths, targetChannelId) {
-  const moved = [];
+export async function moveMessageImages(supabase: SupabaseClient, paths: string[], targetChannelId: string): Promise<[string, string][]> {
+  const moved: [string, string][] = [];
   try {
     for (const from of paths) {
       const to = `${targetChannelId}/${from.slice(from.indexOf("/") + 1)}`;
@@ -84,7 +88,7 @@ export async function moveMessageImages(supabase, paths, targetChannelId) {
   return moved;
 }
 
-export async function moveBack(supabase, moved) {
+export async function moveBack(supabase: SupabaseClient, moved: [string, string][]): Promise<void> {
   for (const [from, to] of moved) {
     try {
       await supabase.storage.from(BUCKET).move(to, from);
@@ -95,8 +99,8 @@ export async function moveBack(supabase, moved) {
 }
 
 // Copie des photos dans le dossier d'un autre sous-salon (transfert d'un message) : renvoie les nouvelles pièces jointes.
-export async function copyMessageImages(supabase, attachments, targetChannelId) {
-  const copied = [];
+export async function copyMessageImages(supabase: SupabaseClient, attachments: Attachment[], targetChannelId: string): Promise<Attachment[]> {
+  const copied: Attachment[] = [];
   try {
     for (const item of attachments) {
       const id = crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2);

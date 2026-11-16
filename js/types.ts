@@ -30,3 +30,17 @@ export interface Theme {
   label: string;
   hue: number;
 }
+
+// Pièce jointe photo d'un message : chemin dans le stockage + taille.
+export interface Attachment {
+  path: string;
+  w?: number;
+  h?: number;
+}
+
+// Photo préparée avant envoi.
+export interface PendingImage {
+  blob: Blob;
+  width: number;
+  height: number;
+}
