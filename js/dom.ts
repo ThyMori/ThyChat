@@ -1,8 +1,14 @@
 // Petits outils d'interface : sélection d'éléments, boîtes de dialogue, historique du bouton « Retour », icônes, pastilles de couleur.
 
 import { PALETTE } from "./themes.js";
+import type { IdElements } from "./dom-ids.js";
 
-export const $ = <T extends HTMLElement = HTMLElement>(selector: string): T => document.querySelector(selector) as T;
+// Un sélecteur « #id » connu de index.html donne le bon type d'élément ; sinon on peut le préciser : $<HTMLInputElement>(".x").
+export function $<S extends keyof IdElements>(selector: S): IdElements[S];
+export function $<T extends HTMLElement = HTMLElement>(selector: string): T;
+export function $(selector: string): HTMLElement {
+  return document.querySelector(selector) as HTMLElement;
+}
 
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, className?: string, text?: string): HTMLElementTagNameMap[K] {
   const node = document.createElement(tag);

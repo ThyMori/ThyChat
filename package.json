@@ -6,8 +6,8 @@
   "description": "ThyChat : messagerie professionnelle pour les équipes de spectacle vivant (PWA)",
   "scripts": {
     "build": "node scripts/build.mjs",
-    "types:db": "python3 scripts/gen-db-types.py",
-    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "types:db": "python3 scripts/gen-db-types.py && python3 scripts/gen-dom-types.py",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.messagerie.json",
     "test": "node scripts/build.mjs && node tests/run.mjs",
     "check": "npm run typecheck && npm test",
     "serve": "node scripts/build.mjs && npx --yes serve dist"

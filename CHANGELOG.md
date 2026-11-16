@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.12 — 2026-11-16
+- Interne : vérification des types de messagerie.js et des éléments de index.html
+- aucun changement visible
+
 ## 5.2.11 — 2026-11-16
 - Interne : les outils communs de messagerie.js (dom, dates, texte, préférences) deviennent des modules TypeScript
 - aucun changement visible

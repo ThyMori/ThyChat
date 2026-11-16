@@ -30,7 +30,7 @@ const GROUP_WINDOW_MS = 5 * 60 * 1000;
 const THEME_SQL_HINT =
   "Pour enregistrer les couleurs, exécute supabase/migrations/002_workspace_theme.sql dans l'éditeur SQL de Supabase.";
 
-const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (c ^ (Math.random() * 16) >> (c / 4)).toString(16)));
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : "10000000-1000-4000-8000-100000000000".replace(/[018]/g, (c) => (Number(c) ^ (Math.random() * 16) >> (Number(c) / 4)).toString(16)));
 const MESSAGE_COLS = "id, channel_id, user_id, parent_id, reply_to, tag_ids, struck_at, body, attachments, pinned, created_at, edited_at";
 
 export function createChat({ supabase: rawSupabase, user, store = createStore() }) {
@@ -727,8 +727,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const bell = $("#channel-bell");
     bell.hidden = !channel || channel.kind === "notes"; // jamais de notification pour « Mes notes »
     const bellOff = Boolean(channel && muted(channel));
-    bell.querySelector(".ic:first-child").style.display = bellOff ? "none" : "inline";
-    bell.querySelector(".ic:last-child").style.display = bellOff ? "inline" : "none";
+    /** @type {HTMLElement} */ (bell.querySelector(".ic:first-child")).style.display = bellOff ? "none" : "inline";
+    /** @type {HTMLElement} */ (bell.querySelector(".ic:last-child")).style.display = bellOff ? "inline" : "none";
     bell.classList.toggle("is-muted", Boolean(channel && muted(channel)));
     bell.title = muteNote || "Sourdine de ce fil";
     const bellLabel = bellOff ? "Sourdine active : réglages de ce fil" : "Mettre ce fil en sourdine";
@@ -790,7 +790,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const grouped =
         !newDay &&
         previous.user_id === message.user_id &&
-        date - new Date(previous.created_at) < GROUP_WINDOW_MS;
+        date.getTime() - new Date(previous.created_at).getTime() < GROUP_WINDOW_MS;
       const mine = message.user_id === user.id;
       const deletable = mine || canModerate;
 
@@ -1407,7 +1407,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
     if (state.messages.some((m) => m.id === message.id)) return;
     state.messages.push(message);
-    state.messages.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    state.messages.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
     renderMessages(forceBottom);
   }
 
@@ -2066,7 +2066,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const button = el("button", "pick-button");
       button.type = "button";
       button.dataset.hours = String(hours);
-      button.append(el("span", "pick-name", label));
+      button.append(el("span", "pick-name", String(label)));
       item.append(button);
       box.append(item);
     }
@@ -2114,7 +2114,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function todoNode(postit, options = {}) {
     const full = options.button === false && !options.mini;
     const node = el(options.button === false ? "div" : "button", "postit todo" + (options.mini ? " mini" : ""));
-    if (options.button !== false) node.type = "button";
+    if (options.button !== false) /** @type {HTMLButtonElement} */ (node).type = "button";
     node.dataset.id = postit.id;
     node.style.setProperty("--tilt", tiltOf(postit.id) + "deg");
     node.style.setProperty("--delay", (options.delay || 0) + "ms");
@@ -2147,7 +2147,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   function postitNode(postit, options = {}) {
     if (isTodo(postit)) return todoNode(postit, options);
     const node = el(options.button === false ? "div" : "button", "postit" + (options.mini ? " mini" : ""));
-    if (options.button !== false) node.type = "button";
+    if (options.button !== false) /** @type {HTMLButtonElement} */ (node).type = "button";
     node.dataset.id = postit.id;
     node.style.setProperty("--tilt", tiltOf(postit.id) + "deg");
     node.style.setProperty("--delay", (options.delay || 0) + "ms");
@@ -2231,8 +2231,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function submitTodo(event) {
     event.preventDefault();
     if (!state.channel || postitBusy) return;
-    const items = [...$("#todo-items").children]
-      .map((row) => ({ t: row.querySelector("input").value.trim().slice(0, TODO_ITEM_MAX), done: Boolean(row.dataset.done), ...(row.dataset.done && row.dataset.by ? { by: row.dataset.by } : {}) }))
+    const items = /** @type {HTMLElement[]} */ ([...$("#todo-items").children])
+      .map((row) => ({ t: /** @type {HTMLInputElement} */ (row.querySelector("input")).value.trim().slice(0, TODO_ITEM_MAX), done: Boolean(row.dataset.done), ...(row.dataset.done && row.dataset.by ? { by: row.dataset.by } : {}) }))
       .filter((item) => item.t);
     if (!items.length) return setNotice("#todo-message", "Écris au moins une ligne dans ta To-Do.");
     const title = $("#todo-title").value.trim().slice(0, 60) || "À faire";
@@ -2566,7 +2566,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     postitOpenId = id;
     const holder = $("#postit-read-note");
     holder.replaceChildren(postitNode(postit, { button: false }));
-    holder.firstChild.classList.add("lifted");
+    /** @type {HTMLElement} */ (holder.firstChild).classList.add("lifted");
     const when = new Date(postit.created_at);
     $("#postit-read-when").textContent = `${authorName(postit.user_id)} · ${dayLabel(when)} à ${timeFmt.format(when)}`;
     $("#postit-read-hint").textContent = isTodo(postit) ? "Coche les cases ; touche la feuille ailleurs pour la laisser collée." : "Touche le Post-it pour le laisser collé.";
@@ -2598,7 +2598,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!id || postitBusy) return;
     postitBusy = true;
     $("#postit-throw").disabled = true;
-    const note = $("#postit-read-note").firstChild;
+    const note = /** @type {HTMLElement | null} */ ($("#postit-read-note").firstChild);
     if (note) {
       note.classList.remove("lifted");
       note.classList.add("crumpling");
@@ -2767,7 +2767,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
         if (attachment.path) mediaItems.push({ ...attachment, at: message.created_at, user_id: message.user_id, tag_ids: message.tag_ids || [] });
       }
     }
-    mediaItems.sort((a, b) => new Date(b.at) - new Date(a.at));
+    mediaItems.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
     await ensureProfiles(mediaItems.map((i) => i.user_id));
     await resolveImages([{ attachments: mediaItems }]);
     if (token !== mediaToken || stopped) return;
@@ -3578,7 +3578,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const month = state.calMonth.getMonth();
     const first = mondayOf(state.calMonth);
     const lastDay = new Date(state.calMonth.getFullYear(), month + 1, 0);
-    const weeks = Math.ceil((mondayOf(lastDay) - first) / (7 * 86400000)) + 1;
+    const weeks = Math.ceil((mondayOf(lastDay).getTime() - first.getTime()) / (7 * 86400000)) + 1;
     const lanes = assignLanes(tags);
     const grid = $("#cal-grid");
     grid.replaceChildren();
@@ -3667,7 +3667,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   }
 
   function jumpToMessage(id) {
-    const target = [...document.querySelectorAll("#messages .msg")].find((node) => node.dataset.id === id);
+    const target = [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("#messages .msg"))].find((node) => node.dataset.id === id);
     if (!target) return toast("Ce message est plus ancien que ceux qui sont affichés.");
     target.scrollIntoView({ block: "center" });
     target.classList.add("flash");
@@ -3766,6 +3766,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   };
 
   // Mini-calendrier d'un mois : mark(iso, bouton) décore un jour ; onTap(iso) à l'appui ; onDrag(a, b) au glissé (facultatif).
+  /** @param {any} host @param {{ mark: any, onTap: any, onDrag?: any }} handlers @param {any} [on] */
   function makeMonthPicker(host, { mark, onTap, onDrag }, on) {
     let month = new Date();
     month = new Date(month.getFullYear(), month.getMonth(), 1);
@@ -4266,7 +4267,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     }
   }
 
-  const accessMode = (name) => document.querySelector(`input[name="${name}"]:checked`)?.value || "everyone";
+  const accessMode = (name) => /** @type {HTMLInputElement | null} */ (document.querySelector(`input[name="${name}"]:checked`))?.value || "everyone";
 
   // Utilisateurs (non administrateurs) qui ont accès à un salon : base du choix pour ses sous-salons.
   async function roomUsers(room) {
@@ -4299,7 +4300,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#room-name").value = room ? room.name : "";
     $("#room-description").value = room?.description || "";
     const mode = room && !room.everyone ? "some" : "everyone";
-    for (const radio of document.querySelectorAll('input[name="room-access"]')) radio.checked = radio.value === mode;
+    for (const radio of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="room-access"]'))) radio.checked = radio.value === mode;
     setNotice("#room-message", "");
     $("#room-pick").hidden = mode !== "some";
     openDialog("#dialog-room");
@@ -4320,7 +4321,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const description = $("#room-description").value.trim();
     if (!name) return setNotice("#room-message", "Donne un nom au spectacle.");
     const everyone = accessMode("room-access") === "everyone";
-    const picked = [...document.querySelectorAll("#room-pick input:checked")].map((box) => box.value);
+    const picked = [.../** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll("#room-pick input:checked"))].map((box) => box.value);
 
     const button = $("#room-submit");
     button.disabled = true;
@@ -4444,7 +4445,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       item.append(opts);
       list.append(item);
       const sync = () => {
-        const any = TEAM_FUNCTIONS.some(([key]) => opts.querySelector(`[data-opt="${key}"]`).checked);
+        const any = TEAM_FUNCTIONS.some(([key]) => /** @type {HTMLInputElement} */ (opts.querySelector(`[data-opt="${key}"]`)).checked);
         if (any) read.checked = true;
         if (row.user_id !== user.id || isAdmin()) read.disabled = any;
       };
@@ -4461,9 +4462,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     button.disabled = true;
     setNotice("#team-message", "");
     const want = new Map();
-    for (const item of document.querySelectorAll("#team-list .team-row")) {
+    for (const item of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("#team-list .team-row"))) {
       if (!teamStart.has(item.dataset.user)) continue;
-      const value = (key) => Boolean(item.querySelector(`[data-opt="${key}"]`)?.checked);
+      const value = (key) => Boolean(/** @type {HTMLInputElement | null} */ (item.querySelector(`[data-opt="${key}"]`))?.checked);
       const functions = TEAM_FUNCTIONS.map(([key]) => key).filter(value);
       want.set(item.dataset.user, { access: room.everyone || value("access"), functions, sheet_read: value("sheet_read") || functions.length > 0 });
     }
@@ -4513,7 +4514,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#channel-name").value = channel ? channel.name : "";
     $("#channel-description").value = channel?.description || "";
     const mode = channel && !channel.everyone ? "some" : "everyone";
-    for (const radio of document.querySelectorAll('input[name="channel-access"]')) radio.checked = radio.value === mode;
+    for (const radio of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="channel-access"]'))) radio.checked = radio.value === mode;
     setNotice("#channel-message", "");
     $("#channel-pick").hidden = mode !== "some";
     openDialog("#dialog-channel");
@@ -4534,7 +4535,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!name) return setNotice("#channel-message", "Donne un nom au sous-salon.");
 
     const everyone = accessMode("channel-access") === "everyone";
-    const picked = [...document.querySelectorAll("#channel-pick input:checked")].map((box) => box.value);
+    const picked = [.../** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll("#channel-pick input:checked"))].map((box) => box.value);
 
     const button = $("#channel-submit");
     button.disabled = true;
@@ -4600,7 +4601,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   function openSearch(scope) {
     const select = $("#search-scope");
-    select.querySelector('option[value="here"]').disabled = !state.channel;
+    /** @type {HTMLOptionElement} */ (select.querySelector('option[value="here"]')).disabled = !state.channel;
     select.value = scope === "here" && state.channel ? "here" : "all";
     $("#search-status").textContent = "";
     $("#search-results").replaceChildren();
@@ -5019,7 +5020,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // Salons à accès restreint des espaces cochés (pour les rôles « utilisateur »).
   function renderInviteSalons() {
     const box = $("#invite-salons");
-    const kept = new Set([...box.querySelectorAll("input:checked")].map((input) => input.value));
+    const kept = new Set([.../** @type {NodeListOf<HTMLInputElement>} */ (box.querySelectorAll("input:checked"))].map((input) => input.value));
     box.replaceChildren();
     let any = false;
     for (const row of document.querySelectorAll("#invite-spaces .invite-space")) {
@@ -5081,7 +5082,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const picked =
         role === "admin"
           ? []
-          : [...document.querySelectorAll(`#invite-salons input[data-ws="${checkbox.value}"]:checked`)];
+          : [.../** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#invite-salons input[data-ws="${checkbox.value}"]:checked`))];
       assignments.push({
         workspace_id: checkbox.value,
         role,
@@ -5261,8 +5262,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#push-reminder").hidden = !remind;
     document.querySelector("#screen-app .chat").classList.toggle("has-reminder", remind);
     const off = status !== "on";
-    $("#notif-ic").querySelector(".ic:first-child").style.display = off ? "none" : "inline";
-    $("#notif-ic").querySelector(".ic:last-child").style.display = off ? "inline" : "none";
+    /** @type {HTMLElement} */ ($("#notif-ic").querySelector(".ic:first-child")).style.display = off ? "none" : "inline";
+    /** @type {HTMLElement} */ ($("#notif-ic").querySelector(".ic:last-child")).style.display = off ? "inline" : "none";
     $("#notif-label").textContent = status === "off" ? "Activer les notifications" : "Notifications";
     $("#open-notifications").classList.toggle("is-warn", status === "off");
     $("#me-menu-button").classList.toggle("is-warn", status === "off");
@@ -5444,6 +5445,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (controller) return;
     controller = new AbortController();
     const opts = { signal: controller.signal };
+    // (Quelques appels passent un 4e argument { passive: true } qui n'a jamais été transmis : comportement conservé.)
+    /** @type {(target: EventTarget, type: string, handler: (event: any) => any, ignored?: unknown) => void} */
     const on = (target, type, handler) => target.addEventListener(type, handler, opts);
 
     on($("#workspace-button"), "click", openSwitch);
@@ -5852,7 +5855,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     };
     on(field, "focus", () => ($("#format-bar").dataset.show = "1"));
     on(field, "blur", () => delete $("#format-bar").dataset.show);
-    for (const button of [...document.querySelectorAll("#format-bar [data-format]")]) {
+    for (const button of [.../** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll("#format-bar [data-format]"))]) {
       on(button, "pointerdown", (event) => event.preventDefault()); // garde le clavier ouvert et la sélection
       on(button, "click", () => wrapSelection(button.dataset.format));
     }
@@ -6197,7 +6200,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     on(window, "popstate", () => {
       if (stopped || !isMobile()) return;
-      const opened = [...document.querySelectorAll("dialog[open]")];
+      const opened = [.../** @type {NodeListOf<HTMLDialogElement>} */ (document.querySelectorAll("dialog[open]"))];
       if (opened.length) {
         for (const dialog of opened) closeDialog(dialog); // « Retour » ferme la boîte de dialogue
         guardHistory();

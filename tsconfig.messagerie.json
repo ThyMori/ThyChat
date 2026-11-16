@@ -1,0 +1,6 @@
+{
+  // Vérification de messagerie.js (resté en JavaScript) : mode souple, on resserre petit à petit.
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "checkJs": true, "strict": false },
+  "include": ["js/messagerie.js", "js/globals.d.ts"]
+}
