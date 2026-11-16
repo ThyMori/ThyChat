@@ -1,9 +1,12 @@
 // Notifications push : abonnement de cet appareil et pastille sur l'icône de l'application.
 // L'envoi proprement dit est fait par la fonction Supabase « send-push » (voir README).
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { VAPID_PUBLIC_KEY } from "./config.js";
 
-export const pushSupported = () =>
+export type PushStatus = "unsupported" | "needs-install" | "unconfigured" | "denied" | "off" | "on";
+
+export const pushSupported = (): boolean =>
   typeof navigator !== "undefined" &&
   "serviceWorker" in navigator &&
   typeof window !== "undefined" &&
@@ -12,17 +15,17 @@ export const pushSupported = () =>
 
 const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const isStandaloneNow = () =>
-  (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) || (navigator as Navigator & { standalone?: boolean }).standalone === true;
 
-function keyToBytes(base64) {
+function keyToBytes(base64: string): Uint8Array<ArrayBuffer> {
   const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
   const raw = atob(padded.replace(/-/g, "+").replace(/_/g, "/"));
   return Uint8Array.from(raw, (char) => char.charCodeAt(0));
 }
 
-function toBase64Url(buffer) {
+function toBase64Url(buffer: ArrayBuffer | null): string {
   let binary = "";
-  for (const byte of new Uint8Array(buffer)) binary += String.fromCharCode(byte);
+  for (const byte of new Uint8Array(buffer as ArrayBuffer)) binary += String.fromCharCode(byte);
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
@@ -33,7 +36,7 @@ async function currentSubscription() {
 
 // unsupported | needs-install (iPhone : il faut d'abord installer l'application) | unconfigured |
 // denied | off | on
-export async function pushStatus() {
+export async function pushStatus(): Promise<PushStatus> {
   if (!pushSupported()) return isIos() && !isStandaloneNow() ? "needs-install" : "unsupported";
   if (isIos() && !isStandaloneNow()) return "needs-install";
   if (!VAPID_PUBLIC_KEY) return "unconfigured";
@@ -46,7 +49,7 @@ export async function pushStatus() {
   }
 }
 
-export async function enablePush(supabase) {
+export async function enablePush(supabase: SupabaseClient): Promise<void> {
   const status = await pushStatus();
   if (status !== "off" && status !== "on") throw new Error(status);
 
@@ -70,7 +73,7 @@ export async function enablePush(supabase) {
   if (error) throw error;
 }
 
-export async function disablePush(supabase) {
+export async function disablePush(supabase: SupabaseClient): Promise<void> {
   const subscription = await currentSubscription();
   if (!subscription) return;
   await supabase.rpc("remove_push_subscription", { p_endpoint: subscription.endpoint });
@@ -78,10 +81,10 @@ export async function disablePush(supabase) {
 }
 
 // Si cet appareil est déjà autorisé, rattache l'abonnement au compte connecté (changement de compte).
-export async function syncPush(supabase) {
+export async function syncPush(supabase: SupabaseClient): Promise<void> {
   try {
     if ((await pushStatus()) !== "on") return;
-    const subscription = await currentSubscription();
+    const subscription = (await currentSubscription()) as PushSubscription;
     await supabase.rpc("save_push_subscription", {
       p_endpoint: subscription.endpoint,
       p_p256dh: toBase64Url(subscription.getKey("p256dh")),
@@ -94,9 +97,9 @@ export async function syncPush(supabase) {
 }
 
 // Pastille sur l'icône de l'application installée (si le navigateur la gère).
-export function setBadge(count) {
+export function setBadge(count: number): void {
   try {
-    if (count > 0 && navigator.setAppBadge) navigator.setAppBadge(count);
+    if (count > 0 && (navigator as any).setAppBadge) navigator.setAppBadge(count);
     else if (navigator.clearAppBadge) navigator.clearAppBadge();
   } catch {
     /* badge non pris en charge */
