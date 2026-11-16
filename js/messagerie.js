@@ -108,8 +108,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   let structureTimer = null;
   let expiryTimer = null;
   let pendingTheme = DEFAULT_THEME.key;
+  /** @type {Channel | null} */
   let editingChannel = null; // sous-salon en cours de modification (null = création)
   let channelRoomId = null; // salon (spectacle) du sous-salon en cours de création
+  /** @type {Room | null} */
   let editingRoom = null; // salon (spectacle) en cours de modification (null = création)
 
   // --- Petits utilitaires d'interface ------------------------------------
@@ -1919,6 +1921,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   const POSTIT_MAX = 300;
   const PEEL_MS = 380; // durée de l'animation « décollé »
   const CRUMPLE_MS = 700; // durée de l'animation « froissé »
+  /** @type {string | null} */
   let postitOpenId = null;
   let postitBusy = false;
   let postitFreshId = null; // à coller avec animation au prochain affichage
@@ -3744,6 +3747,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   // Gestion des dates de tournée (administrateurs) --------------------------------
 
+  /** @type {Tag | null} */
   let editingTag = null;
   let tagFormOpen = false; // formulaire masqué tant qu'on n'ajoute ni ne modifie rien
 
@@ -3760,8 +3764,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     openDialog("#dialog-tags");
   }
 
+  /** @type {string[]} */
   let editingShows = []; // une entrée par représentation (un même jour peut en avoir plusieurs : matinée, soirée…)
   let rangePicker = null;
+  /** @type {any} */
   let showsPicker = null;
   let pendingShowDay = null;
 
@@ -3813,6 +3819,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on(next, "click", () => go(1));
 
     let suppress = false;
+    /** @type {string | null} */
     let anchor = null;
     let dragged = false;
     const dayAt = (/** @type {any} */ event) => {
@@ -5552,6 +5559,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     // Glisser un message vers la gauche : il suit le doigt (comme sur WhatsApp) et se met en surbrillance.
     {
       const box = $("#messages");
+      /** @type {any} */
       let drag = null;
       const settle = (row) => {
         if (!row) return;
@@ -5803,6 +5811,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#profile-form"), "submit", submitProfile);
 
     // Appui long sur un message : début de la sélection multiple ; ensuite chaque appui coche ou décoche.
+    /** @type {any} */
     let press = null;
     let swallowClick = false; // le relâchement d'un appui long ne doit pas compter comme un appui
     const cancelPress = () => {
