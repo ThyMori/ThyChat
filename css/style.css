@@ -1533,3 +1533,10 @@ dialog.ink[open] { display: flex; flex-direction: column; }
 .ink-w i { display: block; width: 18px; background: var(--text); border-radius: 4px; }
 .ink-dot[aria-pressed="true"], .ink-w[aria-pressed="true"], .ink-act[aria-pressed="true"] { border-color: var(--accent); }
 .ink-act:disabled { opacity: 0.35; }
+
+/* Pastille « update en cours » : visible tant qu'une action est attendue dans Supabase (js/flags.ts). */
+.update-pending {
+  position: fixed; left: 50%; transform: translateX(-50%); top: var(--safe-top, 0px); z-index: 60;
+  padding: 1px 8px; border-radius: 999px; background: var(--alert); color: #fff;
+  font-size: 0.65rem; font-weight: 600; pointer-events: none; /* ne gêne aucun appui */
+}

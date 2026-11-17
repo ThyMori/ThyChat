@@ -3,6 +3,7 @@ import { createChat } from "./messagerie.js";
 import { initInstall } from "./install.js";
 import { VERSION } from "./version.js";
 import { watchUpdates } from "./updates.js";
+import { showUpdatePending } from "./flags.js";
 import type { Session } from "@supabase/supabase-js";
 import type { Db } from "./types.js";
 
@@ -13,6 +14,7 @@ const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.qu
 
 // Numéro de version, affiché en petit en bas de la connexion et de la barre latérale.
 for (const node of document.querySelectorAll(".app-version")) node.textContent = `v${VERSION}`;
+showUpdatePending(); // pastille rouge tant qu'une action est attendue dans Supabase (js/flags.ts)
 
 // iPhone, application installée : iOS donne parfois une marge de sécurité nulle au démarrage, et l'en-tête
 // passe alors sous l'encoche / l'heure. On mesure la marge réelle et, si elle est nulle, on en impose une.
