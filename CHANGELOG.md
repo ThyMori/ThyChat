@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.2.20 — 2026-11-17
+- Pastille « update en cours » retirée (migration 032 déployée)
+
 ## 5.2.19 — 2026-11-17
 - Liens web de la fiche technique et des feuilles de route de nouveau acceptés (migration 032 à coller dans Supabase)
 - pastille « update en cours »

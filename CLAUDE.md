@@ -25,6 +25,7 @@ Le numéro est affiché en petit en bas de l'application. Format `MAJEUR.FONCTIO
 - Ne jamais mettre de clé secrète (`service_role` / `secret`) dans le dépôt ; seule la clé publique est dans `js/config.js`.
 - Les couleurs de l'interface dérivent de `--h` (teinte de l'espace courant) : ne pas coder de couleur en dur dans la zone `#screen-app`.
 - Service worker : ajouter tout nouveau fichier JS/CSS à la liste `SHELL` de `sw.js`.
+- **Avant de livrer quoi que ce soit qui demande une intervention dans Supabase (SQL, fonction, secret), prévenir Thierry et attendre son accord** : il ne peut coller le SQL qu'avec son ordinateur, et l'application ne doit pas rester « cassée » en son absence. Si possible, concevoir le changement pour que l'ancienne base continue de fonctionner jusqu'au déploiement.
 - Action attendue dans Supabase (SQL, fonction, secret) : mettre `UPDATE_PENDING = true` dans `js/flags.ts` (pastille rouge « update en cours »), le repasser à `false` quand Thierry dit « c’est déployé ».
 - vocabulaire : « espace » (une production ou une compagnie), « spectacle » (ex-« salon » ; un spectacle en particulier), « sous-salon » (là où on discute : Tous, Technique…), « date » (une date de tournée, ex-« tag »), « message privé » ; rôles « administrateur » et « utilisateur ».
 - Fonctions Supabase (`supabase/functions/*/index.ts`) : Thierry les colle dans le tableau de bord ; elles lisent leurs clés dans les secrets (`SUPABASE_SERVICE_ROLE_KEY`, `VAPID_PRIVATE_KEY`…), jamais dans le dépôt. Seule la clé VAPID publique est dans `js/config.js`.
