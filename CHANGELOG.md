@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.3.1 — 2026-11-18
+- Pastille « update en cours » retirée (migration 033 et send-push déployés)
+
 ## 5.3.0 — 2026-11-18
 - Cloche « Notifications reçues » : historique horodaté sur 30 jours, avec pastille rouge (migration 033 et fonction send-push à déployer dans Supabase)
 
