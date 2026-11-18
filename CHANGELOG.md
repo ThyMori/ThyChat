@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.4.0 — 2026-11-18
+- Rôles précisés : Technique et RG modifient la fiche technique, Prod la lit seulement
+- Prod seule modifie les feuilles de route (migration 034 à coller dans Supabase)
+
 ## 5.3.1 — 2026-11-18
 - Pastille « update en cours » retirée (migration 033 et send-push déployés)
 

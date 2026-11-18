@@ -203,9 +203,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   // Fonctions dans un spectacle (migration 028) : Technique, Prod, RG. Les administrateurs de l'espace ont tous les droits.
   const staffOf = (/** @type {string} */ roomId) => state.myStaff.get(roomId) || { functions: [], sheet_read: false };
   const hasFunction = (/** @type {string} */ roomId, /** @type {string[]} */ ...names) => staffOf(roomId).functions.some((/** @type {any} */ f) => names.includes(f));
-  const canEditSheet = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "prod", "rg"));
-  const canReadSheet = (/** @type {string} */ roomId) => canEditSheet(roomId) || Boolean(staffOf(roomId).sheet_read);
-  const canEditRoadmap = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));
+  // Droits (migration 034) : fiche technique = Technique et RG la modifient, Prod la lit seulement ; feuilles de route = Prod seule les modifie.
+  const canEditSheet = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "technique", "rg"));
+  const canReadSheet = (/** @type {string} */ roomId) => canEditSheet(roomId) || hasFunction(roomId, "prod") || Boolean(staffOf(roomId).sheet_read);
+  const canEditRoadmap = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod"));
   // Tout membre d'un spectacle crée des sous-salons ; le créateur (ou un administrateur) gère le sien (migration 029).
   const canManageChannel = (/** @type {Channel} */ channel) => Boolean(channel) && channel.kind === "channel" && (isAdmin() || channel.created_by === user.id);
   const canAssign = (/** @type {string} */ roomId) => Boolean(roomId) && (isAdmin() || hasFunction(roomId, "prod", "rg"));

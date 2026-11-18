@@ -2284,11 +2284,11 @@ language sql stable security definer set search_path = public as $$
 $$;
 create or replace function public.can_edit_sheet(rm uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.staff_has_as(auth.uid(), rm, array['technique', 'prod', 'rg'], false);
+  select public.staff_has_as(auth.uid(), rm, array['technique', 'rg'], false);
 $$;
 create or replace function public.can_edit_roadmap(rm uuid) returns boolean
 language sql stable security definer set search_path = public as $$
-  select public.staff_has_as(auth.uid(), rm, array['prod', 'rg'], false);
+  select public.staff_has_as(auth.uid(), rm, array['prod'], false);
 $$;
 create or replace function public.can_assign_room(rm uuid) returns boolean
 language sql stable security definer set search_path = public as $$
@@ -2351,7 +2351,7 @@ drop policy if exists room_sheets_delete on public.room_sheets;
 create policy room_sheets_delete on public.room_sheets for delete to authenticated
   using (public.can_edit_sheet(room_id));
 
--- Feuilles de route (documents des dates) : tout le monde lit ; Prod et RG modifient.
+-- Feuilles de route (documents des dates) : tout le monde lit ; Prod modifie (migration 034).
 drop policy if exists tag_documents_insert on public.tag_documents;
 create policy tag_documents_insert on public.tag_documents for insert to authenticated
   with check (

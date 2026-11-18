@@ -21,21 +21,22 @@ const { createChat } = await import(`${REPO}/js/messagerie.js`);
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 
-// u1 = administrateur ; u2 = Prod ; u3 = Technique ; u4 = membre sans fonction ; u5 = membre avec « lit la fiche »
+// u1 = administrateur ; u2 = Prod ; u3 = Technique ; u4 = membre sans fonction ; u5 = membre avec « lit la fiche » ; u6 = RG
 const users = (me) => ({ id: me, email: me + "@x.fr", user_metadata: {} });
 async function boot(meId) {
   // état commun, recréé pour chaque profil (la fenêtre reste la même)
   const f = makeFake(users(meId));
   f.db.profiles = [];
   f.db.workspaces.push({ id: "w1", name: "Cie A", created_by: "u1", theme: "violet" });
-  for (const [id, role] of [["u1", "admin"], ["u2", "member"], ["u3", "member"], ["u4", "member"], ["u5", "member"]]) f.db.workspace_members.push({ workspace_id: "w1", user_id: id, role });
+  for (const [id, role] of [["u1", "admin"], ["u2", "member"], ["u3", "member"], ["u4", "member"], ["u5", "member"], ["u6", "member"]]) f.db.workspace_members.push({ workspace_id: "w1", user_id: id, role });
   f.db.rooms.push({ id: "r1", workspace_id: "w1", name: "Hamlet", description: null, everyone: false, created_at: "2026-11-01T00:00:00Z" });
-  for (const id of ["u2", "u3", "u4", "u5"]) f.db.room_members.push({ room_id: "r1", user_id: id });
+  for (const id of ["u2", "u3", "u4", "u5", "u6"]) f.db.room_members.push({ room_id: "r1", user_id: id });
   f.db.channels.push({ id: "c1", workspace_id: "w1", room_id: "r1", name: "Général", kind: "channel", everyone: true, description: null, created_at: "2026-11-01T00:00:00Z" });
   f.db.room_staff.push(
     { room_id: "r1", user_id: "u2", functions: ["prod"], sheet_read: true },
     { room_id: "r1", user_id: "u3", functions: ["technique"], sheet_read: true },
     { room_id: "r1", user_id: "u5", functions: [], sheet_read: true },
+    { room_id: "r1", user_id: "u6", functions: ["rg"], sheet_read: false },
   );
   f.db.tour_tags.push({ id: "t1", room_id: "r1", label: "Lyon", start_date: "2026-12-01", end_date: "2026-12-02", shows: [] });
   f.db.room_sheets.push({ id: "s1", room_id: "r1", name: "Plan feu", path: "r1/fiche/a.pdf", version_date: "2026-11-01", created_at: "2026-11-01T00:00:00Z" });
@@ -55,12 +56,13 @@ $("#room-sheet").click?.(); await tick(30);
 assert.equal($("#room-sheet").hidden, false);
 stop(c);
 
-// 2. Prod : 👥 sans ⚙ ; peut modifier fiche technique et feuilles de route
+// 2. Prod : 👥 sans ⚙ ; LIT la fiche technique sans la modifier ; modifie les feuilles de route
 c = await boot("u2");
 assert.ok($("[data-room-team]")); assert.equal($("[data-room-edit]"), null); ok("Prod : Équipe sans réglages du spectacle");
-$("#room-sheet").click(); await tick(60);
-assert.equal($("#sheet-form").hidden, false); ok("Prod : modifie la fiche technique");
-assert.equal(c.f.db.room_sheets.length, 1);
+assert.equal($("#room-sheet").hidden, false); $("#room-sheet").click(); await tick(60);
+assert.equal($("#sheet-list").textContent.includes("Plan feu"), true);
+assert.equal($("#sheet-form").hidden, true); ok("Prod : lit la fiche technique sans la modifier");
+assert.equal($("#sheet-list [data-del-sheet]"), null, "Prod : pas de croix de retrait");
 $("#dialog-sheet").close?.();
 if ($("#tag-bar").classList.contains("dates-open") === false) { $("#tags-toggle").click(); await tick(40); }
 document.querySelector(".doc-badge")?.click(); await tick(60);
@@ -77,6 +79,17 @@ $("#dialog-sheet").close?.();
 if ($("#tag-bar").classList.contains("dates-open") === false) { $("#tags-toggle").click(); await tick(40); }
 document.querySelector(".doc-badge")?.click(); await tick(60);
 assert.equal($("[data-add-doc]"), null, "Technique : pas de + Fichier"); ok("Technique : ne modifie pas les feuilles de route");
+stop(c);
+
+// 3b. RG : modifie la fiche technique, assigne, mais ne modifie pas les feuilles de route
+c = await boot("u6");
+assert.ok($("[data-room-team]")); ok("RG : assigne des personnes");
+assert.equal($("#room-sheet").hidden, false); $("#room-sheet").click(); await tick(60);
+assert.equal($("#sheet-form").hidden, false); ok("RG : modifie la fiche technique");
+$("#dialog-sheet").close?.();
+if ($("#tag-bar").classList.contains("dates-open") === false) { $("#tags-toggle").click(); await tick(40); }
+document.querySelector(".doc-badge")?.click(); await tick(60);
+assert.equal($("[data-add-doc]"), null, "RG : pas de + Fichier"); ok("RG : lit les feuilles de route sans les modifier");
 stop(c);
 
 // 4. Membre sans fonction ni lecture : pas de fiche technique ; lit les feuilles de route sans les modifier

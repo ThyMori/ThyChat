@@ -154,13 +154,13 @@ export function makeFake(currentUser, seed = {}) {
             rows.push(row);
           } else if (table === "room_sheets") {
             const room = db.rooms.find((x) => x.id === p.room_id);
-            if (!room || !staffHas(me(), p.room_id, ["technique", "prod", "rg"])) return { data: null, error: rls };
+            if (!room || !staffHas(me(), p.room_id, ["technique", "rg"])) return { data: null, error: rls };
             if (p.path != null && !String(p.path).startsWith(`${p.room_id}/fiche/`)) return { data: null, error: rls };
             Object.assign(row, { id: uid(), created_at: stamp() });
             rows.push(row);
           } else if (table === "tag_documents") {
             const tag = db.tour_tags.find((t) => t.id === p.tag_id);
-            if (!tag || !staffHas(me(), tag.room_id, ["prod", "rg"])) return { data: null, error: rls };
+            if (!tag || !staffHas(me(), tag.room_id, ["prod"])) return { data: null, error: rls };
             if (p.path != null && !String(p.path).startsWith(`${tag.room_id}/${tag.id}/`)) return { data: null, error: rls };
             Object.assign(row, { id: uid(), created_at: stamp() });
             rows.push(row);
@@ -245,8 +245,8 @@ export function makeFake(currentUser, seed = {}) {
           } else if (table === "channels" && !manages(r)) continue;
           else if (table === "rooms" && !admin(me(), r.workspace_id)) continue;
           if (table === "tour_tags" && !admin(me(), db.rooms.find((x) => x.id === r.room_id).workspace_id)) continue;
-          if (table === "room_sheets" && !staffHas(me(), r.room_id, ["technique", "prod", "rg"])) continue;
-          if (table === "tag_documents" && !staffHas(me(), db.tour_tags.find((t) => t.id === r.tag_id).room_id, ["prod", "rg"])) continue;
+          if (table === "room_sheets" && !staffHas(me(), r.room_id, ["technique", "rg"])) continue;
+          if (table === "tag_documents" && !staffHas(me(), db.tour_tags.find((t) => t.id === r.tag_id).room_id, ["prod"])) continue;
           if ((table === "room_members" || table === "room_staff") && !canAssign(me(), r.room_id)) continue;
           if (table === "channel_members" && !manages(db.channels.find((c) => c.id === r.channel_id))) continue;
           if (table === "workspace_members" && !admin(me(), r.workspace_id)) continue;

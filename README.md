@@ -66,6 +66,19 @@ Les invitations se font **depuis ThyChat** (voir « Rôles et accès » et « Fo
 | **Administrateur d'espace** | Dans SON espace : inviter, changer les rôles, retirer des personnes, créer / modifier / supprimer des spectacles et des sous-salons et choisir qui y a accès, changer la couleur. Voit tout dans l'espace. |
 | **Utilisateur** | Lire et écrire dans les sous-salons auxquels il a accès, écrire en privé aux autres personnes de ses espaces, régler ses notifications et son profil. |
 
+**Fonctions dans un spectacle** (bouton 👥, migrations 028 et 034) :
+
+| Fonction | Fiche technique | Feuilles de route | Assigne des personnes au spectacle |
+| --- | --- | --- | --- |
+| Administrateur d'espace | lit, modifie | lit, modifie | oui |
+| RG | lit, modifie | lit | oui |
+| Prod | lit | lit, modifie | oui |
+| Technique | lit, modifie | lit | non |
+| Case « lit la fiche technique » | lit | lit | non |
+| Aucune fonction | ne lit pas | lit | non |
+
+Les fonctions se cumulent (la personne garde la somme des droits). Les droits sont appliqués par la base (SQL), pas seulement par l'écran.
+
 La hiérarchie : un **espace** (une production ou une compagnie) contient des **spectacles** (anciennement « salons »), qui contiennent des **sous-salons** (« Tous », « Technique », « Musiciens »…). Deux niveaux d'accès : un spectacle est ouvert à tous les utilisateurs de l'espace ou réservé aux personnes assignées ; dans un spectacle, chaque sous-salon est ouvert à tous ceux qui ont accès au spectacle ou réservé à certains d'entre eux (cadenas). Chaque nouveau spectacle démarre avec un sous-salon « Tous ». Les **messages privés** ne relient que deux personnes d'un même espace.
 
 **Devenir administrateur général** (une seule fois, dans le SQL Editor de Supabase, avec ton adresse) :
@@ -137,6 +150,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `034_roles_rights.sql` | précise les droits des fonctions : Technique et RG modifient la fiche technique, Prod la lit seulement ; Prod seule modifie les feuilles de route (**5.4.0** masque déjà les boutons, la base applique les règles après cette migration) |
 | `033_notification_log.sql` | l'historique des notifications (cloche) : table `notification_log` ; avec la fonction `send-push` à redéployer ; sans elles la cloche reste vide, le reste de l'app fonctionne ; **indispensable pour la cloche dès la 5.3.0** |
 | `032_fix_links.sql` | corrige l'ajout d'un lien web (fiche technique et feuilles de route), refusé depuis la 028 (« violates row-level security policy ») ; **indispensable dès la 5.2.19** |
 | `031_support_flag.sql` | la pastille « Support » ne marque que les entrées par « Rejoindre » (`workspace_members.support`), pas les espaces créés par l'administrateur général (après la 030) |
