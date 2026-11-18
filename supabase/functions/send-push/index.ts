@@ -15,6 +15,26 @@ const json = (body: unknown, status = 200) =>
 
 const clip = (text: string, max: number) => (text.length > max ? text.slice(0, max - 1) + "…" : text);
 
+// Historique des notifications (la cloche de l'application, migration 033) : une ligne par personne prévenue,
+// inscrite AVANT l'envoi push (la personne la retrouve même sans abonnement push ou appareil éteint).
+// Un échec ici ne doit jamais empêcher l'envoi : si la table n'existe pas encore, on ignore.
+// deno-lint-ignore no-explicit-any
+async function logNotifications(admin: any, userIds: string[], entry: { kind: string; title: string; body: string; workspace_id: string; channel_id: string | null }) {
+  try {
+    const rows = userIds.map((user_id) => ({ user_id, ...entry }));
+    const { error } = await admin.from("notification_log").insert(rows);
+    if (error) {
+      console.error("Historique : écriture impossible", error.message);
+      return;
+    }
+    // Purge : on garde 30 jours.
+    const limit = new Date(Date.now() - 30 * 24 * 3600 * 1000).toISOString();
+    await admin.from("notification_log").delete().lt("created_at", limit);
+  } catch (error) {
+    console.error("Historique : erreur", (error as Error).message);
+  }
+}
+
 // Nouveau PDF (document d'une date ou fiche technique) : prévient toutes les personnes qui ont accès au spectacle.
 // deno-lint-ignore no-explicit-any
 async function notifyDocument(admin: any, table: string, doc: Record<string, any>) {
@@ -69,9 +89,6 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
     );
   const targets = ids.filter((uid) => !muted(uid, "workspace", room.workspace_id) && !muted(uid, "room", room.id));
   if (!targets.length) return json({ ok: true, sent: 0 });
-  const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
-  if (!subs?.length) return json({ ok: true, sent: 0 });
-
   // Ouverture : le premier sous-salon du spectacle (celui ouvert à tous en priorité).
   const { data: channels } = await admin
     .from("channels")
@@ -82,6 +99,12 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
     .order("created_at", { ascending: true })
     .limit(1);
   const channelId = channels?.[0]?.id ?? null;
+  const title = `📄 Nouveau PDF · ${room.name} · ${workspace?.name ?? "ThyChat"}`;
+  const body = clip(`${senderName} a ajouté ${detail}`, 160);
+  await logNotifications(admin, targets, { kind: "doc", title, body, workspace_id: room.workspace_id, channel_id: channelId });
+
+  const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
+  if (!subs?.length) return json({ ok: true, sent: 0 });
 
   let sent = 0;
   await Promise.all(
@@ -89,8 +112,8 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
     subs.map(async (sub: any) => {
       const notification = JSON.stringify({
         kind: "doc",
-        title: `📄 Nouveau PDF · ${room.name} · ${workspace?.name ?? "ThyChat"}`,
-        body: clip(`${senderName} a ajouté ${detail}`, 160),
+        title,
+        body,
         tag: `doc-${room.id}`,
         channel_id: channelId,
         workspace_id: room.workspace_id,
@@ -191,12 +214,15 @@ Deno.serve(async (req) => {
     const targets = ids.filter((uid) => !mutedFor(uid, channel.workspace_id, channel.id));
     if (!targets.length) return json({ ok: true, sent: 0 });
 
-    const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
-    if (!subs?.length) return json({ ok: true, sent: 0 });
-
     const hasImage = Array.isArray(message.attachments) && message.attachments.length > 0;
     const text = clip(String(message.body || ""), 140) || (hasImage ? "📷 Photo" : "");
     const isDm = channel.kind === "dm";
+    const title = isDm ? senderName : `${roomName ? roomName + " › " : ""}${channel.name} · ${workspace?.name ?? "ThyChat"}`;
+    const body = isDm ? text : `${senderName} : ${text}`;
+    await logNotifications(admin, targets, { kind: isDm ? "dm" : "message", title, body, workspace_id: channel.workspace_id, channel_id: channel.id });
+
+    const { data: subs } = await admin.from("push_subscriptions").select("*").in("user_id", targets);
+    if (!subs?.length) return json({ ok: true, sent: 0 });
     let sent = 0;
 
     // Un total de non lus par personne (hors silences) pour la pastille de l'icône.
@@ -228,8 +254,8 @@ Deno.serve(async (req) => {
     await Promise.all(
       subs.map(async (sub) => {
         const notification = JSON.stringify({
-          title: isDm ? senderName : `${roomName ? roomName + " › " : ""}${channel.name} · ${workspace?.name ?? "ThyChat"}`,
-          body: isDm ? text : `${senderName} : ${text}`,
+          title,
+          body,
           tag: channel.id,
           channel_id: channel.id,
           workspace_id: channel.workspace_id,

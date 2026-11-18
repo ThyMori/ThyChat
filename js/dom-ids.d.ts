@@ -80,6 +80,7 @@ export interface IdElements {
   "#dialog-docs": HTMLDialogElement;
   "#dialog-forward": HTMLDialogElement;
   "#dialog-help": HTMLDialogElement;
+  "#dialog-history": HTMLDialogElement;
   "#dialog-image": HTMLDialogElement;
   "#dialog-ink": HTMLDialogElement;
   "#dialog-install": HTMLDialogElement;
@@ -138,6 +139,10 @@ export interface IdElements {
   "#head-tools": HTMLDivElement;
   "#head-tools-wrap": HTMLDivElement;
   "#help-title": HTMLHeadingElement;
+  "#history-clear": HTMLButtonElement;
+  "#history-list": HTMLDivElement;
+  "#history-message": HTMLParagraphElement;
+  "#history-title": HTMLHeadingElement;
   "#ink-cancel": HTMLButtonElement;
   "#ink-canvas": HTMLCanvasElement;
   "#ink-clear": HTMLButtonElement;
@@ -213,6 +218,7 @@ export interface IdElements {
   "#open-calendar": HTMLButtonElement;
   "#open-current": HTMLButtonElement;
   "#open-help": HTMLButtonElement;
+  "#open-history": HTMLButtonElement;
   "#open-install": HTMLButtonElement;
   "#open-invite": HTMLButtonElement;
   "#open-members": HTMLButtonElement;

@@ -1,6 +1,6 @@
 // Drapeaux de livraison. Mettre UPDATE_PENDING à true tant qu'une action est attendue dans Supabase
 // (SQL à rejouer, fonction à redéployer, secret à créer) ; repasser à false une fois « c'est déployé ».
-export const UPDATE_PENDING = false;
+export const UPDATE_PENDING = true;
 
 // Affiche une petite pastille rouge « update en cours » dans un coin de l'écran quand le drapeau est levé.
 export function showUpdatePending(): void {

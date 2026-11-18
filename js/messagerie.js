@@ -23,6 +23,7 @@ import { $, el, actionIcon, isMobile, guardHistory, openDialog, closeDialog, set
 import { timeFmt, dayKey, dayLabel, shortDate, toISO, fromISO, addDays, mondayOf, weekdayShort, monthLabel, rangeText, assignLanes } from "./dates.js";
 import { initials, renderMessageBody, plain, excerpt, messageExcerpt } from "./text.js";
 import { readDmOpen, readLast, readOpen, writeOpen, writeLast } from "./prefs.js";
+import { createHistory } from "./historique.js";
 
 const DM_OPEN_KEY = "thychat:dm-open";
 const PAGE_SIZE = 100;
@@ -48,6 +49,18 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     onServed: () => setOffline(true),
     onLive: () => {
       if (navigator.onLine !== false) setOffline(false);
+    },
+  });
+
+  // Historique des notifications (cloche) : lit la table notification_log ; touche une ligne = ouvre le sous-salon.
+  const notifHistory = createHistory({
+    supabase,
+    userId: user.id,
+    open: (/** @type {string} */ workspaceId, /** @type {string | null} */ channelId) => {
+      const target = channelId ? state.allChannels.find((c) => c.id === channelId) : null;
+      if (!state.ws || state.ws.id !== workspaceId) selectWorkspace(workspaceId, channelId || undefined);
+      else if (target) selectChannel(target.id);
+      closeSidebar();
     },
   });
   const fallbackName = user.user_metadata?.display_name || user.email || "Moi";
@@ -1350,6 +1363,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       .on("postgres_changes", { event: "*", schema: "public", table: "room_sheets" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channels" }, refreshStructureSoon)
       .on("postgres_changes", { event: "*", schema: "public", table: "channel_members" }, refreshStructureSoon)
+      .on("postgres_changes", { event: "*", schema: "public", table: "notification_log" }, (/** @type {any} */ payload) => notifHistory.onRealtime(payload))
       .subscribe();
   }
 
@@ -5552,6 +5566,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on($("#open-members"), "click", openMembers);
     on($("#open-invite"), "click", openInvite);
     on($("#open-notifications"), "click", openNotifications);
+    on($("#open-history"), "click", () => notifHistory.openPanel());
+    on($("#history-clear"), "click", () => notifHistory.clearAll());
     on($("#channel-bell"), "click", openChannelMute);
     on($("#mute-all-settings"), "click", () => {
       closeDialog($("#dialog-mute"));
@@ -6299,6 +6315,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     // Retour au premier plan ou reconnexion : on rattrape les messages et les non lus manqués.
     const refresh = async () => {
       if (stopped || !state.ws) return;
+      notifHistory.load(); // rattrape les notifications reçues pendant l'absence
       await refreshStructure();
       if (state.channel) {
         await loadMessages(state.channel.id, state.loadToken);
@@ -6390,6 +6407,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     watchExpiry();
     syncPush(supabase).then(refreshPushStatus);
     await loadWorkspaces();
+    notifHistory.load();
     flushOutbox();
   }
 

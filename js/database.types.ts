@@ -264,6 +264,57 @@ export interface Database {
           },
         ];
       };
+      notification_log: {
+        Row: {
+          id: string;
+          user_id: string;
+          kind: ("message" | "dm" | "doc");
+          title: string;
+          body: string;
+          workspace_id: string | null;
+          channel_id: string | null;
+          created_at: string;
+          read_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          kind?: ("message" | "dm" | "doc");
+          title: string;
+          body?: string;
+          workspace_id?: string | null;
+          channel_id?: string | null;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          kind?: ("message" | "dm" | "doc");
+          title?: string;
+          body?: string;
+          workspace_id?: string | null;
+          channel_id?: string | null;
+          created_at?: string;
+          read_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "notification_log_workspace_id_fkey";
+            columns: ["workspace_id"];
+            isOneToOne: false;
+            referencedRelation: "workspaces";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "notification_log_channel_id_fkey";
+            columns: ["channel_id"];
+            isOneToOne: false;
+            referencedRelation: "channels";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       notification_mutes: {
         Row: {
           user_id: string;

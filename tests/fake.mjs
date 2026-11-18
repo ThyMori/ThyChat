@@ -31,6 +31,7 @@ export function makeFake(currentUser, seed = {}) {
     message_pins: [],
     push: [],
     invites: [],
+    notification_log: [],
     ...seed,
   };
   let counter = 0;
@@ -81,7 +82,7 @@ export function makeFake(currentUser, seed = {}) {
     if (table === "channels") return rows.filter((c) => canAccess(me(), c.id));
     if (table === "messages") return rows.filter((m) => canAccess(me(), m.channel_id));
     if (table === "channel_members") return rows.filter((m) => m.user_id === me() || canAccess(me(), m.channel_id));
-    if (table === "notification_mutes" || table === "channel_reads" || table === "postit_states") return rows.filter((r) => r.user_id === me());
+    if (table === "notification_mutes" || table === "channel_reads" || table === "postit_states" || table === "notification_log") return rows.filter((r) => r.user_id === me());
     if (table === "postits") return rows.filter((r) => canAccess(me(), r.channel_id));
     if (table === "message_pins") return rows.filter((r) => canAccess(me(), r.channel_id) && new Date(r.expires_at) > new Date());
     if (table === "workspaces") return rows.filter((w) => member(me(), w.id));

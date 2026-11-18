@@ -121,6 +121,10 @@ on conflict (key) do update set value = excluded.value;
 
 Sans ces fonctions, ThyChat marche quand même : les pastilles de non lus fonctionnent, l'ajout d'un compte déjà existant aussi ; seuls l'invitation de nouvelles personnes et les notifications app fermée en dépendent.
 
+## Historique des notifications (cloche) — 5.3.0
+
+La cloche en haut du menu garde **30 jours** de notifications reçues, horodatées, avec une pastille rouge pour les nouvelles ; une ligne ouvre le sous-salon. La fonction `send-push` écrit dans la table `notification_log` (migration `033`), pour chaque personne prévenue, **avant** l'envoi push : l'historique est donc complet même si l'appareil était éteint ou sans abonnement push. Les sourdines sont respectées (une notification en silence n'est pas inscrite). Chacun ne lit, ne marque comme lue et n'efface que ses lignes (sécurité dans la base). Pour l'activer : coller `033_notification_log.sql` dans Supabase puis **redéployer `send-push`** ; avant cela, la cloche affiche « pas encore disponible » et rien d'autre n'est touché.
+
 ## Notifications
 
 Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du sous-salon : activer ou non sur l'appareil, puis par **espace**, par **spectacle** et par **sous-salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace, un spectacle ou un sous-salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
@@ -133,6 +137,7 @@ Quand une version ajoute un fichier dans `supabase/migrations/`, colle son conte
 | --- | --- |
 | `002_workspace_theme.sql` | la couleur de chaque espace (sans elle, la couleur est déduite de l'espace et ne peut pas être choisie) |
 | `004_push_trigger.sql` | le déclencheur qui envoie les notifications push à chaque nouveau message |
+| `033_notification_log.sql` | l'historique des notifications (cloche) : table `notification_log` ; avec la fonction `send-push` à redéployer ; sans elles la cloche reste vide, le reste de l'app fonctionne ; **indispensable pour la cloche dès la 5.3.0** |
 | `032_fix_links.sql` | corrige l'ajout d'un lien web (fiche technique et feuilles de route), refusé depuis la 028 (« violates row-level security policy ») ; **indispensable dès la 5.2.19** |
 | `031_support_flag.sql` | la pastille « Support » ne marque que les entrées par « Rejoindre » (`workspace_members.support`), pas les espaces créés par l'administrateur général (après la 030) |
 | `030_platform_admin.sql` | l'administrateur général n'est plus d'office dans tous les espaces : il ne lit plus les contenus ; liste « Plateforme » (comptes seulement) et « Rejoindre » un espace comme administrateur (pastille « Support ») ; **redéployer `send-push`** (après la 029) |
