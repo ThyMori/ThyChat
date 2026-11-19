@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.5.0 — 2026-11-19
+- Calendrier : glisser vers la droite depuis le bord gauche de l'écran ouvre le menu
+
 ## 5.4.3 — 2026-11-19
 - Croix de fermeture (aide, calendrier)
 - le spectacle précédent se replie et le choisi se déplie

@@ -172,6 +172,29 @@ $("#cal-next").click();
 assert.notEqual($("#cal-title").textContent, "");
 $("#cal-today").click();
 ok("calendrier : tous les spectacles de l'espace, navigation par mois");
+// glisser sur le calendrier (téléphone) : milieu d'écran = change de mois ; bord gauche = ouvre le menu
+{
+  window.matchMedia = () => ({ matches: true, addEventListener() {}, removeEventListener() {} });
+  const swipe = (x0, x1) => {
+    for (const [type, x] of [["touchstart", x0], ["touchend", x1]]) {
+      const e = new window.Event(type, { bubbles: true, cancelable: true });
+      const t = { clientX: x, clientY: 200, target: $("#cal-grid") };
+      Object.defineProperty(e, type === "touchstart" ? "touches" : "changedTouches", { value: [t] });
+      if (type === "touchend") Object.defineProperty(e, "touches", { value: [] });
+      $("#cal-grid").dispatchEvent(e);
+    }
+  };
+  const title = $("#cal-title").textContent;
+  swipe(150, 300);
+  assert.notEqual($("#cal-title").textContent, title, "glisser au milieu change de mois");
+  assert.ok(!$("#screen-app").classList.contains("sidebar-open"));
+  swipe(10, 160);
+  assert.ok($("#screen-app").classList.contains("sidebar-open"), "glisser depuis le bord ouvre le menu");
+  $("#screen-app").classList.remove("sidebar-open");
+  delete window.matchMedia;
+  $("#cal-today").click();
+  ok("calendrier : glisser depuis le bord gauche ouvre le menu, ailleurs change de mois");
+}
 
 // détail d'un jour, puis ouverture du spectacle filtré
 const cell = $$("#cal-grid .cal-day").find((c) => c.dataset.day === iso(plus(1)));

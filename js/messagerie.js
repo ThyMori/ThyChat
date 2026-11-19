@@ -171,7 +171,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     let start = null;
     node.addEventListener("touchstart", (/** @type {any} */ e) => {
       const t = e.touches[0];
-      start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, target: e.target } : null;
+      start = e.touches.length === 1 && t ? { x: t.clientX, y: t.clientY, target: e.target } : null; // x de départ gardé pour repérer un geste parti du bord
     }, { ...opts, passive: true });
     node.addEventListener("touchend", (/** @type {any} */ e) => {
       const t = e.changedTouches[0];
@@ -179,8 +179,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const dx = t.clientX - start.x;
       const dy = t.clientY - start.y;
       const origin = start.target;
+      const startX = start.x;
       start = null;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) fn(dx < 0 ? -1 : 1, origin);
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) fn(dx < 0 ? -1 : 1, origin, startX);
     }, opts);
   }
 
@@ -6179,8 +6180,15 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     onSwipe($("#sidebar"), (/** @type {any} */ dir) => {
       if (dir < 0 && isMobile()) closeSidebar();
     }, opts);
-    onSwipe($("#calendar"), (/** @type {any} */ dir) => {
-      if (state.calendarOpen) shiftMonth(dir < 0 ? 1 : -1);
+    onSwipe($("#calendar"), (/** @type {any} */ dir, /** @type {any} */ _origin, /** @type {number} */ startX) => {
+      if (!state.calendarOpen) return;
+      // Glisser vers la droite depuis le bord gauche de l'écran (40 px) : ouvre le menu ; ailleurs : change de mois.
+      if (dir > 0 && isMobile() && startX <= 40) {
+        guardHistory(); // « Retour » referme le menu
+        $("#screen-app").classList.add("sidebar-open");
+        return;
+      }
+      shiftMonth(dir < 0 ? 1 : -1);
     }, opts);
     // Menu ⋮ de l'en-tête (téléphone) : regroupe les petits boutons.
     const toolsMenu = (/** @type {any} */ open) => {
