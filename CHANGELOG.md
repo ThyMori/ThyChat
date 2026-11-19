@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.5 — 2026-11-19
+- Retrait de la pastille « update en cours » (send-push déployée)
+
 ## 5.8.4 — 2026-11-19
 - Notifications de dépôt : « Nouveau PDF » ou « Nouveau lien » (fonction send-push à redéployer)
 
