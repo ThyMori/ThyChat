@@ -1211,8 +1211,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!state.ws) return;
     writeLast({ ws: id });
     state.selectedId = null;
-    setTodoCount(0); // la bulle du menu est recalculée pour le nouvel espace
-    refreshTodoCount();
     renderWorkspaceHeader();
     if (channelId && state.allChannels.some((c) => c.id === channelId)) return selectChannel(channelId);
     // Changement d'espace : dernier sous-salon ouvert dans CET espace, sinon le premier ; s'il n'y en a aucun, page vide.
@@ -2463,9 +2461,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function fetchTodoList(token = todoToken) {
     const { data, error } = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("kind", "todo").order("created_at", { ascending: true });
     if (error) return { error, list: [] };
-    // Seuls comptent les fils de l'espace ouvert, les messages privés et mes notes (jamais ceux d'un autre espace).
-    const mine = (/** @type {Channel} */ c) => c.kind === "dm" || c.kind === "notes" || c.workspace_id === state.ws?.id;
-    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id && mine(c)));
+    // Tous mes espaces : la base ne renvoie que les fils auxquels j'ai accès (droits RLS), et on garde ceux de ma liste.
+    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id));
     let gone = new Set();
     if (visible.length) {
       const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
