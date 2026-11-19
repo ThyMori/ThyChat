@@ -49,6 +49,7 @@ $(".room-root").click();
 await tick(80);
 assert.equal($("#channel-title").textContent, "Hamlet");
 assert.equal($(".room-root").getAttribute("aria-current"), "true");
+assert.deepEqual(rows(), ["Hamlet", "Technique", "Mes notes"], "toucher le spectacle replié (même le seul de l'espace) le déplie");
 // changement de spectacle : le précédent se replie, le nouveau se déplie
 f.db.rooms.push({ id: "r2", workspace_id: "w1", name: "Lear", description: null, everyone: true, created_at: "2026-11-03T00:00:00Z" });
 f.db.channels.push({ id: "c3", workspace_id: "w1", room_id: "r2", name: "Général", kind: "channel", everyone: true, description: null, created_at: "2026-11-03T00:00:00Z" });

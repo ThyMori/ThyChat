@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.1 — 2026-11-19
+- Un spectacle seul dans son espace se déplie quand on le touche
+- la bulle To-Do ne compte que les fils de l'espace ouvert (une fiche = 1)
+
 ## 5.8.0 — 2026-11-19
 - Bulle du nombre de To-Do en cours sur le bouton To-Do du menu
 - croix de fermeture sur « Mes notes »

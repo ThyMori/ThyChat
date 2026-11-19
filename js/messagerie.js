@@ -2463,7 +2463,9 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function fetchTodoList(token = todoToken) {
     const { data, error } = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("kind", "todo").order("created_at", { ascending: true });
     if (error) return { error, list: [] };
-    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id));
+    // Seuls comptent les fils de l'espace ouvert, les messages privés et mes notes (jamais ceux d'un autre espace).
+    const mine = (/** @type {Channel} */ c) => c.kind === "dm" || c.kind === "notes" || c.workspace_id === state.ws?.id;
+    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id && mine(c)));
     let gone = new Set();
     if (visible.length) {
       const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
@@ -5710,10 +5712,13 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       // Changement de spectacle (appui dans la liste) : le précédent se replie, le nouveau se déplie.
       const target = state.allChannels.find((c) => c.id === button.dataset.id);
       const previousRoom = state.channel ? state.channel.room_id : null;
-      if (target && target.room_id && target.room_id !== previousRoom) {
-        if (previousRoom) state.openRooms.delete(previousRoom);
-        state.openRooms.add(target.room_id);
-        writeOpen(state.openRooms);
+      if (target && target.room_id) {
+        // Même spectacle (cas d'un espace qui n'en a qu'un) : on le déplie quand même s'il était replié.
+        if (previousRoom && previousRoom !== target.room_id) state.openRooms.delete(previousRoom);
+        if (!state.openRooms.has(target.room_id) || previousRoom !== target.room_id) {
+          state.openRooms.add(target.room_id);
+          writeOpen(state.openRooms);
+        }
       }
       selectChannel(button.dataset.id);
     };
