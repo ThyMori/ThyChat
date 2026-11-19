@@ -195,6 +195,7 @@ globalThis.createImageBitmap = window.createImageBitmap;
 $("#open-members").click();
 await tick(60);
 assert.equal($("#space-photo-section").hidden, false);
+assert.ok($("#dialog-members .help-close"), "croix de fermeture en haut de la gestion d'espace");
 const file = new window.File(["x"], "logo.png", { type: "image/png" });
 Object.defineProperty($("#space-photo-file"), "files", { value: [file], configurable: true });
 $("#space-photo-file").dispatchEvent(new window.Event("change", { bubbles: true }));

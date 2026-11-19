@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.6 — 2026-11-19
+- Croix de fermeture en haut de la fenêtre de gestion d'espace
+
 ## 5.8.5 — 2026-11-19
 - Retrait de la pastille « update en cours » (send-push déployée)
 
