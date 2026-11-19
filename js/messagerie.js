@@ -4367,7 +4367,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#room-delete").hidden = !room;
     $("#room-name").value = room ? room.name : "";
     $("#room-description").value = room?.description || "";
-    const mode = room && !room.everyone ? "some" : "everyone";
+    // Création : « Seulement certaines personnes » par défaut ; modification : l'accès actuel du spectacle.
+    const mode = !room || !room.everyone ? "some" : "everyone";
     for (const radio of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('input[name="room-access"]'))) radio.checked = radio.value === mode;
     setNotice("#room-message", "");
     $("#room-pick").hidden = mode !== "some";
@@ -5673,6 +5674,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const button = event.target.closest(".channel-item");
       if (!button) return;
       if (button.dataset.notesRoom) return openNotes(button.dataset.notesRoom);
+      // Changement de spectacle (appui dans la liste) : le précédent se replie, le nouveau se déplie.
+      const target = state.allChannels.find((c) => c.id === button.dataset.id);
+      const previousRoom = state.channel ? state.channel.room_id : null;
+      if (target && target.room_id && target.room_id !== previousRoom) {
+        if (previousRoom) state.openRooms.delete(previousRoom);
+        state.openRooms.add(target.room_id);
+        writeOpen(state.openRooms);
+      }
       selectChannel(button.dataset.id);
     };
     on($("#channel-list"), "click", (event) => {
@@ -6187,6 +6196,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on(document, "pointerdown", () => guardHistory());
     on($("#cal-prev"), "click", () => shiftMonth(-1));
     on($("#cal-next"), "click", () => shiftMonth(1));
+    // Croix du calendrier : même effet que « Retour » (on revient au dernier sous-salon).
+    on($("#cal-close"), "click", () => {
+      $("#screen-app").classList.remove("sidebar-open");
+      selectChannel(pickChannel(state.channel ? state.channel.id : readLast().channel)).catch(() => {});
+    });
     on($("#cal-today"), "click", () => {
       const now = new Date();
       state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);

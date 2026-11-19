@@ -187,6 +187,13 @@ assert.match($(".chat-head").textContent, /Lear/);
 assert.equal($$("#tag-filter [aria-pressed='true']").length, 1, "le filtre est posé sur la date touchée");
 ok("toucher une frise ouvre le spectacle filtré sur cette date");
 
+// croix du calendrier
+$("#open-calendar").click();
+await tick(40);
+$("#cal-close").click();
+await tick(60);
+assert.equal($("#calendar").hidden, true);
+ok("croix du calendrier : retour au spectacle");
 // retour par un salon de la barre latérale
 $("#open-calendar").click();
 await tick(40);
@@ -200,7 +207,8 @@ $("#open-help").click();
 assert.ok($("#dialog-help").hasAttribute("open"));
 assert.ok($$("#dialog-help summary").length >= 7, "toutes les rubriques sont là");
 assert.match($("#dialog-help").textContent, /Calendrier/);
-$("#dialog-help [data-close]").click();
+$("#dialog-help .help-close").click();
+assert.ok(!$("#dialog-help").hasAttribute("open"));
 ok("bouton « i » : page d'explication des fonctions");
 chat.stop();
 console.log(`\n${passed} vérifications réussies`);

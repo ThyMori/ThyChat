@@ -53,6 +53,8 @@ assert.ok($("#dialog-room").hasAttribute("open"));
 $("#room-name").value = "Hamlet";
 $("#room-description").value = "Création 2027";
 const some = document.querySelector('input[name="room-access"][value="some"]');
+assert.equal(document.querySelector('input[name="room-access"]:checked').value, "some", "accès restreint par défaut");
+assert.equal($("#room-pick").hidden, false);
 some.checked = true; change(some);
 assert.equal($("#room-pick").hidden, false);
 await tick(40);

@@ -304,6 +304,7 @@
           <button type="button" class="icon-btn" id="cal-next" aria-label="Mois suivant">›</button>
           <button type="button" class="ghost small" id="cal-today">Aujourd'hui</button>
           <select id="cal-scope" aria-label="Spectacles affichés"></select>
+          <button type="button" class="icon-btn cal-close" id="cal-close" aria-label="Fermer le calendrier" title="Fermer le calendrier">✕</button>
         </div>
         <div class="cal-days" id="cal-days" aria-hidden="true"></div>
         <div id="cal-grid" class="cal-grid"></div>
@@ -464,8 +465,8 @@
         <input id="room-description" type="text" maxlength="200" autocomplete="off">
         <fieldset class="access">
           <legend>Qui y a accès ?</legend>
-          <label class="choice"><input type="radio" name="room-access" value="everyone" checked> Tous les utilisateurs de l'espace</label>
-          <label class="choice"><input type="radio" name="room-access" value="some"> Seulement certaines personnes</label>
+          <label class="choice"><input type="radio" name="room-access" value="everyone"> Tous les utilisateurs de l'espace</label>
+          <label class="choice"><input type="radio" name="room-access" value="some" checked> Seulement certaines personnes</label>
           <ul id="room-pick" class="pick-list" hidden></ul>
           <p class="muted hint">Les administrateurs de l'espace voient tous les spectacles.</p>
         </fieldset>
@@ -529,6 +530,7 @@
       <div class="help-head">
         <h3 id="help-title" tabindex="-1">Tout ce que fait ThyChat</h3>
         <button type="button" class="icon-btn" id="share-app" aria-label="Partager l'application" title="Partager l'application"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><circle cx="18" cy="5" r="2.6"/><circle cx="6" cy="12" r="2.6"/><circle cx="18" cy="19" r="2.6"/><path d="m8.3 10.8 7.4-4.4M8.3 13.2l7.4 4.4"/></svg></button>
+        <button type="button" class="icon-btn help-close" data-close aria-label="Fermer" title="Fermer">✕</button>
       </div>
       <p id="share-message" class="notice" role="status" hidden></p>
       <p class="muted">Un tour des fonctions, dans l'ordre où tu en auras besoin. Touche un titre (›) pour déplier ou replier sa rubrique.</p>

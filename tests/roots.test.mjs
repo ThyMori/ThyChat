@@ -30,9 +30,12 @@ await tick(80);
 const rows = () => $$("#channel-list .channel-item").map((i) => i.querySelector(".channel-name").textContent);
 // racine ouverte au démarrage, sous-salons repliés, « Général » absent de la liste
 assert.equal($("#channel-title").textContent, "Hamlet", "le titre de la racine est le nom du spectacle");
+// ouvrir un spectacle depuis la liste le déplie ; « Général » n'apparaît pas (c'est la ligne du spectacle)
+assert.deepEqual(rows(), ["Hamlet", "Technique", "Mes notes"], "le spectacle ouvert est déplié");
+assert.equal($(".room-chev").getAttribute("aria-expanded"), "true");
+// la flèche replie, puis déplie
+$(".room-chev").click();
 assert.deepEqual(rows(), ["Hamlet"], "replié : seule la ligne du spectacle");
-assert.equal($(".room-chev").getAttribute("aria-expanded"), "false", "ouvrir la racine ne déplie pas");
-// la flèche déplie : Technique apparaît, pas « Général »
 $(".room-chev").click();
 assert.deepEqual(rows(), ["Hamlet", "Technique", "Mes notes"]);
 $(`.channel-item[data-id="c2"]`).click();
@@ -46,5 +49,24 @@ $(".room-root").click();
 await tick(80);
 assert.equal($("#channel-title").textContent, "Hamlet");
 assert.equal($(".room-root").getAttribute("aria-current"), "true");
+// changement de spectacle : le précédent se replie, le nouveau se déplie
+f.db.rooms.push({ id: "r2", workspace_id: "w1", name: "Lear", description: null, everyone: true, created_at: "2026-11-03T00:00:00Z" });
+f.db.channels.push({ id: "c3", workspace_id: "w1", room_id: "r2", name: "Général", kind: "channel", everyone: true, description: null, created_at: "2026-11-03T00:00:00Z" });
+f.db.channels.push({ id: "c4", workspace_id: "w1", room_id: "r2", name: "Musiciens", kind: "channel", everyone: true, description: null, created_at: "2026-11-04T00:00:00Z" });
+await chat.start?.(); await tick(150);
+const chev = (room) => $(`.room-chev[data-room="${room}"]`);
+if (chev("r1").getAttribute("aria-expanded") !== "true") chev("r1").click();
+$(`.channel-item[data-id="c2"]`).click(); await tick(80);
+assert.equal(chev("r1").getAttribute("aria-expanded"), "true", "Hamlet déplié (Technique ouvert)");
+assert.equal(chev("r2").getAttribute("aria-expanded"), "false");
+$(`.room-root[data-id="c3"]`).click(); await tick(80);
+assert.equal($("#channel-title").textContent, "Lear");
+assert.equal(chev("r1").getAttribute("aria-expanded"), "false", "le spectacle précédent se replie");
+assert.equal(chev("r2").getAttribute("aria-expanded"), "true", "le spectacle choisi se déplie");
+assert.ok(rows().includes("Musiciens") && !rows().includes("Technique"), "seuls les sous-salons du spectacle choisi sont montrés");
+// rester dans le même spectacle ne change rien
+$(`.channel-item[data-id="c4"]`).click(); await tick(80);
+assert.equal(chev("r2").getAttribute("aria-expanded"), "true");
+assert.equal(chev("r1").getAttribute("aria-expanded"), "false");
 console.log("roots ok");
 chat.stop();
