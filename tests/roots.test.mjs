@@ -69,5 +69,12 @@ assert.ok(rows().includes("Musiciens") && !rows().includes("Technique"), "seuls 
 $(`.channel-item[data-id="c4"]`).click(); await tick(80);
 assert.equal(chev("r2").getAttribute("aria-expanded"), "true");
 assert.equal(chev("r1").getAttribute("aria-expanded"), "false");
+// plusieurs spectacles dépliés (état gardé d'une ancienne session) : changer de spectacle les replie tous sauf le choisi
+chev("r1").click();
+assert.equal(chev("r1").getAttribute("aria-expanded"), "true");
+assert.equal(chev("r2").getAttribute("aria-expanded"), "true", "deux spectacles dépliés");
+$(`.channel-item[data-id="c2"]`).click(); await tick(80);
+assert.equal(chev("r1").getAttribute("aria-expanded"), "true");
+assert.equal(chev("r2").getAttribute("aria-expanded"), "false", "l'autre spectacle déplié se replie");
 console.log("roots ok");
 chat.stop();

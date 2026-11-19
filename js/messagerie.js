@@ -1195,7 +1195,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       state.pins = [];
       state.selectedId = null;
       const lastOpen = state.allChannels.find((c) => c.id === readLast().channel);
-      if (lastOpen && lastOpen.room_id && lastOpen.workspace_id === target.id) state.openRooms.add(lastOpen.room_id); // le spectacle du dernier fil reste déplié
+      if (lastOpen && lastOpen.room_id && lastOpen.workspace_id === target.id) {
+        state.openRooms.clear(); // un seul spectacle déplié à la fois
+        state.openRooms.add(lastOpen.room_id); // le spectacle du dernier fil reste déplié
+      }
       renderPostitWall();
       openCalendar(null);
       renderAll();
@@ -1265,7 +1268,12 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
     writeLast({ channel: state.channel.id });
     if (state.channel.kind === "channel" && state.ws) writeLast({ chans: { ...(readLast().chans || {}), [state.ws.id]: state.channel.id } });
-    if (state.channel.room_id && !isRoot(state.channel)) state.openRooms.add(state.channel.room_id);
+    if (state.channel.room_id && state.channel.room_id !== previousRoom) {
+      // Changement de spectacle (par n'importe quel chemin : menu, notification, calendrier, démarrage) : tous les autres se replient.
+      state.openRooms.clear();
+      state.openRooms.add(state.channel.room_id);
+      writeOpen(state.openRooms);
+    } else if (state.channel.room_id && !isRoot(state.channel)) state.openRooms.add(state.channel.room_id);
     renderChannels();
     guardHistory();
     setView("chat");
@@ -5711,7 +5719,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const previousRoom = state.channel ? state.channel.room_id : null;
       if (target && target.room_id) {
         // Même spectacle (cas d'un espace qui n'en a qu'un) : on le déplie quand même s'il était replié.
-        if (previousRoom && previousRoom !== target.room_id) state.openRooms.delete(previousRoom);
+        if (previousRoom !== target.room_id) state.openRooms.clear(); // les autres spectacles se replient, pas seulement le précédent
         if (!state.openRooms.has(target.room_id) || previousRoom !== target.room_id) {
           state.openRooms.add(target.room_id);
           writeOpen(state.openRooms);
