@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.4 — 2026-11-19
+- Notifications de dépôt : « Nouveau PDF » ou « Nouveau lien » (fonction send-push à redéployer)
+
 ## 5.8.3 — 2026-11-19
 - Bulle To-Do : compte les fiches de tous mes espaces (fils accessibles seulement)
 

@@ -35,7 +35,7 @@ async function logNotifications(admin: any, userIds: string[], entry: { kind: st
   }
 }
 
-// Nouveau PDF (document d'une date ou fiche technique) : prévient toutes les personnes qui ont accès au spectacle.
+// Nouveau PDF ou nouveau lien (document d'une date ou fiche technique) : prévient toutes les personnes qui ont accès au spectacle.
 // deno-lint-ignore no-explicit-any
 async function notifyDocument(admin: any, table: string, doc: Record<string, any>) {
   let roomId: string | null = null;
@@ -99,7 +99,9 @@ async function notifyDocument(admin: any, table: string, doc: Record<string, any
     .order("created_at", { ascending: true })
     .limit(1);
   const channelId = channels?.[0]?.id ?? null;
-  const title = `📄 Nouveau PDF · ${room.name} · ${workspace?.name ?? "ThyChat"}`;
+  // PDF ou lien : le titre le dit (colonne « kind » : « link » pour un lien, « file » pour un PDF).
+  const isLink = doc.kind === "link";
+  const title = `${isLink ? "🔗 Nouveau lien" : "📄 Nouveau PDF"} · ${room.name} · ${workspace?.name ?? "ThyChat"}`;
   const body = clip(`${senderName} a ajouté ${detail}`, 160);
   await logNotifications(admin, targets, { kind: "doc", title, body, workspace_id: room.workspace_id, channel_id: channelId });
 

@@ -138,6 +138,8 @@ Sans ces fonctions, ThyChat marche quand même : les pastilles de non lus foncti
 
 La cloche en haut du menu garde **30 jours** de notifications reçues, horodatées, avec une pastille rouge pour les nouvelles ; une ligne ouvre le sous-salon. La fonction `send-push` écrit dans la table `notification_log` (migration `033`), pour chaque personne prévenue, **avant** l'envoi push : l'historique est donc complet même si l'appareil était éteint ou sans abonnement push. Les sourdines sont respectées (une notification en silence n'est pas inscrite). Chacun ne lit, ne marque comme lue et n'efface que ses lignes (sécurité dans la base). Pour l'activer : coller `033_notification_log.sql` dans Supabase puis **redéployer `send-push`** ; avant cela, la cloche affiche « pas encore disponible » et rien d'autre n'est touché.
 
+À partir de 5.8.4, le titre d'un dépôt de document distingue un PDF (« 📄 Nouveau PDF ») d'un lien (« 🔗 Nouveau lien ») : il faut **redéployer la fonction `send-push`** (sans cela, l'ancien titre « Nouveau PDF » reste pour les deux).
+
 ## Notifications
 
 Chacun règle ses notifications dans **Notifications** (barre latérale) ou avec la cloche du sous-salon : activer ou non sur l'appareil, puis par **espace**, par **spectacle** et par **sous-salon** : activées, silence 8 heures, silence 1 semaine, désactivées. Un espace, un spectacle ou un sous-salon en silence est atténué, marqué 🔕, sa pastille de non lus est grise et il ne compte pas dans la pastille de l'icône de l'application. La pastille d'icône (nombre de messages non lus) apparaît sur l'application installée, quand le navigateur le permet.
