@@ -3823,9 +3823,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return counts;
   };
 
-  // Mini-calendrier d'un mois : mark(iso, bouton) décore un jour ; onTap(iso) à l'appui ; onDrag(a, b) au glissé (facultatif).
-  /** @param {any} host @param {{ mark: any, onTap: any, onDrag?: any }} handlers @param {any} [on] */
-  function makeMonthPicker(host, { mark, onTap, onDrag }, on) {
+  // Mini-calendrier d'un mois : mark(iso, bouton) décore un jour ; onTap(iso) à l'appui ; onDrag(a, b) au glissé (facultatif) ;
+  // onMonth(premier jour du mois) est appelé quand la personne change de mois avec ‹ ou › (facultatif).
+  /** @param {any} host @param {{ mark: any, onTap: any, onDrag?: any, onMonth?: any }} handlers @param {any} [on] */
+  function makeMonthPicker(host, { mark, onTap, onDrag, onMonth }, on) {
     let month = new Date();
     month = new Date(month.getFullYear(), month.getMonth(), 1);
     const head = el("div", "mini-cal-head");
@@ -3860,6 +3861,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const go = (/** @type {any} */ delta) => {
       month = new Date(month.getFullYear(), month.getMonth() + delta, 1);
       render();
+      if (onMonth) onMonth(month); // prévient l'autre calendrier, qui suit
     };
     on(prev, "click", () => go(-1));
     on(next, "click", () => go(1));
@@ -3907,6 +3909,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       goTo(/** @type {string} */ iso) {
         const d = iso ? fromISO(iso) : new Date();
         month = new Date(d.getFullYear(), d.getMonth(), 1);
+        render();
+      },
+      // Affiche le même mois qu'un autre calendrier (sans prévenir : pas de boucle).
+      showMonth(/** @type {Date} */ date) {
+        month = new Date(date.getFullYear(), date.getMonth(), 1);
         render();
       },
     };
@@ -4012,6 +4019,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       },
       onTap: tapRange,
       onDrag: (/** @type {any} */ a, /** @type {any} */ b) => setRange(a, b),
+      // Le calendrier des représentations suit celui des dates : un seul défilement suffit.
+      onMonth: (/** @type {Date} */ date) => showsPicker.showMonth(date),
     }, on);
     showsPicker = makeMonthPicker($("#tag-shows-picker"), {
       mark(/** @type {string} */ iso, /** @type {any} */ button) {
@@ -6124,7 +6133,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const open = $("#tag-shows-panel").hidden;
       $("#tag-shows-panel").hidden = !open;
       $("#tag-shows-toggle").setAttribute("aria-expanded", String(open));
-      if (open) showsPicker.goTo(editingShows[0] || $("#tag-start").value || null);
+      // (pas de saut : le calendrier des représentations reste sur le mois qu'il suit)
     });
     on($("#show-choice"), "click", (event) => {
       const button = event.target.closest("[data-choice]");

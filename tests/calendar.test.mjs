@@ -98,6 +98,26 @@ pickDay("#tag-shows-picker", iso(plus(3)));
 $('#show-choice [data-choice="remove"]').click();
 pickDay("#tag-shows-picker", iso(plus(1)));
 $('#show-choice [data-choice="remove"]').click();
+
+// le calendrier des représentations suit celui des dates : un seul défilement
+const monthOf = (sel) => document.querySelector(`${sel} .mini-title`).textContent;
+const nextOf = (sel) => document.querySelector(`${sel} .mini-nav[aria-label="Mois suivant"]`);
+const prevOf = (sel) => document.querySelector(`${sel} .mini-nav[aria-label="Mois précédent"]`);
+const m0 = monthOf("#tag-range-picker");
+assert.equal(monthOf("#tag-shows-picker"), m0, "au départ : même mois");
+nextOf("#tag-range-picker").click(); nextOf("#tag-range-picker").click();
+assert.notEqual(monthOf("#tag-range-picker"), m0);
+assert.equal(monthOf("#tag-shows-picker"), monthOf("#tag-range-picker"), "les représentations suivent le défilement des dates");
+prevOf("#tag-range-picker").click();
+assert.equal(monthOf("#tag-shows-picker"), monthOf("#tag-range-picker"), "dans les deux sens");
+// défiler les représentations seules ne bouge pas le calendrier des dates
+const rangeMonth = monthOf("#tag-range-picker");
+nextOf("#tag-shows-picker").click();
+assert.equal(monthOf("#tag-range-picker"), rangeMonth, "le suivi va dans un seul sens");
+prevOf("#tag-range-picker").click(); nextOf("#tag-range-picker").click();
+assert.equal(monthOf("#tag-shows-picker"), monthOf("#tag-range-picker"), "le calendrier des dates reprend la main");
+while (monthOf("#tag-range-picker") !== m0) prevOf("#tag-range-picker").click();
+ok("calendrier des représentations : suit celui des dates");
 assert.equal($$("#tag-shows .tag-chip").length, 1, "un jour à 2 représentations = une pastille ×2");
 assert.match($("#tag-shows .tag-chip").textContent, /×2/);
 submit($("#tags-form"));

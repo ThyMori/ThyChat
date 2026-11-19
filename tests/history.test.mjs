@@ -41,7 +41,7 @@ f.db.rooms.push(room("r1", "w1", "Hamlet"), room("r2", "w2", "Lear"));
 const ch = (id, ws, rm) => ({ id, workspace_id: ws, room_id: rm, name: "Tous", kind: "channel", everyone: true, description: null, created_at: "2026-11-01T00:00:00Z" });
 f.db.channels.push(ch("c1", "w1", "r1"), ch("c2", "w2", "r2"));
 f.db.notification_log.push(
-  { ...L("n1", 0, 9), channel_id: "c1" },
+  { ...L("n1", 0, 9), channel_id: "c1", created_at: new Date(Date.now() - 2000).toISOString() }, // « tout juste reçue » : indépendant de l'heure du test
   { ...L("n2", 1, 18), workspace_id: "w2", channel_id: "c2", title: "Lear › Tous · Cie B", body: "Camille : à demain" },
   { ...L("n3", 3, 10, true), kind: "doc", title: "📄 Nouveau PDF · Hamlet", body: "Marc a ajouté Fiche technique" },
   { ...L("n-autre", 0, 8), user_id: "u2", title: "secret d'un autre" },
@@ -73,7 +73,7 @@ assert.equal($("#dialog-history").open, false);
 assert.equal($("#channel-title").textContent, "Lear"); ok("une ligne ouvre le sous-salon (même dans un autre espace)");
 
 // 4. nouvelle notification en temps réel
-f.db.notification_log.push({ ...L("n4", 0, 23), id: "n4", title: "Nouveau en direct", created_at: new Date().toISOString() });
+f.db.notification_log.push({ ...L("n4", 0, 23), id: "n4", title: "Nouveau en direct", created_at: new Date(Date.now() + 1000).toISOString() });
 f.emit("notification_log", { eventType: "INSERT", new: f.db.notification_log.at(-1) }); await tick(80);
 assert.equal($("#open-history").classList.contains("has-new"), true); ok("une notification reçue en direct allume la pastille");
 $("#open-history").click(); await tick(120);

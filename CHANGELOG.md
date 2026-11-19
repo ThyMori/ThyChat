@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.4.2 — 2026-11-19
+- Dates de tournée : le calendrier des représentations suit le mois du calendrier des dates
+
 ## 5.4.1 — 2026-11-18
 - Pastille « update en cours » retirée (migration 034 déployée)
 
