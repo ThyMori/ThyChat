@@ -8,6 +8,10 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.0 — 2026-11-19
+- Bulle du nombre de To-Do en cours sur le bouton To-Do du menu
+- croix de fermeture sur « Mes notes »
+
 ## 5.7.0 — 2026-11-19
 - Onglet Dates replié à chaque entrée dans un fil (prochaine date seule visible)
 - croix de fermeture sur « Dates en cours »

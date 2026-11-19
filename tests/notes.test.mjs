@@ -44,6 +44,7 @@ await chat.start(); await tick(150);
 // 1. bouton dans le menu, à côté de Calendrier ; les notes d'un autre n'apparaissent nulle part
 assert.ok($("#open-notes")); assert.match($("#open-notes").textContent, /Mes notes/);
 assert.equal($("#open-notes").previousElementSibling.id, "open-todos"); ok("bouton « Mes notes » dans le menu");
+assert.ok($("#dialog-notes .help-close"), "croix de fermeture dans « Mes notes »");
 assert.equal($$("#channel-list .channel-item").some((b) => b.dataset.id === "n-other"), false); ok("les notes d'un autre n'apparaissent pas");
 
 // 2. sélecteur de spectacle avec recherche

@@ -122,6 +122,8 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   assert.ok($("#dialog-todos").hasAttribute("open"));
   const rooms = $$("#todos-list .todos-room");
   assert.deepEqual(rooms.map((b) => b.textContent), ["Hamlet2"], "les deux fils de Hamlet");
+  assert.equal($("#todo-count").hidden, false);
+  assert.equal($("#todo-count").textContent, "2", "bulle du menu : nombre de To-Do en cours");
   rooms[0].click(); await tick(30);
   assert.equal($$("#todos-list .postit.todo").length, 2);
   assert.equal($("#todos-back").hidden, false);

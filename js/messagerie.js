@@ -1211,6 +1211,8 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!state.ws) return;
     writeLast({ ws: id });
     state.selectedId = null;
+    setTodoCount(0); // la bulle du menu est recalculée pour le nouvel espace
+    refreshTodoCount();
     renderWorkspaceHeader();
     if (channelId && state.allChannels.some((c) => c.id === channelId)) return selectChannel(channelId);
     // Changement d'espace : dernier sous-salon ouvert dans CET espace, sinon le premier ; s'il n'y en a aucun, page vide.
@@ -2456,6 +2458,41 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!shown) box.append(el("p", "muted", q ? "Aucun spectacle ne correspond." : "Aucun spectacle pour l'instant."));
   }
 
+  // To-Do en cours qui me concernent : celles des fils que je vois (droits de la base), ni retirées ni toutes cochées.
+  /** @type {(token?: number) => Promise<{ error?: any, list: Postit[] } | null>} */
+  async function fetchTodoList(token = todoToken) {
+    const { data, error } = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("kind", "todo").order("created_at", { ascending: true });
+    if (error) return { error, list: [] };
+    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id));
+    let gone = new Set();
+    if (visible.length) {
+      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
+      if (token !== todoToken || stopped) return null;
+      gone = new Set((states.data || []).map((/** @type {any} */ r) => r.postit_id));
+    }
+    return { list: visible.filter((/** @type {Postit} */ p) => !gone.has(p.id) && !todoDone(p)) };
+  }
+
+  // Bulle du bouton « To-Do » du menu : nombre de To-Do en cours.
+  function setTodoCount(/** @type {number} */ count) {
+    const badge = $("#todo-count");
+    badge.textContent = String(count);
+    badge.hidden = count <= 0;
+    $("#open-todos").setAttribute("aria-label", count > 0 ? `To-Do, ${count} en cours` : "To-Do");
+  }
+
+  /** @type {any} */
+  let todoCountTimer = null;
+  // Recompte (avec un petit délai pour regrouper les changements rapprochés).
+  function refreshTodoCount() {
+    clearTimeout(todoCountTimer);
+    todoCountTimer = setTimeout(async () => {
+      if (stopped || !state.ws) return;
+      const fetched = await fetchTodoList(todoToken);
+      if (fetched && !fetched.error && !stopped) setTodoCount(fetched.list.length);
+    }, 300);
+  }
+
   async function openTodos() {
     if (!state.ws) return;
     const token = ++todoToken;
@@ -2465,20 +2502,15 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     $("#todos-back").hidden = true;
     openDialog("#dialog-todos");
     closeSidebar();
-    const { data, error } = await supabase.from("postits").select("id, channel_id, user_id, body, kind, items, created_at").eq("kind", "todo").order("created_at", { ascending: true });
-    if (token !== todoToken || stopped) return;
-    if (error) {
+    const fetched = await fetchTodoList(token);
+    if (!fetched || token !== todoToken || stopped) return;
+    if (fetched.error) {
       $("#todos-list").replaceChildren();
-      return setNotice("#todos-message", "To-Do illisibles : " + error.message + (/kind|schema cache/i.test(error.message) ? " (exécute la migration 022 dans Supabase)." : ""));
+      const message = fetched.error.message || "";
+      return setNotice("#todos-message", "To-Do illisibles : " + message + (/kind|schema cache/i.test(message) ? " (exécute la migration 022 dans Supabase)." : ""));
     }
-    const visible = (data || []).filter((/** @type {Postit} */ p) => state.allChannels.some((c) => c.id === p.channel_id));
-    let gone = new Set();
-    if (visible.length) {
-      const states = await supabase.from("postit_states").select("postit_id, state").in("postit_id", visible.map((/** @type {Postit} */ p) => p.id));
-      if (token !== todoToken || stopped) return;
-      gone = new Set((states.data || []).map((/** @type {any} */ r) => r.postit_id));
-    }
-    todoView.list = visible.filter((/** @type {Postit} */ p) => !gone.has(p.id) && !todoDone(p));
+    todoView.list = fetched.list;
+    setTodoCount(todoView.list.length);
     await ensureProfiles([...todoView.list.map((p) => p.user_id), ...todoSigners(todoView.list)]);
     if (token !== todoToken || stopped) return;
     renderTodos();
@@ -2549,6 +2581,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     const before = todoView.list.length;
     todoView.list = todoView.list.filter((p) => !todoDone(p));
     if (todoView.list.length < before) toast("To-Do terminée !", "ok");
+    setTodoCount(todoView.list.length);
   }
 
   async function submitPostit(/** @type {any} */ event) {
@@ -2689,6 +2722,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
 
   async function onPostitRealtime(/** @type {any} */ payload) {
     if (stopped) return;
+    refreshTodoCount(); // une To-Do a changé : on met à jour la bulle du menu
     if (payload.eventType === "INSERT") {
       const postit = payload.new;
       if (!state.channel || postit.channel_id !== state.channel.id || postitById(postit.id)) return;
@@ -6345,6 +6379,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     // Retour au premier plan ou reconnexion : on rattrape les messages et les non lus manqués.
     const refresh = async () => {
       if (stopped || !state.ws) return;
+      refreshTodoCount();
       notifHistory.load(); // rattrape les notifications reçues pendant l'absence
       await refreshStructure();
       if (state.channel) {
@@ -6438,6 +6473,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     syncPush(supabase).then(refreshPushStatus);
     await loadWorkspaces();
     notifHistory.load();
+    refreshTodoCount();
     flushOutbox();
   }
 

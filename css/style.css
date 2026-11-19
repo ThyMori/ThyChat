@@ -860,7 +860,7 @@ fieldset.access { margin-top: 10px; }
 .tags-form { flex-direction: column; flex-wrap: nowrap; }
 .calendar-open { margin: 4px 12px 8px; text-align: left; }
 .quick-row { display: flex; gap: 6px; margin: 4px 12px 8px; }
-.quick-row .calendar-open { flex: 1 1 0; min-width: 0; margin: 0; padding: 7px 4px; font-size: 0.78rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.quick-row .calendar-open { display: flex; align-items: center; justify-content: center; gap: 4px; flex: 1 1 0; min-width: 0; margin: 0; padding: 7px 4px; font-size: 0.78rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 
 /* --- Page d'aide (bouton « i ») --- */
@@ -1568,3 +1568,5 @@ dialog.ink[open] { display: flex; flex-direction: column; }
 /* Recadrage d'une photo : cadre carré, le doigt déplace l'image (pas de défilement de la page) */
 #crop-canvas { display: block; width: min(100%, 320px); aspect-ratio: 1; margin: 8px auto 12px; border-radius: 16px; background: var(--bg); touch-action: none; cursor: grab; }
 #crop-zoom { width: 100%; font-size: 16px; }
+.quick-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+#todo-count { min-width: 18px; height: 18px; padding: 0 5px; font-size: 0.7rem; flex: none; }

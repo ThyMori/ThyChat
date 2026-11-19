@@ -376,6 +376,7 @@ export interface IdElements {
   "#theme-swatches": HTMLDivElement;
   "#toast": HTMLDivElement;
   "#todo-add-item": HTMLButtonElement;
+  "#todo-count": HTMLSpanElement;
   "#todo-form": HTMLFormElement;
   "#todo-form-note": HTMLParagraphElement;
   "#todo-form-title": HTMLHeadingElement;
