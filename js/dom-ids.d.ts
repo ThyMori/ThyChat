@@ -17,7 +17,6 @@ export interface IdElements {
   "#attach-postit": HTMLButtonElement;
   "#attach-todo": HTMLButtonElement;
   "#backdrop": HTMLDivElement;
-  "#cal-close": HTMLButtonElement;
   "#cal-days": HTMLDivElement;
   "#cal-detail": HTMLDivElement;
   "#cal-grid": HTMLDivElement;

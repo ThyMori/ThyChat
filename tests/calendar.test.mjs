@@ -210,13 +210,6 @@ assert.match($(".chat-head").textContent, /Lear/);
 assert.equal($$("#tag-filter [aria-pressed='true']").length, 1, "le filtre est posé sur la date touchée");
 ok("toucher une frise ouvre le spectacle filtré sur cette date");
 
-// croix du calendrier
-$("#open-calendar").click();
-await tick(40);
-$("#cal-close").click();
-await tick(60);
-assert.equal($("#calendar").hidden, true);
-ok("croix du calendrier : retour au spectacle");
 // retour par un salon de la barre latérale
 $("#open-calendar").click();
 await tick(40);

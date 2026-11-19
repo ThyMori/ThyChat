@@ -6241,11 +6241,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     on(document, "pointerdown", () => guardHistory());
     on($("#cal-prev"), "click", () => shiftMonth(-1));
     on($("#cal-next"), "click", () => shiftMonth(1));
-    // Croix du calendrier : même effet que « Retour » (on revient au dernier sous-salon).
-    on($("#cal-close"), "click", () => {
-      $("#screen-app").classList.remove("sidebar-open");
-      selectChannel(pickChannel(state.channel ? state.channel.id : readLast().channel)).catch(() => {});
-    });
     on($("#cal-today"), "click", () => {
       const now = new Date();
       state.calMonth = new Date(now.getFullYear(), now.getMonth(), 1);
