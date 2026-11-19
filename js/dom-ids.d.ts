@@ -62,6 +62,11 @@ export interface IdElements {
   "#composer-tags": HTMLDivElement;
   "#config-warning": HTMLParagraphElement;
   "#confirm-password": HTMLInputElement;
+  "#crop-cancel": HTMLButtonElement;
+  "#crop-canvas": HTMLCanvasElement;
+  "#crop-ok": HTMLButtonElement;
+  "#crop-title": HTMLHeadingElement;
+  "#crop-zoom": HTMLInputElement;
   "#current-count": HTMLSpanElement;
   "#current-dots": HTMLSpanElement;
   "#current-label": HTMLSpanElement;
@@ -75,6 +80,7 @@ export interface IdElements {
   "#delete-space-submit": HTMLButtonElement;
   "#dialog-access": HTMLDialogElement;
   "#dialog-channel": HTMLDialogElement;
+  "#dialog-crop": HTMLDialogElement;
   "#dialog-current": HTMLDialogElement;
   "#dialog-delete-space": HTMLDialogElement;
   "#dialog-dm": HTMLDialogElement;

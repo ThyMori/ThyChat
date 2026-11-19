@@ -36,6 +36,6 @@ Le numéro est affiché en petit en bas de l'application. Format `MAJEUR.FONCTIO
 
 ## Build et tests
 
-- `npm run check` avant chaque livraison : types puis tests (35 fichiers, sur `dist/`). Les tests sont dans `tests/` ; tout nouveau test y est ajouté (`*.test.mjs`).
+- `npm run check` avant chaque livraison : types puis tests (36 fichiers, sur `dist/`). Les tests sont dans `tests/` ; tout nouveau test y est ajouté (`*.test.mjs`).
 - Un nouveau fichier de code peut être `js/xxx.ts` : le build le publie en `js/xxx.js`. Dans les `import`, toujours écrire `./xxx.js`.
 - Ne jamais pousser si `npm run check` échoue : le workflow ne publierait rien.

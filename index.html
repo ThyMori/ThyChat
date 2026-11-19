@@ -562,6 +562,7 @@
           <li><strong>Transférer</strong> : envoie une copie d'un ou plusieurs messages (photos comprises) vers un autre sous-salon ou une personne. Le message copié porte la mention « Transféré de… ».</li>
           <li><strong>Épingler</strong> : dans les actions d'un message ou d'une photo, l'icône « punaise » le met en haut du fil, pour tout le monde. Choisis la durée : 24 heures, 7 jours ou 30 jours. Un bandeau « Message épinglé » reste sous la barre du fil : touche-le pour aller au message (s'il y en a plusieurs, chaque appui passe au suivant). Trois messages au plus par fil : en épingler un quatrième détache le plus ancien. Pour le retirer avant la fin, touche le message épinglé puis l'icône « punaise barrée ».</li>
           <li>Touche un message pour afficher ses actions : <strong>Répondre</strong> (le message d'origine s'affiche au-dessus de ta réponse, touche-le pour y retourner), <strong>Citer</strong> (copie un extrait dans ton message) et, pour tes propres messages, <strong>Rayer</strong> (le texte reste lisible mais barré ; « Rétablir » l'annule).</li>
+          <li><strong>Photo de profil ou d'espace</strong> : après avoir choisi l'image, une fenêtre te laisse la <strong>recadrer</strong> : fais-la glisser pour la déplacer, pince-la (ou utilise le curseur « Zoom ») pour l'agrandir, puis « Valider ».</li>
           <li><strong>Photos</strong> : touche le <strong>+</strong> à gauche de la zone de saisie pour choisir une photo (ou, sur téléphone, en prendre une). Tu peux aussi <strong>coller</strong> une image copiée (Ctrl+V ou Cmd+V, ou « Coller » en appui long sur téléphone). Jusqu'à 4 photos par message, avec ou sans texte ; touche une photo reçue pour l'agrandir. Elles ne sont visibles que par les personnes qui ont accès au sous-salon.</li>
           <li><strong>Supprimer</strong> : tes messages, et ceux de tout le monde pour les administrateurs.</li>
           <li>Les liens sont cliquables.</li>
@@ -981,6 +982,18 @@
       <p id="notif-message" class="notice" role="alert" hidden></p>
       <div class="dialog-actions">
         <button type="button" class="ghost" data-close>Fermer</button>
+      </div>
+    </dialog>
+
+    <dialog id="dialog-crop">
+      <h3 id="crop-title" tabindex="-1">Recadrer la photo</h3>
+      <p class="muted hint">Fais glisser la photo pour la déplacer ; pince-la ou utilise le curseur pour zoomer.</p>
+      <canvas id="crop-canvas" width="512" height="512" aria-label="Zone de recadrage"></canvas>
+      <label for="crop-zoom">Zoom</label>
+      <input id="crop-zoom" type="range" min="1" max="4" step="0.01" value="1">
+      <div class="dialog-actions">
+        <button type="button" class="ghost" id="crop-cancel">Annuler</button>
+        <button type="button" class="primary" id="crop-ok">Valider</button>
       </div>
     </dialog>
 

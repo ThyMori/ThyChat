@@ -1564,3 +1564,7 @@ dialog.ink[open] { display: flex; flex-direction: column; }
 .history-text strong { font-weight: 500; font-size: 0.88rem; overflow-wrap: anywhere; }
 .history-body { font-size: 0.85rem; color: var(--muted); overflow-wrap: anywhere; }
 .history-time { flex: none; font-size: 0.75rem; color: var(--muted); padding-top: 3px; }
+
+/* Recadrage d'une photo : cadre carré, le doigt déplace l'image (pas de défilement de la page) */
+#crop-canvas { display: block; width: min(100%, 320px); aspect-ratio: 1; margin: 8px auto 12px; border-radius: 16px; background: var(--bg); touch-action: none; cursor: grab; }
+#crop-zoom { width: 100%; font-size: 16px; }

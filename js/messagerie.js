@@ -24,6 +24,7 @@ import { timeFmt, dayKey, dayLabel, shortDate, toISO, fromISO, addDays, mondayOf
 import { initials, renderMessageBody, plain, excerpt, messageExcerpt } from "./text.js";
 import { readDmOpen, readLast, readOpen, writeOpen, writeLast } from "./prefs.js";
 import { createHistory } from "./historique.js";
+import { cropPhoto } from "./recadrage.js";
 
 const DM_OPEN_KEY = "thychat:dm-open";
 const PAGE_SIZE = 100;
@@ -4257,9 +4258,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     if (!file || !state.ws || !isAdmin()) return;
     if (!state.avatarColumn) return setNotice("#members-message", "Exécute d'abord la migration 007 dans Supabase (README).");
     if (!/^image\//.test(file.type)) return setNotice("#members-message", "Choisis une image.");
+    const cropped = await cropPhoto(file); // l'administrateur cadre la photo avant l'envoi
+    if (!cropped) return; // annulé
     setNotice("#members-message", "Envoi de la photo…", "ok");
     try {
-      const url = await uploadWorkspaceAvatar(supabase, state.ws.id, file);
+      const url = await uploadWorkspaceAvatar(supabase, state.ws.id, cropped);
       setWsAvatar(url);
       setNotice("#members-message", "Photo de l'espace enregistrée.", "ok");
     } catch (error) {
@@ -5254,9 +5257,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function pickPhoto(/** @type {any} */ file) {
     if (!file) return;
     if (!/^image\//.test(file.type)) return setNotice("#profile-message", "Choisis une image.");
+    const cropped = await cropPhoto(file); // cadrage avant l'envoi
+    if (!cropped) return; // annulé
     setNotice("#profile-message", "Envoi de la photo…", "ok");
     try {
-      const url = await uploadAvatar(supabase, user.id, file);
+      const url = await uploadAvatar(supabase, user.id, cropped);
       const profile = state.profiles.get(user.id) || { name: fallbackName };
       state.profiles.set(user.id, { ...profile, avatar: url });
       setNotice("#profile-message", "Photo enregistrée.", "ok");

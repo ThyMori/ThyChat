@@ -189,7 +189,7 @@ ok("rayer / rétablir son propre message");
 
 // photo de l'espace (administrateur)
 window.createImageBitmap = async () => ({ width: 10, height: 10, close() {} });
-window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {} });
+window.HTMLCanvasElement.prototype.getContext = () => ({ drawImage() {}, clearRect() {} });
 window.HTMLCanvasElement.prototype.toBlob = function (cb) { cb(new window.Blob(["x"], { type: "image/jpeg" })); };
 globalThis.createImageBitmap = window.createImageBitmap;
 $("#open-members").click();
@@ -198,6 +198,10 @@ assert.equal($("#space-photo-section").hidden, false);
 const file = new window.File(["x"], "logo.png", { type: "image/png" });
 Object.defineProperty($("#space-photo-file"), "files", { value: [file], configurable: true });
 $("#space-photo-file").dispatchEvent(new window.Event("change", { bubbles: true }));
+await tick(60);
+assert.ok($("#dialog-crop").hasAttribute("open"), "la fenêtre de recadrage s'ouvre avant l'envoi");
+assert.equal(f.db.workspaces[0].avatar_url || null, null, "rien n'est envoyé avant la validation");
+$("#crop-ok").click();
 await tick(150);
 assert.match(f.db.workspaces[0].avatar_url || "", /avatars\/ws\/w1\/logo\.jpg/);
 assert.ok($("#ws-avatar img"), "la photo remplace les initiales dans la barre latérale");
