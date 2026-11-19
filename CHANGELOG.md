@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.7 — 2026-11-19
+- « + Nouveau sous-salon » placé au-dessus de « Mes notes » dans le menu
+
 ## 5.8.6 — 2026-11-19
 - Croix de fermeture en haut de la fenêtre de gestion d'espace
 

@@ -35,7 +35,8 @@ const f = makeFake(U("u2")); base(f);
 const chat = createChat({ supabase: f, user: U("u2") });
 await chat.start(); await tick(150); await globalThis.openLast?.();
 const chev = $(`.room-chev[data-room="r1"]`); if (chev && chev.getAttribute("aria-expanded") !== "true") { chev.click(); await tick(40); }
-assert.ok($("[data-new-sub=\"r1\"]"), "bouton + Nouveau sous-salon"); ok("un membre simple voit « + Nouveau sous-salon »");
+assert.ok($("[data-new-sub=\"r1\"]"), "bouton + Nouveau sous-salon");
+assert.ok($("[data-new-sub=\"r1\"]").compareDocumentPosition($("[data-notes-room=\"r1\"]")) & 4, "« + Nouveau sous-salon » est au-dessus de « Mes notes »"); ok("un membre simple voit « + Nouveau sous-salon »");
 $("[data-new-sub=\"r1\"]").click(); await tick(150);
 assert.equal($("#dialog-channel").open, true);
 $("#channel-name").value = "Régie son";

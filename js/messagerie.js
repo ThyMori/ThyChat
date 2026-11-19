@@ -659,6 +659,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       const subs = subsOfRoom(room.id).filter((c) => !root || c.id !== root.id);
       for (const channel of subs) group.append(channelItem(channel));
       if (!subs.length) group.append(el("p", "muted empty-sub", "Pas d'autre sous-salon pour l'instant."));
+      const add = el("button", "add-sub", "+ Nouveau sous-salon");
+      add.type = "button";
+      add.dataset.newSub = room.id;
+      group.append(add); // « + Nouveau sous-salon » est placé avant « Mes notes »
       const mine = state.allChannels.find((c) => c.kind === "notes" && c.room_id === room.id);
       const notes = el("button", "channel-item my-notes-item");
       notes.type = "button";
@@ -670,10 +674,6 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       label.append(el("span", "channel-name", "Mes notes"), el("span", "channel-sub", "Visible par toi seul"));
       notes.append(label);
       group.append(notes);
-      const add = el("button", "add-sub", "+ Nouveau sous-salon");
-      add.type = "button";
-      add.dataset.newSub = room.id;
-      group.append(add);
     }
     return group;
   }
