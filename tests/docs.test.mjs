@@ -63,7 +63,7 @@ const pick = async (files) => { Object.defineProperty($("#docs-file"), "files", 
 
 // administrateur
 assert.equal($("#tags-docs"), null, "plus de bouton Documents dans l'en-tête");
-assert.equal($$("#tag-filter .doc-badge").length, 0, "dates repliées : pas de badges");
+assert.equal($$("#tag-filter .doc-badge").length, 1, "dates repliées : seulement la prochaine date et son badge");
 $("#tags-toggle").click(); await tick(20);
 assert.equal($$("#tag-filter .doc-badge").length, 2, "un badge documents par date");
 $('#tag-filter [data-docs-tag="t1"]').click(); await tick(40);
@@ -157,6 +157,10 @@ assert.match($("#current-list").textContent, /Représentation aujourd'hui/);
 await tick(60);
 assert.equal($$("#current-list a.doc-open").length, 1);
 assert.match($("#current-list a.doc-open").getAttribute("href"), /sign\/tag-documents/);
+assert.ok($("#dialog-current .help-close"), "croix de fermeture en haut de la fenêtre");
+$("#dialog-current .help-close").click(); await tick(20);
+assert.ok(!$("#dialog-current").hasAttribute("open"), "la croix ferme la fenêtre");
+$("#open-current").click(); await tick(40);
 $("#current-list [data-go-tag]").click(); await tick(150);
 assert.ok(!$("#dialog-current").hasAttribute("open"));
 assert.equal($$("#tag-filter [aria-pressed='true']").length, 0, "ouvre le spectacle, sans filtre de date");

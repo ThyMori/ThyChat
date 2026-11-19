@@ -1224,6 +1224,7 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
   async function selectChannel(/** @type {string} */ id) {
     const token = ++state.loadToken;
     const previousRoom = state.channel ? state.channel.room_id : null;
+    if (!state.channel || state.channel.id !== id || state.calendarOpen) datesIsOpen = false; // on entre dans un fil : « Dates » replié
     state.calendarOpen = false;
     state.channel = state.allChannels.find((c) => c.id === id) || null;
     if (state.channel && state.channel.kind === "dm") state.dmOpen = true; // le message privé affiché reste visible dans le menu
@@ -2934,20 +2935,11 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     return chip;
   }
 
-  const DATES_KEY = "thychat:dates-open";
-  function datesOpen() {
-    try {
-      return localStorage.getItem(DATES_KEY) === "1";
-    } catch {
-      return false;
-    }
-  }
-  function setDatesOpen(/** @type {any} */ open) {
-    try {
-      localStorage.setItem(DATES_KEY, open ? "1" : "0");
-    } catch {
-      /* sans conséquence */
-    }
+  // Onglet « Dates » : replié à chaque entrée dans un fil (il ne se souvient plus de l'état d'une fois sur l'autre).
+  let datesIsOpen = false;
+  const datesOpen = () => datesIsOpen;
+  function setDatesOpen(/** @type {boolean} */ open) {
+    datesIsOpen = open;
     renderTagBar();
   }
 
@@ -2970,9 +2962,10 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     box.replaceChildren();
     for (const id of [...state.tagFilter]) if (!tagById(id)) state.tagFilter.delete(id);
     if (open && !tags.length) box.append(el("span", "muted", "Aucune date de tournée pour ce spectacle."));
-    // Replié : seules les dates qui filtrent le fil restent visibles (sinon le filtre serait invisible).
+    // Replié : seule la prochaine date à venir (ou en cours) reste visible, avec celles qui filtrent le fil (sinon le filtre serait invisible).
+    const nextTag = tags.find((t) => t.start_date && !tagIsPast(t));
     for (const tag of tags) {
-      if (!open && !state.tagFilter.has(tag.id)) continue;
+      if (!open && !state.tagFilter.has(tag.id) && tag !== nextTag) continue;
       const item = el("span", "tag-item");
       item.append(tagChip(tag, state.tagFilter.has(tag.id), () => toggleTagFilter(tag.id)));
       const count = docsOfTag(tag.id).length;

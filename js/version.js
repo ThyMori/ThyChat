@@ -1,3 +1,3 @@
 // Numéro de version affiché dans l'application : MAJEUR.FONCTION.ESTHÉTIQUE
 // À modifier uniquement avec : node scripts/bump-version.mjs <major|feature|fix> "description"
-export const VERSION = "5.6.0";
+export const VERSION = "5.7.0";

@@ -32,6 +32,11 @@ f.db.tour_tags.push(
 const chat = createChat({ supabase: f, user: th });
 await chat.start(); await openLast();
 await tick(80);
+// onglet « Dates » replié à l'entrée : seule la prochaine date (non passée) est visible
+assert.equal($("#tags-toggle").getAttribute("aria-expanded"), "false");
+assert.deepEqual($$("#tag-filter .tag-chip").map((c) => c.textContent.split(/\d/)[0].trim()), ["Hier"], "replié : seule la prochaine date");
+$("#tags-toggle").click();
+assert.equal($$("#tag-filter .tag-chip").length, 4, "déplié : toutes les dates");
 $("#channel-dates").click();
 await tick(60);
 const rows = $$("#tags-list .tag-row");
