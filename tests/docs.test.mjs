@@ -83,6 +83,29 @@ assert.match($("#docs-list").textContent, /244 Ko/);
 assert.equal($('#tag-filter [data-docs-tag="t1"]').textContent.trim(), "2", "le badge compte les documents");
 ok("un administrateur ajoute des PDF à une date (autres fichiers et fichiers trop gros refusés)");
 
+// envoi lent : un message « Envoi en cours » dit où ça en est, un second envoi est refusé (l'envoi finit ici en échec réseau : rien n'est ajouté)
+{
+  const realFrom = f.storage.from;
+  f.storage.from = function (bucket) {
+    const o = realFrom.call(this, bucket);
+    o.upload = async () => { await tick(200); return { error: { message: "Failed to fetch" } }; };
+    return o;
+  };
+  $$("#docs-list [data-add-doc]")[0].click();
+  Object.defineProperty($("#docs-file"), "files", { value: [pdf("Lent.pdf", 3 * 1024 * 1024)], configurable: true });
+  change($("#docs-file")); await tick(60);
+  assert.match($("#docs-message").textContent, /Envoi en cours.*Lent\.pdf/);
+  assert.equal($("#docs-message").dataset.kind, "busy");
+  $$("#docs-list [data-add-doc]")[0].click();
+  change($("#docs-file")); await tick(20);
+  assert.match($("#docs-message").textContent, /déjà en cours/, "pas de second envoi pendant le premier");
+  await tick(350);
+  assert.match($("#docs-message").textContent, /Lent\.pdf.*Failed to fetch/);
+  assert.equal(f.db.tag_documents.length, 2, "l'envoi en échec n'ajoute rien");
+  f.storage.from = realFrom;
+  ok("envoi de PDF : message « Envoi en cours », double envoi refusé");
+}
+
 await tick(60);
 const link0 = $$("#docs-list a.doc-open")[0];
 assert.equal(link0.target, "_blank");

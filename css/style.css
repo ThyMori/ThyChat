@@ -152,6 +152,10 @@ button.ghost:hover { border-color: var(--muted); }
   background: var(--bg-input);
 }
 .notice[data-kind="error"] { border-color: rgba(229, 100, 90, 0.5); color: #f0a49d; }
+.notice[data-kind="busy"] { border-color: hsl(var(--h) 60% 55% / 0.6); color: var(--text); display: flex; align-items: center; gap: 10px; }
+.notice[data-kind="busy"]::before { content: ""; flex: none; width: 16px; height: 16px; border-radius: 50%; border: 2px solid hsl(var(--h) 60% 55% / 0.3); border-top-color: hsl(var(--h) 80% 65%); animation: spin 0.9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .notice[data-kind="busy"]::before { animation: none; } }
 .notice[data-kind="ok"] { border-color: rgba(110, 192, 138, 0.5); color: #a9dbbb; }
 
 .fineprint { text-align: center; color: var(--muted); font-size: 0.8rem; margin: 18px 0 0; }

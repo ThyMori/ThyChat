@@ -8,6 +8,9 @@ Numérotation `MAJEUR.FONCTION.ESTHÉTIQUE`, affichée en bas de l'application :
 
 Quand une livraison mélange plusieurs types de changements, le plus haut niveau l'emporte.
 
+## 5.8.9 — 2026-11-20
+- Envoi de PDF/images : message « Envoi en cours… » animé, double envoi bloqué, confirmation « ✓ Fichier envoyé »
+
 ## 5.8.8 — 2026-11-19
 - Changer de spectacle replie tous les autres (y compris ceux restés dépliés d'une ancienne session)
 

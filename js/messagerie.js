@@ -3253,16 +3253,31 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     });
   }
 
+  // Envoi de fichiers en cours : un message animé dit où ça en est, et un second envoi est refusé tant que le premier n'est pas fini.
+  let uploading = false;
+  // Message « en cours » (avec une roue qui tourne), ramené à l'écran s'il est caché sous la liste.
+  function showBusy(/** @type {string} */ selector, /** @type {string} */ text) {
+    setNotice(selector, text, "busy");
+    $(selector).scrollIntoView?.({ block: "nearest" });
+  }
+  const uploadText = (/** @type {string} */ name, /** @type {number} */ size, /** @type {number} */ index, /** @type {number} */ total) =>
+    `Envoi en cours… « ${name} » (${sizeLabel(size)})${total > 1 ? ` — fichier ${index} sur ${total}` : ""}. Ne ferme pas la fenêtre.`;
+
   // Ajoute à la fiche des fichiers (PDF, images) ; un intitulé n'est pris en compte que pour un fichier seul.
   async function addSheetFiles(/** @type {any} */ files) {
     const roomId = currentRoomId();
     if (!roomId || !canEditSheet(roomId) || !files.length) return;
+    if (uploading) return setNotice("#sheet-message", "Un envoi est déjà en cours : attends qu'il se termine avant d'en lancer un autre.", "busy");
     const date = $("#sheet-date").value;
     if (!date) return setNotice("#sheet-message", "Indique la date de la version.");
     const label = $("#sheet-label").value.trim().slice(0, 160);
     const problems = [];
-    setNotice("#sheet-message", "Envoi…", "info");
+    uploading = true;
+    let sent = 0;
+    let position = 0;
+    try {
     for (const file of files) {
+      position++;
       if (!fileType(file)) {
         problems.push(`« ${file.name} » n'est ni un PDF ni une image.`);
         continue;
@@ -3273,18 +3288,24 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       }
       let stored = null;
       try {
+        showBusy("#sheet-message", uploadText(file.name, file.size, position, files.length));
         stored = await uploadRoomSheet(supabase, roomId, file);
         if (label && files.length === 1) stored.name = label;
         const { data, error } = await supabase.from("room_sheets").insert({ room_id: roomId, version_date: date, ...stored }).select().single();
         if (error) throw error;
         state.sheets.push(data);
+        sent++;
       } catch (error) {
         if (stored) await removeTagDocuments(supabase, [stored.path]);
         const text = error && error.message ? error.message : "envoi impossible";
         problems.push(`« ${file.name} » : ${text}${/bucket|not found|room_sheets|mime/i.test(text) ? " (exécute les migrations 012, 013 et 017)" : ""}`);
       }
     }
-    setNotice("#sheet-message", problems.join(" "));
+    } finally {
+      uploading = false;
+    }
+    if (problems.length) setNotice("#sheet-message", problems.join(" "));
+    else setNotice("#sheet-message", sent > 1 ? `✓ ${sent} fichiers envoyés.` : "✓ Fichier envoyé.", "ok");
     if (!problems.length) $("#sheet-label").value = "";
     renderSheet();
     renderTagBar();
@@ -3414,8 +3435,14 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
     docsTarget = null;
     if (!tag || !canEditRoadmap(tag.room_id)) return;
     const list = [...files];
+    if (uploading) return setNotice("#docs-message", "Un envoi est déjà en cours : attends qu'il se termine avant d'en lancer un autre.", "busy");
     const problems = [];
+    uploading = true;
+    let sent = 0;
+    let position = 0;
+    try {
     for (const file of list) {
+      position++;
       if (!fileType(file)) {
         problems.push(`« ${file.name} » n'est ni un PDF ni une image.`);
         continue;
@@ -3426,17 +3453,23 @@ export function createChat({ supabase: rawSupabase, user, store = createStore() 
       }
       let stored = null;
       try {
+        showBusy("#docs-message", uploadText(file.name, file.size, position, list.length));
         stored = await uploadTagDocument(supabase, tag.room_id, tag.id, file);
         const { data, error } = await supabase.from("tag_documents").insert({ tag_id: tag.id, ...stored }).select().single();
         if (error) throw error;
         state.tagDocs.push(data);
+        sent++;
       } catch (error) {
         if (stored) await removeTagDocuments(supabase, [stored.path]);
         problems.push(`« ${file.name} » : ${error && error.message ? error.message : "envoi impossible"}${/bucket|not found|tag_documents/i.test(String(error && error.message)) ? " (exécute les migrations 012 et 017)" : ""}`);
       }
     }
-    setNotice("#docs-message", problems.join(" "));
-    renderDocs();
+    } finally {
+      uploading = false;
+    }
+    renderDocs(); // renderDocs() efface le message : on le pose juste après
+    if (problems.length) setNotice("#docs-message", problems.join(" "));
+    else setNotice("#docs-message", sent > 1 ? `✓ ${sent} fichiers envoyés.` : "✓ Fichier envoyé.", "ok");
     renderTagBar();
   }
 
